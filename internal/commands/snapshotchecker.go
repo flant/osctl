@@ -4,6 +4,7 @@ import (
 	"curator-go/internal/logging"
 	"curator-go/internal/madison"
 	"curator-go/internal/opensearch"
+	"curator-go/internal/utils"
 	"fmt"
 	"strings"
 	"time"
@@ -23,59 +24,56 @@ func init() {
 	snapshotCheckerCmd.Flags().String("snap-repo", "", "Snapshot repository name")
 	snapshotCheckerCmd.Flags().String("whitelist", "", "Comma-separated list of index prefixes to include")
 	snapshotCheckerCmd.Flags().String("exclude-list", "", "Comma-separated list of index prefixes to exclude")
-	snapshotCheckerCmd.Flags().String("madison-key", "", "Madison API key")
-	snapshotCheckerCmd.Flags().String("madison-project", "", "Madison project name")
-	snapshotCheckerCmd.Flags().String("kibana-host", "", "Kibana host for alert labels")
-	snapshotCheckerCmd.Flags().String("date-format", "%Y.%m.%d", "Date format for index names")
 
 	addCommonFlags(snapshotCheckerCmd)
 }
 
 func runSnapshotChecker(cmd *cobra.Command, args []string) error {
-
 	snapRepo, _ := cmd.Flags().GetString("snap-repo")
 	whitelist, _ := cmd.Flags().GetString("whitelist")
 	excludeList, _ := cmd.Flags().GetString("exclude-list")
 	madisonKey, _ := cmd.Flags().GetString("madison-key")
 	madisonProject, _ := cmd.Flags().GetString("madison-project")
-	kibanaHost, _ := cmd.Flags().GetString("kibana-host")
+	osdURL, _ := cmd.Flags().GetString("osd-url")
 	osURL, _ := cmd.Flags().GetString("os-url")
 	certFile, _ := cmd.Flags().GetString("cert-file")
 	keyFile, _ := cmd.Flags().GetString("key-file")
 	caFile, _ := cmd.Flags().GetString("ca-file")
 	timeout, _ := cmd.Flags().GetDuration("timeout")
 	retryAttempts, _ := cmd.Flags().GetInt("retry-attempts")
+	madisonURL, _ := cmd.Flags().GetString("madison-url")
+	dateFormat, _ := cmd.Flags().GetString("date-format")
 
 	if snapRepo == "" {
 		return fmt.Errorf("snap-repo parameter is required")
 	}
+	if madisonKey == "" || madisonProject == "" || osdURL == "" || madisonURL == "" {
+		return fmt.Errorf("madison-key, madison-project, osd-url and madison-url parameters are required")
+	}
 
 	logger := logging.NewLogger()
+	client, err := opensearch.NewClient(osURL, certFile, keyFile, caFile, timeout, retryAttempts)
+	if err != nil {
+		return fmt.Errorf("failed to create OpenSearch client: %v", err)
+	}
 
-	client := opensearch.NewClient(osURL, certFile, keyFile, caFile, timeout, retryAttempts)
-
-	targetDate := time.Now().AddDate(0, 0, -2).Format("2006.01.02")
-	pattern := fmt.Sprintf("*%s*", targetDate)
-
-	indices, err := client.GetIndices(pattern)
+	targetDate := utils.FormatDate(time.Now().AddDate(0, 0, -2), dateFormat)
+	indices, err := client.GetIndices(fmt.Sprintf("*%s*", targetDate))
 	if err != nil {
 		return fmt.Errorf("failed to get indices: %v", err)
 	}
 
-	logger.Info("Found target indices", "count", len(indices), "date", targetDate)
+	targetIndices := filterIndices(indices, excludeList, whitelist)
+	if len(targetIndices) == 0 {
+		logger.Info("No target indices found")
+		return nil
+	}
 
-	targetIndices := filterIndices(indices, excludeList, whitelist, logger)
-	logger.Info("Filtered target indices", "count", len(targetIndices))
-
-	snapshotDate := time.Now().AddDate(0, 0, -1).Format("2006.01.02")
-	snapshotPattern := fmt.Sprintf("*%s*", snapshotDate)
-
-	snapshots, err := client.GetSnapshots(snapRepo, snapshotPattern)
+	snapshotDate := utils.FormatDate(time.Now().AddDate(0, 0, -1), dateFormat)
+	snapshots, err := client.GetSnapshots(snapRepo, fmt.Sprintf("*%s*", snapshotDate))
 	if err != nil {
 		return fmt.Errorf("failed to get snapshots: %v", err)
 	}
-
-	logger.Info("Found snapshots", "count", len(snapshots), "date", snapshotDate)
 
 	snapshotIndices := make(map[string]bool)
 	for _, snapshot := range snapshots {
@@ -86,11 +84,10 @@ func runSnapshotChecker(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	missingSnapshots := []string{}
+	var missingSnapshots []string
 	for _, index := range targetIndices {
 		if !snapshotIndices[index] {
 			missingSnapshots = append(missingSnapshots, index)
-			logger.Warn("Missing snapshot for index", "index", index)
 		}
 	}
 
@@ -99,75 +96,45 @@ func runSnapshotChecker(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	logger.Warn("Found indices without snapshots", "count", len(missingSnapshots), "indices", missingSnapshots)
-
-	if madisonKey != "" && madisonProject != "" {
-		madisonClient := madison.NewClient(madisonKey, madisonProject, kibanaHost)
-		if err := madisonClient.SendSnapshotMissingAlert(missingSnapshots); err != nil {
-			logger.Error("Failed to send Madison alert", "error", err)
-			return err
-		}
-		logger.Info("Successfully sent Madison alert", "count", len(missingSnapshots))
-	} else {
-		logger.Info("Madison key or project not configured, skipping alert")
+	madisonClient := madison.NewClient(madisonKey, madisonProject, osdURL, madisonURL)
+	if err := madisonClient.SendSnapshotMissingAlert(missingSnapshots); err != nil {
+		return fmt.Errorf("failed to send Madison alert: %v", err)
 	}
 
+	logger.Info("Sent Madison alert", "missingCount", len(missingSnapshots))
 	return nil
 }
 
-func filterIndices(indices []string, excludeList, whitelist string, logger *logging.Logger) []string {
+func filterIndices(indices []string, excludeList, whitelist string) []string {
 	var result []string
-	var excludePrefixes, whitelistPrefixes []string
-
-	if excludeList != "" {
-		excludePrefixes = strings.Split(excludeList, ",")
-		for i, prefix := range excludePrefixes {
-			excludePrefixes[i] = strings.TrimSpace(prefix)
-		}
-	}
-
-	if whitelist != "" {
-		whitelistPrefixes = strings.Split(whitelist, ",")
-		for i, prefix := range whitelistPrefixes {
-			whitelistPrefixes[i] = strings.TrimSpace(prefix)
-		}
-	}
-
-	useWhitelist := len(whitelistPrefixes) > 0 && whitelistPrefixes[0] != ""
-	logger.Info("Using filter mode", "mode", map[bool]string{true: "whitelist", false: "exclude"}[useWhitelist])
 
 	for _, index := range indices {
-
 		if strings.HasPrefix(index, ".") {
 			continue
 		}
 
-		if useWhitelist {
-
-			whitelisted := false
-			for _, prefix := range whitelistPrefixes {
-				if prefix != "" && strings.HasPrefix(index, prefix) {
-					whitelisted = true
-					break
-				}
+		if whitelist != "" {
+			if hasPrefix(index, whitelist) {
+				result = append(result, index)
 			}
-			if whitelisted {
+		} else if excludeList != "" {
+			if !hasPrefix(index, excludeList) {
 				result = append(result, index)
 			}
 		} else {
-
-			excluded := false
-			for _, prefix := range excludePrefixes {
-				if prefix != "" && strings.HasPrefix(index, prefix) {
-					excluded = true
-					break
-				}
-			}
-			if !excluded {
-				result = append(result, index)
-			}
+			result = append(result, index)
 		}
 	}
 
 	return result
+}
+
+func hasPrefix(index, prefixList string) bool {
+	prefixes := strings.Split(prefixList, ",")
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(index, strings.TrimSpace(prefix)) {
+			return true
+		}
+	}
+	return false
 }

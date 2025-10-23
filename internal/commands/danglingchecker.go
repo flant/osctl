@@ -1,6 +1,11 @@
 package commands
 
 import (
+	"curator-go/internal/logging"
+	"curator-go/internal/madison"
+	"curator-go/internal/opensearch"
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -13,15 +18,51 @@ and send alerts to Madison if found.`,
 }
 
 func init() {
-	danglingCheckerCmd.Flags().String("kibana-host", "", "Kibana host URL")
-	danglingCheckerCmd.Flags().String("madison-host", "", "Madison host URL")
-	danglingCheckerCmd.Flags().String("madison-token", "", "Madison authentication token")
-	danglingCheckerCmd.Flags().String("alert-title", "Dangling indices found", "Alert title")
-	danglingCheckerCmd.Flags().String("alert-message", "", "Alert message template")
-
 	addCommonFlags(danglingCheckerCmd)
 }
 
 func runDanglingChecker(cmd *cobra.Command, args []string) error {
+	osURL, _ := cmd.Flags().GetString("os-url")
+	certFile, _ := cmd.Flags().GetString("cert-file")
+	keyFile, _ := cmd.Flags().GetString("key-file")
+	caFile, _ := cmd.Flags().GetString("ca-file")
+	timeout, _ := cmd.Flags().GetDuration("timeout")
+	retryAttempts, _ := cmd.Flags().GetInt("retry-attempts")
+	madisonKey, _ := cmd.Flags().GetString("madison-key")
+	madisonProject, _ := cmd.Flags().GetString("madison-project")
+	osdURL, _ := cmd.Flags().GetString("osd-url")
+	madisonURL, _ := cmd.Flags().GetString("madison-url")
+
+	if madisonKey == "" || madisonProject == "" || osdURL == "" || madisonURL == "" {
+		return fmt.Errorf("madison-key, madison-project, osd-url and madison-url parameters are required")
+	}
+
+	logger := logging.NewLogger()
+	client, err := opensearch.NewClient(osURL, certFile, keyFile, caFile, timeout, retryAttempts)
+	if err != nil {
+		return fmt.Errorf("failed to create OpenSearch client: %v", err)
+	}
+
+	danglingIndices, err := client.GetDanglingIndices()
+	if err != nil {
+		return fmt.Errorf("failed to get dangling indices: %v", err)
+	}
+
+	if len(danglingIndices) == 0 {
+		logger.Info("No dangling indices found")
+		return nil
+	}
+
+	var indexNames []string
+	for _, idx := range danglingIndices {
+		indexNames = append(indexNames, idx.IndexName)
+	}
+
+	madisonClient := madison.NewClient(madisonKey, madisonProject, osdURL, madisonURL)
+	if err := madisonClient.SendDanglingIndicesAlert(indexNames); err != nil {
+		return fmt.Errorf("failed to send Madison alert: %v", err)
+	}
+
+	logger.Info("Sent Madison alert for dangling indices", "count", len(danglingIndices))
 	return nil
 }

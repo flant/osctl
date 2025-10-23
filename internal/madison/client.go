@@ -13,6 +13,7 @@ type Client struct {
 	apiKey     string
 	project    string
 	kibanaHost string
+	madisonURL string
 	httpClient *http.Client
 }
 
@@ -34,11 +35,12 @@ type Annotations struct {
 	Description string `json:"description"`
 }
 
-func NewClient(apiKey, project, kibanaHost string) *Client {
+func NewClient(apiKey, project, kibanaHost, madisonURL string) *Client {
 	return &Client{
 		apiKey:     apiKey,
 		project:    project,
 		kibanaHost: kibanaHost,
+		madisonURL: madisonURL,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -50,7 +52,6 @@ func (c *Client) SendSnapshotMissingAlert(missingSnapshots []string) error {
 		return nil
 	}
 
-	// Prepare display lists
 	var displayList, snapshotsList string
 	if len(missingSnapshots) <= 3 {
 		displayList = strings.Join(missingSnapshots, ",")
@@ -83,9 +84,73 @@ func (c *Client) SendSnapshotMissingAlert(missingSnapshots []string) error {
 		return fmt.Errorf("failed to marshal alert: %v", err)
 	}
 
-	madisonURL := fmt.Sprintf("https://madison.flant.com/api/events/custom/%s", c.apiKey)
+	if c.madisonURL == "" {
+		return fmt.Errorf("madison URL is required")
+	}
 
-	req, err := http.NewRequest("POST", madisonURL, bytes.NewBuffer(jsonData))
+	requestURL := fmt.Sprintf("%s/%s", c.madisonURL, c.apiKey)
+
+	req, err := http.NewRequest("POST", requestURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %v", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 403 {
+		return fmt.Errorf("madison API returned 403 Forbidden - check key and permissions")
+	}
+
+	if resp.StatusCode >= 400 {
+		body, _ := json.Marshal(resp.Body)
+		return fmt.Errorf("madison API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+func (c *Client) SendDanglingIndicesAlert(danglingIndices []string) error {
+	if len(danglingIndices) == 0 {
+		return nil
+	}
+
+	summary := "The OpenSearch cluster has dangling indexes"
+	description := fmt.Sprintf("The OpenSearch cluster has dangling indexes.\nPlease check it manual in dev tools OS DashBoard %s\nGET _dangling?pretty", c.kibanaHost)
+
+	payload := map[string]interface{}{
+		"project":        c.project,
+		"severity_level": 4,
+		"type":           "Events::Continuous",
+		"source_type":    "custom",
+		"labels": map[string]string{
+			"trigger":      "dangling_indices_mon",
+			"os-dashboard": c.kibanaHost,
+		},
+		"annotations": map[string]string{
+			"summary":                      summary,
+			"description":                  description,
+			"polk_flant_com_markup_format": "markdown",
+		},
+	}
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal alert: %v", err)
+	}
+
+	if c.madisonURL == "" {
+		return fmt.Errorf("madison URL is required")
+	}
+
+	requestURL := fmt.Sprintf("%s/%s", c.madisonURL, c.apiKey)
+
+	req, err := http.NewRequest("POST", requestURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %v", err)
 	}

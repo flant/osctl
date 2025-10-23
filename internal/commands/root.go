@@ -16,6 +16,8 @@ func Execute() error {
 
 func init() {
 	rootCmd.AddCommand(snapshotCmd)
+	rootCmd.AddCommand(snapshotDeleteCmd)
+	rootCmd.AddCommand(indicesDeleteCmd)
 	rootCmd.AddCommand(retentionCmd)
 	rootCmd.AddCommand(shardingCmd)
 	rootCmd.AddCommand(indexPatternsCmd)
@@ -25,8 +27,6 @@ func init() {
 	rootCmd.AddCommand(danglingCheckerCmd)
 	rootCmd.AddCommand(coldStorageCmd)
 	rootCmd.AddCommand(extractedDeleteCmd)
-	rootCmd.AddCommand(snapshotDeleteCmd)
-	rootCmd.AddCommand(indicesDeleteCmd)
 }
 
 func addCommonFlags(cmd *cobra.Command) {
@@ -34,8 +34,11 @@ func addCommonFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().String("cert-file", "/etc/ssl/certs/admin-crt.pem", "Certificate file path")
 	cmd.PersistentFlags().String("key-file", "/etc/ssl/certs/admin-key.pem", "Key file path")
 	cmd.PersistentFlags().String("ca-file", "/etc/ssl/certs/elk-root-ca.pem", "CA file path")
-	cmd.PersistentFlags().String("log-level", "info", "Log level (debug, info, warn, error)")
-	cmd.PersistentFlags().String("log-format", "json", "Log format (json, text)")
 	cmd.PersistentFlags().Duration("timeout", 30, "Request timeout")
 	cmd.PersistentFlags().Int("retry-attempts", 3, "Number of retry attempts")
+	cmd.PersistentFlags().String("date-format", "%Y.%m.%d", "Date format for index names")
+	cmd.PersistentFlags().String("madison-url", "https://madison.flant.com/api/events/custom/", "Madison API URL")
+	cmd.PersistentFlags().String("osd-url", "", "OpenSearch Dashboards URL")
+	cmd.PersistentFlags().String("madison-key", "", "Madison API key")
+	cmd.PersistentFlags().String("madison-project", "", "Madison project name")
 }
