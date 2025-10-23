@@ -25,6 +25,8 @@ func init() {
 	rootCmd.AddCommand(danglingCheckerCmd)
 	rootCmd.AddCommand(coldStorageCmd)
 	rootCmd.AddCommand(extractedDeleteCmd)
+	rootCmd.AddCommand(snapshotDeleteCmd)
+	rootCmd.AddCommand(indicesDeleteCmd)
 }
 
 func addCommonFlags(cmd *cobra.Command) {
