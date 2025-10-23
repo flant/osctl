@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"curator-go/internal/commands"
+	"osctl/internal/commands"
 )
 
 var (

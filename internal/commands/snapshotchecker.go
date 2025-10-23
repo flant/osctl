@@ -1,9 +1,9 @@
 package commands
 
 import (
-	"curator-go/internal/logging"
-	"curator-go/internal/madison"
-	"curator-go/internal/opensearch"
+	"osctl/internal/logging"
+	"osctl/internal/madison"
+	"osctl/internal/opensearch"
 	"fmt"
 	"strings"
 	"time"

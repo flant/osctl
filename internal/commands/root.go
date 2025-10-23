@@ -5,9 +5,9 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "curator-go",
+	Use:   "osctl",
 	Short: "OpenSearch indices lifecycle management tool",
-	Long:  `curator-go is a tool for managing OpenSearch clusters indices.`,
+	Long:  `osctl is a tool for managing OpenSearch clusters indices.`,
 }
 
 func Execute() error {
