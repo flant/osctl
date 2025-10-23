@@ -20,11 +20,11 @@ jobs:
 
     - name: Build
       run: |
-        versionflags="-X 'github.com/flant/curator-go/pkg/util.Version=$GITHUB_REF_NAME' -X 'github.com/flant/curator-go/pkg/util.Revision=$GITHUB_SHA' -X 'github.com/flant/curator-go/pkg/util.Branch=$GITHUB_REF_NAME' -X 'github.com/flant/curator-go/pkg/util.BuildUser=$GITHUB_ACTOR' -X 'github.com/flant/curator-go/pkg/util.BuildDate=$(date +%Y%m%d%H%M)'"
+        versionflags="-X 'github.com/flant/osctl/pkg/util.Version=$GITHUB_REF_NAME' -X 'github.com/flant/osctl/pkg/util.Revision=$GITHUB_SHA' -X 'github.com/flant/osctl/pkg/util.Branch=$GITHUB_REF_NAME' -X 'github.com/flant/osctl/pkg/util.BuildUser=$GITHUB_ACTOR' -X 'github.com/flant/osctl/pkg/util.BuildDate=$(date +%Y%m%d%H%M)'"
         for GOOS in linux; do
           for GOARCH in amd64 arm64; do
             export GOOS GOARCH
-            CGO_ENABLED=0 go build -v -a -tags netgo -ldflags="-extldflags '-static' -s -w $versionflags" -o build/curator-go-${GOOS}-${GOARCH} *.go
+            CGO_ENABLED=0 go build -v -a -tags netgo -ldflags="-extldflags '-static' -s -w $versionflags" -o build/osctl-${GOOS}-${GOARCH} *.go
           done
         done
         cd build; sha256sum * > sha256sums.txt
