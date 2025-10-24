@@ -23,6 +23,7 @@ func init() {
 	dereplicatorCmd.Flags().String("date-format", "%Y.%m.%d", "Date format for index names")
 	dereplicatorCmd.Flags().Bool("use-snapshot", false, "Check for snapshots before reducing replicas")
 	dereplicatorCmd.Flags().String("snap-repo", "", "Snapshot repository name")
+	dereplicatorCmd.Flags().Bool("dry-run", false, "Show what would be changed without actually changing")
 
 	addCommonFlags(dereplicatorCmd)
 }
@@ -38,12 +39,15 @@ func runDereplicator(cmd *cobra.Command, args []string) error {
 	dateFormat, _ := cmd.Flags().GetString("date-format")
 	useSnapshot, _ := cmd.Flags().GetBool("use-snapshot")
 	snapRepo, _ := cmd.Flags().GetString("snap-repo")
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
 
 	if useSnapshot && snapRepo == "" {
 		return fmt.Errorf("snap-repo parameter is required when use-snapshot is enabled")
 	}
 
 	logger := logging.NewLogger()
+	logger.Info("Starting dereplication process", "daysCount", daysCount, "useSnapshot", useSnapshot, "snapRepo", snapRepo, "dryRun", dryRun)
+
 	client, err := opensearch.NewClient(osURL, certFile, keyFile, caFile, timeout, retryAttempts)
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
@@ -82,6 +86,11 @@ func runDereplicator(cmd *cobra.Command, args []string) error {
 		if useSnapshot && !hasValidSnapshot(index, snapshots) {
 			logger.Warn("No valid snapshot found", "index", index)
 			problemIndices = append(problemIndices, index)
+			continue
+		}
+
+		if dryRun {
+			logger.Info("DRY RUN: Would set replicas to 0", "index", index)
 			continue
 		}
 

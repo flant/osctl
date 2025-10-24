@@ -24,6 +24,7 @@ func init() {
 	retentionCmd.Flags().Int("threshold", 75, "Disk usage threshold percentage")
 	retentionCmd.Flags().String("snap-repo", "", "Snapshot repository name")
 	retentionCmd.Flags().String("endpoint", "opendistro", "OpenSearch endpoint")
+	retentionCmd.Flags().Bool("dry-run", false, "Show what would be deleted without actually deleting")
 
 	addCommonFlags(retentionCmd)
 }
@@ -38,23 +39,26 @@ func runRetention(cmd *cobra.Command, args []string) error {
 	threshold, _ := cmd.Flags().GetInt("threshold")
 	snapRepo, _ := cmd.Flags().GetString("snap-repo")
 	dateFormat, _ := cmd.Flags().GetString("date-format")
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
 
 	if snapRepo == "" {
 		return fmt.Errorf("snap-repo parameter is required")
 	}
 
 	logger := logging.NewLogger()
+	logger.Info("Starting retention process", "threshold", threshold, "snapRepo", snapRepo, "dryRun", dryRun)
+
 	client, err := opensearch.NewClient(osURL, certFile, keyFile, caFile, timeout, retryAttempts)
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}
 
+	logger.Info("Getting average disk utilization")
 	avgUtil, err := getAverageUtilization(client)
 	if err != nil {
 		return fmt.Errorf("failed to get utilization: %v", err)
 	}
-
-	logger.Info("Current utilization", "utilization", avgUtil, "threshold", threshold)
+	logger.Info("Current disk utilization", "utilization", avgUtil, "threshold", threshold)
 
 	if avgUtil <= threshold {
 		logger.Info("Utilization below threshold, nothing to do")
@@ -84,6 +88,11 @@ func runRetention(cmd *cobra.Command, args []string) error {
 
 		if !hasValidSnapshots(idx.Index, snapRepo, dateFormat, client) {
 			logger.Warn("No valid snapshots found", "index", idx.Index)
+			continue
+		}
+
+		if dryRun {
+			logger.Info("DRY RUN: Would delete index", "index", idx.Index, "size", idx.Size)
 			continue
 		}
 

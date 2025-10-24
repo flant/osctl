@@ -22,6 +22,7 @@ func init() {
 	coldStorageCmd.Flags().Int("hot-count", 30, "Number of days to keep indices in hot storage")
 	coldStorageCmd.Flags().String("cold-attribute", "temp", "Node attribute for cold storage")
 	coldStorageCmd.Flags().String("hot-attribute", "hot", "Node attribute for hot storage")
+	coldStorageCmd.Flags().Bool("dry-run", false, "Show what would be changed without actually changing")
 
 	addCommonFlags(coldStorageCmd)
 }
@@ -36,8 +37,11 @@ func runColdStorage(cmd *cobra.Command, args []string) error {
 	hotCount, _ := cmd.Flags().GetInt("hot-count")
 	coldAttribute, _ := cmd.Flags().GetString("cold-attribute")
 	dateFormat, _ := cmd.Flags().GetString("date-format")
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
 
 	logger := logging.NewLogger()
+	logger.Info("Starting cold storage migration", "hotCount", hotCount, "coldAttribute", coldAttribute, "dryRun", dryRun)
+
 	client, err := opensearch.NewClient(osURL, certFile, keyFile, caFile, timeout, retryAttempts)
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
@@ -65,6 +69,11 @@ func runColdStorage(cmd *cobra.Command, args []string) error {
 	logger.Info("Found indices for cold storage migration", "count", len(coldIndices))
 
 	for _, index := range coldIndices {
+		if dryRun {
+			logger.Info("DRY RUN: Would migrate to cold storage", "index", index, "attribute", coldAttribute)
+			continue
+		}
+
 		if err := client.SetColdStorage(index, coldAttribute); err != nil {
 			logger.Error("Failed to migrate to cold storage", "index", index, "error", err)
 			continue

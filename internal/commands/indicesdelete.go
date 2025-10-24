@@ -25,6 +25,8 @@ func init() {
 	indicesDeleteCmd.Flags().Bool("unknown", false, "Delete unknown indices")
 	indicesDeleteCmd.Flags().StringSlice("exclude-list", []string{}, "List of indices to exclude from unknown deletion")
 	indicesDeleteCmd.Flags().String("kind", "prefix", "Matching kind: prefix or regex")
+	indicesDeleteCmd.Flags().Bool("check-indices-exists", false, "Exit with error if no indices found")
+	indicesDeleteCmd.Flags().Bool("dry-run", false, "Show what would be deleted without actually deleting")
 
 	addCommonFlags(indicesDeleteCmd)
 }
@@ -42,6 +44,8 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 	unknown, _ := cmd.Flags().GetBool("unknown")
 	excludeList, _ := cmd.Flags().GetStringSlice("exclude-list")
 	kind, _ := cmd.Flags().GetString("kind")
+	checkIndicesExists, _ := cmd.Flags().GetBool("check-indices-exists")
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
 
 	if index == "" && !unknown {
 		return fmt.Errorf("index parameter is required or use --unknown flag")
@@ -58,19 +62,30 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 	}
 
 	cutoffDate := utils.FormatDate(time.Now().AddDate(0, 0, -days), dateFormat)
+	logger.Info("Starting indices deletion", "index", index, "unknown", unknown, "days", days, "cutoffDate", cutoffDate, "kind", kind)
 
 	var allIndices []string
 
 	if unknown {
+		logger.Info("Getting all indices for unknown deletion")
 		allIndices, err = client.GetIndices("*")
 	} else if kind == "regex" {
-		allIndices, err = client.GetIndices("*")
+		datePattern := "*" + cutoffDate + "*"
+		logger.Info("Getting indices with date pattern for regex matching", "pattern", datePattern)
+		allIndices, err = client.GetIndices(datePattern)
 	} else {
-		allIndices, err = client.GetIndices(index + "*")
+		pattern := index + "*"
+		logger.Info("Getting indices with prefix pattern", "pattern", pattern)
+		allIndices, err = client.GetIndices(pattern)
 	}
 
 	if err != nil {
 		return fmt.Errorf("failed to get indices: %v", err)
+	}
+
+	logger.Info("Retrieved indices from OpenSearch", "count", len(allIndices))
+	if len(allIndices) > 0 {
+		logger.Info("Sample indices", "indices", allIndices[:utils.Min(5, len(allIndices))])
 	}
 
 	var indicesToDelete []string
@@ -81,7 +96,18 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(indicesToDelete) == 0 {
+		if checkIndicesExists {
+			return fmt.Errorf("no indices found for deletion")
+		}
 		logger.Info("No indices found for deletion")
+		return nil
+	}
+
+	if dryRun {
+		logger.Info("DRY RUN: Would delete indices", "count", len(indicesToDelete))
+		for _, idx := range indicesToDelete {
+			logger.Info("DRY RUN: Would delete index", "index", idx)
+		}
 		return nil
 	}
 
@@ -118,7 +144,6 @@ func isIndexMatching(index, targetIndex string, kind string) bool {
 		return err == nil && matched
 	}
 
-	// prefix matching (default)
 	if len(index) < len(targetIndex) {
 		return false
 	}

@@ -23,7 +23,9 @@ func init() {
 	snapshotCmd.Flags().String("snap-repo", "", "Snapshot repository name")
 	snapshotCmd.Flags().Bool("check-indices-exists", false, "Check if indices exist before snapshot")
 	snapshotCmd.Flags().String("kind", "prefix", "Matching kind: prefix or regex")
+	snapshotCmd.Flags().StringSlice("exclude-list", []string{}, "List of indices to exclude from unknown snapshot")
 	snapshotCmd.Flags().String("date-format", "%Y.%m.%d", "Date format for index names")
+	snapshotCmd.Flags().Bool("dry-run", false, "Show what would be created without actually creating")
 
 	addCommonFlags(snapshotCmd)
 }
@@ -40,7 +42,9 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 	snapRepo, _ := cmd.Flags().GetString("snap-repo")
 	checkIndicesExists, _ := cmd.Flags().GetBool("check-indices-exists")
 	kind, _ := cmd.Flags().GetString("kind")
+	excludeList, _ := cmd.Flags().GetStringSlice("exclude-list")
 	dateFormat, _ := cmd.Flags().GetString("date-format")
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
 
 	if indexName == "" {
 		return fmt.Errorf("index-name parameter is required")
@@ -58,23 +62,59 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 
 	today := utils.FormatDate(time.Now(), dateFormat)
 	yesterday := utils.FormatDate(time.Now().AddDate(0, 0, -1), dateFormat)
+	logger.Info("Starting snapshot creation", "indexName", indexName, "systemIndex", systemIndex, "snapRepo", snapRepo, "today", today, "yesterday", yesterday, "kind", kind)
+
+	var filteredIndices []string
 
 	if systemIndex {
+		logger.Info("Checking system index existence", "index", indexName)
 		indices, err := client.GetIndices(indexName)
 		if err != nil || len(indices) == 0 {
 			logger.Info("System index does not exist, skipping snapshot", "index", indexName)
 			return nil
 		}
+		logger.Info("System index exists, proceeding with snapshot", "index", indexName)
 	} else if indexName == "unknown" {
-		// For unknown indices, proceed with snapshot
+		datePattern := "*" + yesterday + "*"
+		logger.Info("Getting unknown indices with date pattern", "pattern", datePattern)
+		allIndices, err := client.GetIndices(datePattern)
+		if err != nil {
+			return fmt.Errorf("failed to get indices with date pattern: %v", err)
+		}
+		logger.Info("Retrieved unknown indices", "count", len(allIndices))
+
+		var filteredIndices []string
+		for _, idx := range allIndices {
+
+			shouldExclude := false
+			for _, exclude := range excludeList {
+				if idx == exclude {
+					shouldExclude = true
+					break
+				}
+			}
+			if shouldExclude {
+				continue
+			}
+
+			filteredIndices = append(filteredIndices, idx)
+		}
+
+		if len(filteredIndices) == 0 {
+			logger.Info("No unknown indices found for snapshot", "date", yesterday)
+			return nil
+		}
+
+		logger.Info("Found unknown indices for snapshot", "count", len(filteredIndices), "indices", filteredIndices)
 	} else {
 		var pattern string
 		if kind == "regex" {
-			pattern = "*"
+			pattern = "*" + yesterday + "*"
 		} else {
 			pattern = indexName + "-" + yesterday + "*"
 		}
 
+		logger.Info("Getting indices with pattern", "pattern", pattern)
 		indices, err := client.GetIndices(pattern)
 		if err != nil || len(indices) == 0 {
 			if checkIndicesExists {
@@ -102,7 +142,25 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to wait for snapshot tasks: %v", err)
 	}
 
-	err = createSnapshot(client, snapRepo, snapshotName, indexName, yesterday, systemIndex)
+	var indicesList []string
+	if indexName == "unknown" {
+		indicesList = filteredIndices
+	}
+
+	if dryRun {
+		logger.Info("DRY RUN: Would create snapshot", "snapshot", snapshotName)
+		if indexName == "unknown" {
+			logger.Info("DRY RUN: Would snapshot indices", "indices", indicesList)
+		} else if systemIndex {
+			logger.Info("DRY RUN: Would snapshot system index", "index", indexName)
+		} else {
+			pattern := indexName + "-" + yesterday + "*"
+			logger.Info("DRY RUN: Would snapshot indices with pattern", "pattern", pattern)
+		}
+		return nil
+	}
+
+	err = createSnapshot(client, snapRepo, snapshotName, indexName, yesterday, systemIndex, indicesList)
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot: %v", err)
 	}
@@ -158,17 +216,19 @@ func waitForSnapshotTasks(client *opensearch.Client) error {
 	return nil
 }
 
-func createSnapshot(client *opensearch.Client, snapRepo, snapshotName, indexName, yesterday string, systemIndex bool) error {
-	var indicesPattern string
+func createSnapshot(client *opensearch.Client, snapRepo, snapshotName, indexName, yesterday string, systemIndex bool, indicesList []string) error {
+	var indices interface{}
 
 	if systemIndex {
-		indicesPattern = indexName
+		indices = indexName
+	} else if indexName == "unknown" {
+		indices = indicesList
 	} else {
-		indicesPattern = indexName + "-" + yesterday + "*"
+		indices = indexName + "-" + yesterday + "*"
 	}
 
 	snapshotRequest := map[string]interface{}{
-		"indices":              indicesPattern,
+		"indices":              indices,
 		"ignore_unavailable":   true,
 		"include_global_state": false,
 	}

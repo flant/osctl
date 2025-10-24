@@ -26,6 +26,7 @@ func init() {
 	snapshotDeleteCmd.Flags().Bool("dangle-snapshots", false, "Delete dangling snapshots")
 	snapshotDeleteCmd.Flags().StringSlice("exclude-list", []string{}, "List of snapshots to exclude from dangling deletion")
 	snapshotDeleteCmd.Flags().String("kind", "prefix", "Matching kind: prefix or regex")
+	snapshotDeleteCmd.Flags().Bool("dry-run", false, "Show what would be deleted without actually deleting")
 
 	addCommonFlags(snapshotDeleteCmd)
 }
@@ -44,6 +45,7 @@ func runSnapshotDelete(cmd *cobra.Command, args []string) error {
 	dangleSnapshots, _ := cmd.Flags().GetBool("dangle-snapshots")
 	excludeList, _ := cmd.Flags().GetStringSlice("exclude-list")
 	kind, _ := cmd.Flags().GetString("kind")
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
 
 	if repo == "" {
 		return fmt.Errorf("repo parameter is required")
@@ -64,19 +66,33 @@ func runSnapshotDelete(cmd *cobra.Command, args []string) error {
 	}
 
 	cutoffDate := utils.FormatDate(time.Now().AddDate(0, 0, -days), dateFormat)
+	logger.Info("Starting snapshots deletion", "repo", repo, "index", index, "dangleSnapshots", dangleSnapshots, "days", days, "cutoffDate", cutoffDate, "kind", kind)
 
 	var allSnapshots []opensearch.Snapshot
 
 	if dangleSnapshots || index == "unknown" {
+		logger.Info("Getting unknown snapshots")
 		allSnapshots, err = client.GetSnapshots(repo, "unknown*")
 	} else if kind == "regex" {
+		logger.Info("Getting all snapshots for regex matching")
 		allSnapshots, err = client.GetSnapshots(repo, "*")
 	} else {
-		allSnapshots, err = client.GetSnapshots(repo, index+"*")
+		pattern := index + "*"
+		logger.Info("Getting snapshots with prefix pattern", "pattern", pattern)
+		allSnapshots, err = client.GetSnapshots(repo, pattern)
 	}
 
 	if err != nil {
 		return fmt.Errorf("failed to get snapshots: %v", err)
+	}
+
+	logger.Info("Retrieved snapshots from OpenSearch", "count", len(allSnapshots))
+	if len(allSnapshots) > 0 {
+		sampleSnapshots := make([]string, 0, utils.Min(5, len(allSnapshots)))
+		for i := 0; i < utils.Min(5, len(allSnapshots)); i++ {
+			sampleSnapshots = append(sampleSnapshots, allSnapshots[i].Snapshot)
+		}
+		logger.Info("Sample snapshots", "snapshots", sampleSnapshots)
 	}
 
 	var snapshotsToDelete []string
@@ -88,6 +104,14 @@ func runSnapshotDelete(cmd *cobra.Command, args []string) error {
 
 	if len(snapshotsToDelete) == 0 {
 		logger.Info("No snapshots found for deletion")
+		return nil
+	}
+
+	if dryRun {
+		logger.Info("DRY RUN: Would delete snapshots", "count", len(snapshotsToDelete))
+		for _, snapshot := range snapshotsToDelete {
+			logger.Info("DRY RUN: Would delete snapshot", "snapshot", snapshot)
+		}
 		return nil
 	}
 
