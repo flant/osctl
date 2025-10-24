@@ -5,6 +5,7 @@ import (
 	"curator-go/internal/opensearch"
 	"curator-go/internal/utils"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -23,7 +24,7 @@ func init() {
 	indicesDeleteCmd.Flags().String("date-format", "%Y.%m.%d", "Date format for index names")
 	indicesDeleteCmd.Flags().Bool("unknown", false, "Delete unknown indices")
 	indicesDeleteCmd.Flags().StringSlice("exclude-list", []string{}, "List of indices to exclude from unknown deletion")
-	indicesDeleteCmd.Flags().Bool("wildcard", false, "Use wildcard matching for index names")
+	indicesDeleteCmd.Flags().String("kind", "prefix", "Matching kind: prefix or regex")
 
 	addCommonFlags(indicesDeleteCmd)
 }
@@ -40,7 +41,7 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 	dateFormat, _ := cmd.Flags().GetString("date-format")
 	unknown, _ := cmd.Flags().GetBool("unknown")
 	excludeList, _ := cmd.Flags().GetStringSlice("exclude-list")
-	wildcard, _ := cmd.Flags().GetBool("wildcard")
+	kind, _ := cmd.Flags().GetString("kind")
 
 	if index == "" && !unknown {
 		return fmt.Errorf("index parameter is required or use --unknown flag")
@@ -62,6 +63,8 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 
 	if unknown {
 		allIndices, err = client.GetIndices("*")
+	} else if kind == "regex" {
+		allIndices, err = client.GetIndices("*")
 	} else {
 		allIndices, err = client.GetIndices(index + "*")
 	}
@@ -72,7 +75,7 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 
 	var indicesToDelete []string
 	for _, idx := range allIndices {
-		if shouldDeleteIndex(idx, index, unknown, excludeList, wildcard, cutoffDate, dateFormat) {
+		if shouldDeleteIndex(idx, index, unknown, excludeList, kind, cutoffDate, dateFormat) {
 			indicesToDelete = append(indicesToDelete, idx)
 		}
 	}
@@ -97,34 +100,29 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func shouldDeleteIndex(index, targetIndex string, unknown bool, excludeList []string, wildcard bool, cutoffDate, dateFormat string) bool {
+func shouldDeleteIndex(index, targetIndex string, unknown bool, excludeList []string, kind, cutoffDate, dateFormat string) bool {
 	if unknown {
 		return isUnknownIndex(index, excludeList) && utils.IsOlderThanCutoff(index, cutoffDate, dateFormat)
 	}
 
-	if !isIndexMatching(index, targetIndex, wildcard) {
+	if !isIndexMatching(index, targetIndex, kind) {
 		return false
 	}
 
 	return utils.IsOlderThanCutoff(index, cutoffDate, dateFormat)
 }
 
-func isIndexMatching(index, targetIndex string, wildcard bool) bool {
+func isIndexMatching(index, targetIndex string, kind string) bool {
+	if kind == "regex" {
+		matched, err := regexp.MatchString(targetIndex, index)
+		return err == nil && matched
+	}
+
+	// prefix matching (default)
 	if len(index) < len(targetIndex) {
 		return false
 	}
-
-	if wildcard {
-		return index[:len(targetIndex)] == targetIndex
-	}
-
-	extractedDate := utils.ExtractDateFromIndex(index, "%Y.%m.%d")
-	if extractedDate == "" {
-		return false
-	}
-
-	expectedPattern := targetIndex + "-" + extractedDate
-	return len(index) >= len(expectedPattern) && index[:len(expectedPattern)] == expectedPattern
+	return index[:len(targetIndex)] == targetIndex
 }
 
 func isUnknownIndex(index string, excludeList []string) bool {
@@ -141,7 +139,7 @@ func isUnknownIndex(index string, excludeList []string) bool {
 	}
 
 	for _, exclude := range excludeList {
-		if isIndexMatching(index, exclude, true) {
+		if isIndexMatching(index, exclude, "prefix") {
 			return false
 		}
 	}

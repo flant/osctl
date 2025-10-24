@@ -5,6 +5,7 @@ import (
 	"curator-go/internal/opensearch"
 	"curator-go/internal/utils"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -24,7 +25,7 @@ func init() {
 	snapshotDeleteCmd.Flags().String("date-format", "%Y.%m.%d", "Date format for snapshot names")
 	snapshotDeleteCmd.Flags().Bool("dangle-snapshots", false, "Delete dangling snapshots")
 	snapshotDeleteCmd.Flags().StringSlice("exclude-list", []string{}, "List of snapshots to exclude from dangling deletion")
-	snapshotDeleteCmd.Flags().Bool("wildcard", false, "Use wildcard matching for snapshot names")
+	snapshotDeleteCmd.Flags().String("kind", "prefix", "Matching kind: prefix or regex")
 
 	addCommonFlags(snapshotDeleteCmd)
 }
@@ -42,7 +43,7 @@ func runSnapshotDelete(cmd *cobra.Command, args []string) error {
 	dateFormat, _ := cmd.Flags().GetString("date-format")
 	dangleSnapshots, _ := cmd.Flags().GetBool("dangle-snapshots")
 	excludeList, _ := cmd.Flags().GetStringSlice("exclude-list")
-	wildcard, _ := cmd.Flags().GetBool("wildcard")
+	kind, _ := cmd.Flags().GetString("kind")
 
 	if repo == "" {
 		return fmt.Errorf("repo parameter is required")
@@ -68,6 +69,8 @@ func runSnapshotDelete(cmd *cobra.Command, args []string) error {
 
 	if dangleSnapshots || index == "unknown" {
 		allSnapshots, err = client.GetSnapshots(repo, "unknown*")
+	} else if kind == "regex" {
+		allSnapshots, err = client.GetSnapshots(repo, "*")
 	} else {
 		allSnapshots, err = client.GetSnapshots(repo, index+"*")
 	}
@@ -78,7 +81,7 @@ func runSnapshotDelete(cmd *cobra.Command, args []string) error {
 
 	var snapshotsToDelete []string
 	for _, snapshot := range allSnapshots {
-		if shouldDeleteSnapshot(snapshot.Snapshot, index, dangleSnapshots, excludeList, wildcard, cutoffDate, dateFormat) {
+		if shouldDeleteSnapshot(snapshot.Snapshot, index, dangleSnapshots, excludeList, kind, cutoffDate, dateFormat) {
 			snapshotsToDelete = append(snapshotsToDelete, snapshot.Snapshot)
 		}
 	}
@@ -103,39 +106,34 @@ func runSnapshotDelete(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func shouldDeleteSnapshot(snapshot, targetIndex string, dangleSnapshots bool, excludeList []string, wildcard bool, cutoffDate, dateFormat string) bool {
+func shouldDeleteSnapshot(snapshot, targetIndex string, dangleSnapshots bool, excludeList []string, kind, cutoffDate, dateFormat string) bool {
 	if dangleSnapshots {
 		return isDanglingSnapshot(snapshot, excludeList) && utils.IsOlderThanCutoff(snapshot, cutoffDate, dateFormat)
 	}
 
-	if !isSnapshotMatching(snapshot, targetIndex, wildcard) {
+	if !isSnapshotMatching(snapshot, targetIndex, kind) {
 		return false
 	}
 
 	return utils.IsOlderThanCutoff(snapshot, cutoffDate, dateFormat)
 }
 
-func isSnapshotMatching(snapshot, targetIndex string, wildcard bool) bool {
+func isSnapshotMatching(snapshot, targetIndex string, kind string) bool {
+	if kind == "regex" {
+		matched, err := regexp.MatchString(targetIndex, snapshot)
+		return err == nil && matched
+	}
+
+	// prefix matching (default)
 	if len(snapshot) < len(targetIndex) {
 		return false
 	}
-
-	if wildcard {
-		return snapshot[:len(targetIndex)] == targetIndex
-	}
-
-	extractedDate := utils.ExtractDateFromIndex(snapshot, "%Y.%m.%d")
-	if extractedDate == "" {
-		return false
-	}
-
-	expectedPattern := targetIndex + "-" + extractedDate
-	return len(snapshot) >= len(expectedPattern) && snapshot[:len(expectedPattern)] == expectedPattern
+	return snapshot[:len(targetIndex)] == targetIndex
 }
 
 func isDanglingSnapshot(snapshot string, excludeList []string) bool {
 	for _, exclude := range excludeList {
-		if isSnapshotMatching(snapshot, exclude, true) {
+		if isSnapshotMatching(snapshot, exclude, "prefix") {
 			return false
 		}
 	}

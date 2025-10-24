@@ -22,7 +22,7 @@ func init() {
 	snapshotCmd.Flags().Bool("system-index", false, "Is system index")
 	snapshotCmd.Flags().String("snap-repo", "", "Snapshot repository name")
 	snapshotCmd.Flags().Bool("check-indices-exists", false, "Check if indices exist before snapshot")
-	snapshotCmd.Flags().Bool("wildcard", false, "Use wildcard matching for index names")
+	snapshotCmd.Flags().String("kind", "prefix", "Matching kind: prefix or regex")
 	snapshotCmd.Flags().String("date-format", "%Y.%m.%d", "Date format for index names")
 
 	addCommonFlags(snapshotCmd)
@@ -39,6 +39,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 	systemIndex, _ := cmd.Flags().GetBool("system-index")
 	snapRepo, _ := cmd.Flags().GetString("snap-repo")
 	checkIndicesExists, _ := cmd.Flags().GetBool("check-indices-exists")
+	kind, _ := cmd.Flags().GetString("kind")
 	dateFormat, _ := cmd.Flags().GetString("date-format")
 
 	if indexName == "" {
@@ -67,7 +68,13 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 	} else if indexName == "unknown" {
 		// For unknown indices, proceed with snapshot
 	} else {
-		pattern := indexName + "-" + yesterday + "*"
+		var pattern string
+		if kind == "regex" {
+			pattern = "*"
+		} else {
+			pattern = indexName + "-" + yesterday + "*"
+		}
+
 		indices, err := client.GetIndices(pattern)
 		if err != nil || len(indices) == 0 {
 			if checkIndicesExists {
