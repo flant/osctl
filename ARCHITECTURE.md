@@ -97,21 +97,20 @@ osctl/
    - При ошибке: удаляем неудачный snapshot и фейлим - рестарт будет от самой кронджобы
    - **Джобу не генерим хельмом если в values snapshot_enable false**
 
-3. **indicesdelete Удаление снапшотов**: делаем по алогритму
-   - **Проверка параметров**: `dangle_snapshots`
-   - Фильтрация по префиксу: snapshots с префиксом или regex в зависимости от значени kind `{index_name}`
+3. **snapshotdelete Удаление снапшотов**: делаем по алогритму
+   - Фильтрация по префиксу: snapshots с префиксом или префиксом* в зависимости от значени wildcard `{index_name}`
    - Фильтрация по возрасту: старше N дней по дате создания на основе имени
    - Удаление: через `DELETE /_snapshot/{snap_repo}/{snapshot_name}` для каждого подходящего snapshot
-   - Если есть флаг dangle_snapshots - то проверяются ВСЕ снапшоты - которые не попадают в curator.yaml и они удаялеются по флагу s3_snapshots.unit_count.all 
+   - Если есть флаг --dangle-snapshots - то проверяются ВСЕ снапшоты - которые не попадают в curator.yaml и они удаялеются по дате в s3_snapshots.unit_count.all - и принимаются флагом
 
-4. **snapshotdelete Удаление индексов**: делаем по алогритму
+4. **indicesdelete Удаление индексов**: делаем по алогритму
 
    - Фильтрация по префиксу: `{index_name}`
    - Фильтрация по возрасту: старше N дней по дате создания на основе имени
    - Удаление: через `DELETE /index_name` для каждого подходящего индекса
-   - В случае unknown - фильтрация по всем идексам, которых нет в values кроме restored-|extracted_ и системных
+   - В случае unknown - фильтрация по всем идексам, которых нет в values кроме restored-|extracted_ и системных, индексы из values передаются в флаг --exclude-list
 
-Если есть флаг wildcard=true то используем * после префикса ( будет 1 снапшот для индекосов аля production-blabla-дата production-herher-дата  )
+Если есть флаг wildcard=true то используем * после префикса ( будет 1 снапшот для индекосов аля production-blabla-дата production-herher-дата  ) -
 
 **Все что с  . не удаляем**
 
@@ -314,11 +313,7 @@ osctl coldstorage --index-pattern="*" --set-replicas-zero=true --move-to-cold=tr
 
 **Флаги:**
 ```bash
-# Обычные сертификаты
-osctl extracteddelete --selector="extracted_*" --os-url=https://opendistro:9200
-
-# С recoverer сертификатами
-osctl extracteddelete --selector="extracted_*" --os-url=https://opendistro-recoverer:9200 --use-recoverer-certs=true
+osctl extracteddelete --os-url=https://opendistro:9200
 ```
 
 ## Общие флаги для всех команд

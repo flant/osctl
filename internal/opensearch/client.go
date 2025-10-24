@@ -201,6 +201,19 @@ func (c *Client) SetReplicas(index string, replicas int) error {
 	return c.putJSON(url, settings)
 }
 
+func (c *Client) SetColdStorage(index, coldAttribute string) error {
+	url := fmt.Sprintf("%s/%s/_settings", c.baseURL, index)
+
+	settings := map[string]interface{}{
+		"index": map[string]interface{}{
+			"routing.allocation.require.temp": coldAttribute,
+			"number_of_replicas":              0,
+		},
+	}
+
+	return c.putJSON(url, settings)
+}
+
 func (c *Client) GetSnapshots(repo, pattern string) ([]Snapshot, error) {
 	url := fmt.Sprintf("%s/_snapshot/%s/%s?verbose=false", c.baseURL, repo, pattern)
 
@@ -268,6 +281,108 @@ func (c *Client) delete(url string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create request: %v", err)
 	}
+
+	resp, err := c.executeRequest(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	return nil
+}
+
+func (c *Client) DeleteSnapshot(repo, snapshot string) error {
+	url := fmt.Sprintf("%s/_snapshot/%s/%s", c.baseURL, repo, snapshot)
+
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %v", err)
+	}
+
+	resp, err := c.executeRequest(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	return nil
+}
+
+type SnapshotStatus struct {
+	Snapshots []SnapshotInfo `json:"snapshots"`
+}
+
+type SnapshotInfo struct {
+	State string `json:"state"`
+}
+
+func (c *Client) GetSnapshotStatus() (*SnapshotStatus, error) {
+	url := fmt.Sprintf("%s/_snapshot/_status", c.baseURL)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.executeRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var status SnapshotStatus
+	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
+		return nil, err
+	}
+
+	return &status, nil
+}
+
+type TasksResponse struct {
+	Nodes map[string]TaskNodeInfo `json:"nodes"`
+}
+
+type TaskNodeInfo struct {
+	Tasks map[string]TaskInfo `json:"tasks"`
+}
+
+type TaskInfo struct {
+	Action string `json:"action"`
+}
+
+func (c *Client) GetTasks() (*TasksResponse, error) {
+	url := fmt.Sprintf("%s/_tasks", c.baseURL)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.executeRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var tasks TasksResponse
+	if err := json.NewDecoder(resp.Body).Decode(&tasks); err != nil {
+		return nil, err
+	}
+
+	return &tasks, nil
+}
+
+func (c *Client) CreateSnapshot(repo, snapshot string, body map[string]interface{}) error {
+	url := fmt.Sprintf("%s/_snapshot/%s/%s", c.baseURL, repo, snapshot)
+
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.executeRequest(req)
 	if err != nil {
