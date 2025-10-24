@@ -65,10 +65,9 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 	today := utils.FormatDate(time.Now(), dateFormat)
 	yesterday := utils.FormatDate(time.Now().AddDate(0, 0, -1), dateFormat)
 
-	// Use custom snapshot date if provided, otherwise use today
 	var snapshotDateStr string
 	if snapshotDate != "" {
-		// Parse the provided date and format it according to dateFormat
+
 		if parsedDate, err := time.Parse("2006.01.02", snapshotDate); err == nil {
 			snapshotDateStr = utils.FormatDate(parsedDate, dateFormat)
 		} else {
