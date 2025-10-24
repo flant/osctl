@@ -58,7 +58,7 @@ func runSnapshotChecker(cmd *cobra.Command, args []string) error {
 	}
 
 	targetDate := utils.FormatDate(time.Now().AddDate(0, 0, -2), dateFormat)
-	indices, err := client.GetIndices(fmt.Sprintf("*%s*", targetDate))
+	indices, err := client.GetIndicesWithFields(fmt.Sprintf("*%s*", targetDate), "index")
 	if err != nil {
 		return fmt.Errorf("failed to get indices: %v", err)
 	}
@@ -105,24 +105,24 @@ func runSnapshotChecker(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func filterIndices(indices []string, excludeList, whitelist string) []string {
+func filterIndices(indices []opensearch.IndexInfo, excludeList, whitelist string) []string {
 	var result []string
 
 	for _, index := range indices {
-		if strings.HasPrefix(index, ".") {
+		if strings.HasPrefix(index.Index, ".") {
 			continue
 		}
 
 		if whitelist != "" {
-			if hasPrefix(index, whitelist) {
-				result = append(result, index)
+			if hasPrefix(index.Index, whitelist) {
+				result = append(result, index.Index)
 			}
 		} else if excludeList != "" {
-			if !hasPrefix(index, excludeList) {
-				result = append(result, index)
+			if !hasPrefix(index.Index, excludeList) {
+				result = append(result, index.Index)
 			}
 		} else {
-			result = append(result, index)
+			result = append(result, index.Index)
 		}
 	}
 

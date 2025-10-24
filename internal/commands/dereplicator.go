@@ -56,7 +56,7 @@ func runDereplicator(cmd *cobra.Command, args []string) error {
 	excludeDays := getExcludeDays(daysCount, dateFormat)
 	logger.Info("Excluding days", "days", excludeDays)
 
-	indices, err := client.GetIndicesWithReplicas("*")
+	indices, err := client.GetIndicesWithFields("*", "index,rep")
 	if err != nil {
 		return fmt.Errorf("failed to get indices: %v", err)
 	}

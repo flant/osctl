@@ -18,8 +18,8 @@ Supports multitenancy and multidomain configurations.`,
 
 func init() {
 	dataSourceCmd.Flags().String("title", "", "Data source title")
-	dataSourceCmd.Flags().String("endpoint", "", "OpenSearch endpoint URL")
-	dataSourceCmd.Flags().String("kibana-host", "", "Kibana host URL")
+	dataSourceCmd.Flags().String("os-url", "", "OpenSearch URL")
+	dataSourceCmd.Flags().String("osd-url", "", "OpenSearch Dashboards URL")
 	dataSourceCmd.Flags().Bool("multidomain", false, "Enable multidomain mode")
 	dataSourceCmd.Flags().String("namespace", "default", "Kubernetes namespace for multidomain")
 
@@ -34,11 +34,10 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 	timeout, _ := cmd.Flags().GetDuration("timeout")
 	retryAttempts, _ := cmd.Flags().GetInt("retry-attempts")
 	title, _ := cmd.Flags().GetString("title")
-	endpoint, _ := cmd.Flags().GetString("endpoint")
-	kibanaHost, _ := cmd.Flags().GetString("kibana-host")
+	osdURL, _ := cmd.Flags().GetString("osd-url")
 
-	if title == "" || endpoint == "" || kibanaHost == "" {
-		return fmt.Errorf("title, endpoint and kibana-host parameters are required")
+	if title == "" || osURL == "" || osdURL == "" {
+		return fmt.Errorf("title, os-url and osd-url parameters are required")
 	}
 
 	logger := logging.NewLogger()

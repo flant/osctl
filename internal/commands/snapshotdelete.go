@@ -88,9 +88,15 @@ func runSnapshotDelete(cmd *cobra.Command, args []string) error {
 
 	logger.Info("Retrieved snapshots from OpenSearch", "count", len(allSnapshots))
 	if len(allSnapshots) > 0 {
-		sampleSnapshots := make([]string, 0, utils.Min(5, len(allSnapshots)))
-		for i := 0; i < utils.Min(5, len(allSnapshots)); i++ {
-			sampleSnapshots = append(sampleSnapshots, allSnapshots[i].Snapshot)
+		var sampleSnapshots []string
+		if len(allSnapshots) > 5 {
+			for i := 0; i < 5; i++ {
+				sampleSnapshots = append(sampleSnapshots, allSnapshots[i].Snapshot)
+			}
+		} else {
+			for _, snapshot := range allSnapshots {
+				sampleSnapshots = append(sampleSnapshots, snapshot.Snapshot)
+			}
 		}
 		logger.Info("Sample snapshots", "snapshots", sampleSnapshots)
 	}

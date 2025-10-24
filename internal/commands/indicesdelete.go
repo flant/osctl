@@ -64,19 +64,19 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 	cutoffDate := utils.FormatDate(time.Now().AddDate(0, 0, -days), dateFormat)
 	logger.Info("Starting indices deletion", "index", index, "unknown", unknown, "days", days, "cutoffDate", cutoffDate, "kind", kind)
 
-	var allIndices []string
+	var allIndices []opensearch.IndexInfo
 
 	if unknown {
 		logger.Info("Getting all indices for unknown deletion")
-		allIndices, err = client.GetIndices("*")
+		allIndices, err = client.GetIndicesWithFields("*", "index")
 	} else if kind == "regex" {
 		datePattern := "*" + cutoffDate + "*"
 		logger.Info("Getting indices with date pattern for regex matching", "pattern", datePattern)
-		allIndices, err = client.GetIndices(datePattern)
+		allIndices, err = client.GetIndicesWithFields(datePattern, "index")
 	} else {
 		pattern := index + "*"
 		logger.Info("Getting indices with prefix pattern", "pattern", pattern)
-		allIndices, err = client.GetIndices(pattern)
+		allIndices, err = client.GetIndicesWithFields(pattern, "index")
 	}
 
 	if err != nil {
@@ -85,13 +85,17 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 
 	logger.Info("Retrieved indices from OpenSearch", "count", len(allIndices))
 	if len(allIndices) > 0 {
-		logger.Info("Sample indices", "indices", allIndices[:utils.Min(5, len(allIndices))])
+		if len(allIndices) > 5 {
+			logger.Info("Sample indices", "indices", allIndices[:5])
+		} else {
+			logger.Info("Sample indices", "indices", allIndices)
+		}
 	}
 
 	var indicesToDelete []string
 	for _, idx := range allIndices {
-		if shouldDeleteIndex(idx, index, unknown, excludeList, kind, cutoffDate, dateFormat) {
-			indicesToDelete = append(indicesToDelete, idx)
+		if shouldDeleteIndex(idx.Index, index, unknown, excludeList, kind, cutoffDate, dateFormat) {
+			indicesToDelete = append(indicesToDelete, idx.Index)
 		}
 	}
 

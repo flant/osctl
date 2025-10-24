@@ -120,8 +120,8 @@ func (c *Client) SendDanglingIndicesAlert(danglingIndices []string) error {
 		return nil
 	}
 
-	summary := "The OpenSearch cluster has dangling indexes"
-	description := fmt.Sprintf("The OpenSearch cluster has dangling indexes.\nPlease check it manual in dev tools OS DashBoard %s\nGET _dangling?pretty", c.kibanaHost)
+	summary := "Кластер содержит dangling индексы"
+	description := fmt.Sprintf("Кластер содержит dangling индексы.\nПроверьте индексы в %s\nGET _dangling?pretty", c.kibanaHost)
 
 	payload := map[string]interface{}{
 		"project":        c.project,

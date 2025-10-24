@@ -83,7 +83,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 
 	if systemIndex {
 		logger.Info("Checking system index existence", "index", indexName)
-		indices, err := client.GetIndices(indexName)
+		indices, err := client.GetIndicesWithFields(indexName, "index")
 		if err != nil || len(indices) == 0 {
 			logger.Info("System index does not exist, skipping snapshot", "index", indexName)
 			return nil
@@ -92,7 +92,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 	} else if indexName == "unknown" {
 		datePattern := "*" + yesterday + "*"
 		logger.Info("Getting unknown indices with date pattern", "pattern", datePattern)
-		allIndices, err := client.GetIndices(datePattern)
+		allIndices, err := client.GetIndicesWithFields(datePattern, "index")
 		if err != nil {
 			return fmt.Errorf("failed to get indices with date pattern: %v", err)
 		}
@@ -103,7 +103,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 
 			shouldExclude := false
 			for _, exclude := range excludeList {
-				if idx == exclude {
+				if idx.Index == exclude {
 					shouldExclude = true
 					break
 				}
@@ -112,7 +112,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 				continue
 			}
 
-			filteredIndices = append(filteredIndices, idx)
+			filteredIndices = append(filteredIndices, idx.Index)
 		}
 
 		if len(filteredIndices) == 0 {
@@ -130,7 +130,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 		}
 
 		logger.Info("Getting indices with pattern", "pattern", pattern)
-		indices, err := client.GetIndices(pattern)
+		indices, err := client.GetIndicesWithFields(pattern, "index")
 		if err != nil || len(indices) == 0 {
 			if checkIndicesExists {
 				return fmt.Errorf("index %s-%s does not exist", indexName, yesterday)

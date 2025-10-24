@@ -20,6 +20,7 @@ var extractedDeleteCmd = &cobra.Command{
 func init() {
 	extractedDeleteCmd.Flags().Int("days", 2, "Number of days to keep extracted indices")
 	extractedDeleteCmd.Flags().String("date-format", "%d-%m-%Y", "Date format for extracted indices")
+	extractedDeleteCmd.Flags().Bool("dry-run", false, "Show what would be deleted without actually deleting")
 
 	addCommonFlags(extractedDeleteCmd)
 }
@@ -33,6 +34,7 @@ func runExtractedDelete(cmd *cobra.Command, args []string) error {
 	retryAttempts, _ := cmd.Flags().GetInt("retry-attempts")
 	days, _ := cmd.Flags().GetInt("days")
 	dateFormat, _ := cmd.Flags().GetString("date-format")
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
 
 	logger := logging.NewLogger()
 	client, err := opensearch.NewClient(osURL, certFile, keyFile, caFile, timeout, retryAttempts)
@@ -41,16 +43,18 @@ func runExtractedDelete(cmd *cobra.Command, args []string) error {
 	}
 
 	cutoffDate := utils.FormatDate(time.Now().AddDate(0, 0, -days), dateFormat)
+	logger.Info("Starting extracted indices deletion", "days", days, "cutoffDate", cutoffDate, "dryRun", dryRun)
 
-	allIndices, err := client.GetIndices("*")
+	allIndices, err := client.GetIndicesWithFields("extracted*", "index")
 	if err != nil {
-		return fmt.Errorf("failed to get indices: %v", err)
+		return fmt.Errorf("failed to get extracted indices: %v", err)
 	}
+	logger.Info("Retrieved extracted indices from OpenSearch", "count", len(allIndices))
 
 	var extractedIndices []string
 	for _, index := range allIndices {
-		if shouldDeleteExtractedIndex(index, cutoffDate, dateFormat) {
-			extractedIndices = append(extractedIndices, index)
+		if shouldDeleteExtractedIndex(index.Index, cutoffDate, dateFormat) {
+			extractedIndices = append(extractedIndices, index.Index)
 		}
 	}
 
@@ -61,7 +65,13 @@ func runExtractedDelete(cmd *cobra.Command, args []string) error {
 
 	logger.Info("Found extracted indices for deletion", "count", len(extractedIndices))
 
+	if dryRun {
+		logger.Info("DRY RUN: Would delete extracted indices", "indices", extractedIndices)
+		return nil
+	}
+
 	for _, index := range extractedIndices {
+		logger.Info("Deleting extracted index", "index", index)
 		if err := client.DeleteIndex(index); err != nil {
 			logger.Error("Failed to delete extracted index", "index", index, "error", err)
 			continue
@@ -75,13 +85,5 @@ func runExtractedDelete(cmd *cobra.Command, args []string) error {
 }
 
 func shouldDeleteExtractedIndex(index, cutoffDate, dateFormat string) bool {
-	if !isExtractedIndex(index) {
-		return false
-	}
-
 	return utils.IsOlderThanCutoff(index, cutoffDate, dateFormat)
-}
-
-func isExtractedIndex(index string) bool {
-	return len(index) >= 9 && index[:9] == "extracted"
 }

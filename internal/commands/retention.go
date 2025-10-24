@@ -23,7 +23,6 @@ Only deletes indices that have valid snapshots in the repository.`,
 func init() {
 	retentionCmd.Flags().Int("threshold", 75, "Disk usage threshold percentage")
 	retentionCmd.Flags().String("snap-repo", "", "Snapshot repository name")
-	retentionCmd.Flags().String("endpoint", "opendistro", "OpenSearch endpoint")
 	retentionCmd.Flags().Bool("dry-run", false, "Show what would be deleted without actually deleting")
 
 	addCommonFlags(retentionCmd)
@@ -69,7 +68,7 @@ func runRetention(cmd *cobra.Command, args []string) error {
 	yesterday := utils.FormatDate(time.Now().AddDate(0, 0, -1), dateFormat)
 
 	pattern := fmt.Sprintf("*,-.*,-*%s,-*%s,-extracted_*", today, yesterday)
-	indices, err := client.GetIndicesWithSize(pattern)
+	indices, err := client.GetIndicesWithFields(pattern, "i,ss")
 	if err != nil {
 		return fmt.Errorf("failed to get indices: %v", err)
 	}

@@ -103,7 +103,7 @@ func (c *Client) executeRequest(req *http.Request) (*http.Response, error) {
 	return nil, lastErr
 }
 
-func (c *Client) getIndicesWithFields(pattern, fields string) ([]IndexInfo, error) {
+func (c *Client) GetIndicesWithFields(pattern, fields string) ([]IndexInfo, error) {
 	url := fmt.Sprintf("%s/_cat/indices/%s?format=json&h=%s", c.baseURL, pattern, fields)
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -171,24 +171,6 @@ func (c *Client) putJSON(url string, data interface{}) error {
 	return nil
 }
 
-func (c *Client) GetIndices(pattern string) ([]string, error) {
-	indices, err := c.getIndicesWithFields(pattern, "index")
-	if err != nil {
-		return nil, err
-	}
-
-	result := make([]string, len(indices))
-	for i, idx := range indices {
-		result[i] = idx.Index
-	}
-
-	return result, nil
-}
-
-func (c *Client) GetIndicesWithReplicas(pattern string) ([]IndexInfo, error) {
-	return c.getIndicesWithFields(pattern, "index,rep")
-}
-
 func (c *Client) SetReplicas(index string, replicas int) error {
 	url := fmt.Sprintf("%s/%s/_settings", c.baseURL, index)
 
@@ -245,10 +227,6 @@ func (c *Client) GetAllocation() ([]AllocationInfo, error) {
 	}
 
 	return allocation, nil
-}
-
-func (c *Client) GetIndicesWithSize(pattern string) ([]IndexInfo, error) {
-	return c.getIndicesWithFields(pattern, "i,ss")
 }
 
 func (c *Client) DeleteIndex(index string) error {

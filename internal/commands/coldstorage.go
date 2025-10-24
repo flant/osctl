@@ -19,7 +19,7 @@ Sets replicas to 0 and moves indices to cold storage nodes.`,
 }
 
 func init() {
-	coldStorageCmd.Flags().Int("hot-count", 30, "Number of days to keep indices in hot storage")
+	coldStorageCmd.Flags().Int("hot-count", 6, "Number of days to keep indices in hot storage")
 	coldStorageCmd.Flags().String("cold-attribute", "temp", "Node attribute for cold storage")
 	coldStorageCmd.Flags().String("hot-attribute", "hot", "Node attribute for hot storage")
 	coldStorageCmd.Flags().Bool("dry-run", false, "Show what would be changed without actually changing")
@@ -49,15 +49,15 @@ func runColdStorage(cmd *cobra.Command, args []string) error {
 
 	cutoffDate := utils.FormatDate(time.Now().AddDate(0, 0, -hotCount), dateFormat)
 
-	allIndices, err := client.GetIndices("*")
+	allIndices, err := client.GetIndicesWithFields("*", "index")
 	if err != nil {
 		return fmt.Errorf("failed to get indices: %v", err)
 	}
 
 	var coldIndices []string
 	for _, index := range allIndices {
-		if shouldMoveToColdStorage(index, cutoffDate, dateFormat) {
-			coldIndices = append(coldIndices, index)
+		if shouldMoveToColdStorage(index.Index, cutoffDate, dateFormat) {
+			coldIndices = append(coldIndices, index.Index)
 		}
 	}
 
