@@ -25,6 +25,7 @@ func init() {
 	snapshotCmd.Flags().String("kind", "prefix", "Matching kind: prefix or regex")
 	snapshotCmd.Flags().StringSlice("exclude-list", []string{}, "List of indices to exclude from unknown snapshot")
 	snapshotCmd.Flags().String("date-format", "%Y.%m.%d", "Date format for index names")
+	snapshotCmd.Flags().String("snapshot-date", "", "Date for snapshot name (format: YYYY.MM.DD, defaults to today)")
 	snapshotCmd.Flags().Bool("dry-run", false, "Show what would be created without actually creating")
 
 	addCommonFlags(snapshotCmd)
@@ -44,6 +45,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 	kind, _ := cmd.Flags().GetString("kind")
 	excludeList, _ := cmd.Flags().GetStringSlice("exclude-list")
 	dateFormat, _ := cmd.Flags().GetString("date-format")
+	snapshotDate, _ := cmd.Flags().GetString("snapshot-date")
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 
 	if indexName == "" {
@@ -62,7 +64,21 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 
 	today := utils.FormatDate(time.Now(), dateFormat)
 	yesterday := utils.FormatDate(time.Now().AddDate(0, 0, -1), dateFormat)
-	logger.Info("Starting snapshot creation", "indexName", indexName, "systemIndex", systemIndex, "snapRepo", snapRepo, "today", today, "yesterday", yesterday, "kind", kind)
+
+	// Use custom snapshot date if provided, otherwise use today
+	var snapshotDateStr string
+	if snapshotDate != "" {
+		// Parse the provided date and format it according to dateFormat
+		if parsedDate, err := time.Parse("2006.01.02", snapshotDate); err == nil {
+			snapshotDateStr = utils.FormatDate(parsedDate, dateFormat)
+		} else {
+			return fmt.Errorf("invalid snapshot-date format, expected YYYY.MM.DD: %v", err)
+		}
+	} else {
+		snapshotDateStr = today
+	}
+
+	logger.Info("Starting snapshot creation", "indexName", indexName, "systemIndex", systemIndex, "snapRepo", snapRepo, "today", today, "yesterday", yesterday, "snapshotDate", snapshotDateStr, "kind", kind)
 
 	var filteredIndices []string
 
@@ -125,11 +141,23 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	snapshotName := indexName + "-" + today
+	snapshotName := indexName + "-" + snapshotDateStr
+	logger.Info("Checking for existing snapshot", "snapshot", snapshotName)
 	snapshots, err := client.GetSnapshots(snapRepo, snapshotName)
-	if err == nil && len(snapshots) > 0 && snapshots[0].State == "SUCCESS" {
-		logger.Info("Snapshot already exists, skipping creation", "snapshot", snapshotName)
-		return nil
+	if err == nil && len(snapshots) > 0 {
+		existingSnapshot := snapshots[0]
+		if existingSnapshot.State == "SUCCESS" {
+			logger.Info("Snapshot already exists, skipping creation", "snapshot", snapshotName)
+			return nil
+		} else if existingSnapshot.State == "PARTIAL" {
+			logger.Warn("Found partial snapshot, deleting it", "snapshot", snapshotName)
+			if err := client.DeleteSnapshot(snapRepo, snapshotName); err != nil {
+				return fmt.Errorf("failed to delete partial snapshot: %v", err)
+			}
+			logger.Info("Partial snapshot deleted", "snapshot", snapshotName)
+		} else {
+			return fmt.Errorf("snapshot exists with state %s, cannot proceed", existingSnapshot.State)
+		}
 	}
 
 	err = waitForRunningSnapshots(client)
@@ -165,8 +193,53 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create snapshot: %v", err)
 	}
 
-	logger.Info("Snapshot created successfully", "snapshot", snapshotName)
+	// Wait for snapshot completion
+	logger.Info("Waiting for snapshot completion", "snapshot", snapshotName)
+	err = waitForSnapshotCompletion(client, snapRepo, snapshotName)
+	if err != nil {
+		return fmt.Errorf("failed to wait for snapshot completion: %v", err)
+	}
+
 	return nil
+}
+
+func waitForSnapshotCompletion(client *opensearch.Client, snapRepo, snapshotName string) error {
+	logger := logging.NewLogger()
+	logger.Info("Starting snapshot completion monitoring", "snapshot", snapshotName)
+
+	for {
+		time.Sleep(60 * time.Second)
+
+		snapshots, err := client.GetSnapshots(snapRepo, snapshotName)
+		if err != nil {
+			logger.Warn("Failed to get snapshot status, retrying", "snapshot", snapshotName, "error", err)
+			continue
+		}
+
+		if len(snapshots) == 0 {
+			logger.Warn("Snapshot not found, retrying", "snapshot", snapshotName)
+			continue
+		}
+
+		snapshot := snapshots[0]
+		logger.Info("Snapshot status check", "snapshot", snapshotName, "state", snapshot.State)
+
+		switch snapshot.State {
+		case "SUCCESS":
+			logger.Info("Snapshot completed successfully", "snapshot", snapshotName)
+			return nil
+		case "PARTIAL":
+			return fmt.Errorf("snapshot creation resulted in PARTIAL state, this is an error")
+		case "FAILED":
+			return fmt.Errorf("snapshot creation failed")
+		case "IN_PROGRESS":
+			logger.Info("Snapshot still in progress, waiting", "snapshot", snapshotName)
+			continue
+		default:
+			logger.Warn("Unknown snapshot state, waiting", "snapshot", snapshotName, "state", snapshot.State)
+			continue
+		}
+	}
 }
 
 func waitForRunningSnapshots(client *opensearch.Client) error {
