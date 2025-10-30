@@ -7,7 +7,7 @@ import (
 	"osctl/pkg/config"
 	"osctl/pkg/kibana"
 	"osctl/pkg/logging"
-	"osctl/pkg/opensearch"
+	"osctl/pkg/utils"
 	"slices"
 	"strings"
 	"time"
@@ -44,7 +44,7 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 	}
 
 	logger := logging.NewLogger()
-	_, err := opensearch.NewClient(cfg.OpenSearchURL, cfg.CertFile, cfg.KeyFile, cfg.CAFile, cfg.GetTimeout(), cfg.GetRetryAttempts())
+	_, err := utils.NewOSClientFromCommandConfig(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}

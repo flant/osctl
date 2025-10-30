@@ -40,7 +40,7 @@ func runRetention(cmd *cobra.Command, args []string) error {
 	logger := logging.NewLogger()
 	logger.Info(fmt.Sprintf("Starting retention process threshold=%.2f snapRepo=%s dryRun=%t", threshold, snapRepo, dryRun))
 
-	client, err := opensearch.NewClient(cfg.OpenSearchURL, cfg.CertFile, cfg.KeyFile, cfg.CAFile, cfg.GetTimeout(), cfg.GetRetryAttempts())
+	client, err := utils.NewOSClientFromCommandConfig(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}

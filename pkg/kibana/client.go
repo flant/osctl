@@ -1,8 +1,10 @@
 package kibana
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -88,7 +90,7 @@ func (c *Client) CreateDataSource(tenant, title, endpoint, user, password string
 		},
 	}
 	b, _ := json.Marshal(body)
-	req, err := http.NewRequest("POST", u, strings.NewReader(string(b)))
+	req, err := http.NewRequest("POST", u, bytes.NewReader(b))
 	if err != nil {
 		return err
 	}
@@ -102,7 +104,8 @@ func (c *Client) CreateDataSource(tenant, title, endpoint, user, password string
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
-		return fmt.Errorf("kibana create data-source failed: %s", resp.Status)
+		snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return fmt.Errorf("kibana create data-source failed: %s — %s", resp.Status, strings.TrimSpace(string(snippet)))
 	}
 	return nil
 }

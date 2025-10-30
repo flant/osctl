@@ -5,7 +5,6 @@ import (
 	"osctl/pkg/alerts"
 	"osctl/pkg/config"
 	"osctl/pkg/logging"
-	"osctl/pkg/opensearch"
 	"osctl/pkg/utils"
 	"strings"
 
@@ -26,11 +25,12 @@ func init() {
 
 func runSnapshotChecker(cmd *cobra.Command, args []string) error {
 	cfg := config.GetConfig()
+	cmdCfg := config.GetCommandConfig(cmd)
 	logger := logging.NewLogger()
 
 	logger.Info("Starting snapshot checking")
 
-	client, err := opensearch.NewClient(cfg.OpenSearchURL, cfg.CertFile, cfg.KeyFile, cfg.CAFile, cfg.GetTimeout(), cfg.GetRetryAttempts())
+	client, err := utils.NewOSClientFromCommandConfig(cmdCfg)
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}

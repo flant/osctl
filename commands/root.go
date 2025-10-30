@@ -68,6 +68,9 @@ func Execute() error {
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		commandName := cmd.Name()
 		if commandName == "osctl" {
+			if action, _ := cmd.Flags().GetString("action"); action != "" {
+				return nil
+			}
 			commandName = "root"
 		}
 

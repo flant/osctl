@@ -5,7 +5,6 @@ import (
 	"osctl/pkg/alerts"
 	"osctl/pkg/config"
 	"osctl/pkg/logging"
-	"osctl/pkg/opensearch"
 	"osctl/pkg/utils"
 	"strings"
 	"time"
@@ -14,7 +13,7 @@ import (
 )
 
 var snapshotCmd = &cobra.Command{
-	Use:   "snapshot",
+	Use:   "snapshots",
 	Short: "Create snapshots",
 	Long:  `Create snapshots of indices`,
 	RunE:  runSnapshot,
@@ -26,6 +25,7 @@ func init() {
 
 func runSnapshot(cmd *cobra.Command, args []string) error {
 	cfg := config.GetConfig()
+	cmdCfg := config.GetCommandConfig(cmd)
 	logger := logging.NewLogger()
 
 	indicesConfig, err := cfg.GetOsctlIndices()
@@ -37,7 +37,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 
 	logger.Info(fmt.Sprintf("Starting snapshot creation indicesCount=%d unknownSnapshot=%t", len(indicesConfig), unknownConfig.Snapshot))
 
-	client, err := opensearch.NewClient(cfg.OpenSearchURL, cfg.CertFile, cfg.KeyFile, cfg.CAFile, cfg.GetTimeout(), cfg.GetRetryAttempts())
+	client, err := utils.NewOSClientFromCommandConfig(cmdCfg)
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}

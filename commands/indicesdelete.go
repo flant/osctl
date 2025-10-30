@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"osctl/pkg/config"
 	"osctl/pkg/logging"
-	"osctl/pkg/opensearch"
 	"osctl/pkg/utils"
 	"strconv"
 	"strings"
@@ -26,6 +25,7 @@ func init() {
 
 func runIndicesDelete(cmd *cobra.Command, args []string) error {
 	cfg := config.GetConfig()
+	cmdCfg := config.GetCommandConfig(cmd)
 	logger := logging.NewLogger()
 
 	indicesConfig, err := cfg.GetOsctlIndices()
@@ -37,7 +37,7 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 
 	logger.Info(fmt.Sprintf("Starting indices deletion indicesCount=%d unknownDays=%d", len(indicesConfig), unknownConfig.DaysCount))
 
-	client, err := opensearch.NewClient(cfg.OpenSearchURL, cfg.CertFile, cfg.KeyFile, cfg.CAFile, cfg.GetTimeout(), cfg.GetRetryAttempts())
+	client, err := utils.NewOSClientFromCommandConfig(cmdCfg)
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}

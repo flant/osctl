@@ -3,10 +3,12 @@ package opensearch
 import (
 	"bytes"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -49,30 +51,36 @@ type AllocationInfo struct {
 }
 
 func NewClient(baseURL, certFile, keyFile, caFile string, timeout time.Duration, retryAttempts int) (*Client, error) {
-	var httpClient *http.Client
-
+	var transport *http.Transport
 	if certFile == "" && keyFile == "" && caFile == "" {
-		httpClient = &http.Client{
-			Timeout: timeout,
-		}
+		transport = &http.Transport{}
 	} else {
-		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load certificate: %v", err)
+		tlsConfig := &tls.Config{}
+		if certFile != "" && keyFile != "" {
+			cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load certificate: %v", err)
+			}
+			tlsConfig.Certificates = []tls.Certificate{cert}
 		}
-
-		tlsConfig := &tls.Config{
-			Certificates:       []tls.Certificate{cert},
-			InsecureSkipVerify: true,
+		if caFile != "" {
+			caData, err := os.ReadFile(caFile)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read CA file: %v", err)
+			}
+			pool := x509.NewCertPool()
+			if ok := pool.AppendCertsFromPEM(caData); !ok {
+				return nil, fmt.Errorf("failed to parse CA file: %s", caFile)
+			}
+			tlsConfig.RootCAs = pool
+			tlsConfig.InsecureSkipVerify = false
+		} else {
+			tlsConfig.InsecureSkipVerify = true
 		}
-
-		httpClient = &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: tlsConfig,
-			},
-			Timeout: timeout,
-		}
+		transport = &http.Transport{TLSClientConfig: tlsConfig}
 	}
+
+	httpClient := &http.Client{Transport: transport, Timeout: timeout}
 
 	return &Client{
 		baseURL:       baseURL,
@@ -100,13 +108,13 @@ func (c *Client) executeRequest(req *http.Request) (*http.Response, error) {
 		}
 
 		if resp.StatusCode >= 500 {
-
 			resp.Body.Close()
 			lastErr = fmt.Errorf("server error: %d", resp.StatusCode)
 			if attempt < c.retryAttempts {
 				time.Sleep(time.Duration(attempt+1) * time.Second)
 				continue
 			}
+			return nil, lastErr
 		}
 
 		return resp, nil
@@ -136,6 +144,9 @@ func (c *Client) GetIndicesWithFields(pattern, fields string, sortBy ...string) 
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("GET %s failed: %s — %s", req.URL.Path, resp.Status, readErrorSnippet(resp))
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -211,6 +222,9 @@ func (c *Client) Search(index, query string) (*OSSearchResponse, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("SEARCH %s failed: %s — %s", req.URL.Path, resp.Status, readErrorSnippet(resp))
+	}
 	var sr OSSearchResponse
 	if err := json.NewDecoder(resp.Body).Decode(&sr); err != nil {
 		return nil, err
@@ -235,7 +249,7 @@ func (c *Client) CreateDoc(index, id string, payload interface{}) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
-		return fmt.Errorf("opensearch create doc failed: %s", resp.Status)
+		return fmt.Errorf("opensearch create doc failed: %s — %s", resp.Status, readErrorSnippet(resp))
 	}
 	return nil
 }
@@ -251,6 +265,9 @@ func (c *Client) GetAliases(pattern string) ([]AliasInfo, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("GET %s failed: %s — %s", req.URL.Path, resp.Status, readErrorSnippet(resp))
+	}
 	var out []AliasInfo
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -306,8 +323,15 @@ func (c *Client) DeleteSnapshotsBatch(snapRepo string, snapshotNames []string) e
 		return err
 	}
 
-	_, err = c.executeRequest(req)
-	return err
+	resp, err := c.executeRequest(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("DELETE %s failed: %s — %s", req.URL.Path, resp.Status, readErrorSnippet(resp))
+	}
+	return nil
 }
 
 func (c *Client) getJSON(url string, result interface{}) error {
@@ -321,7 +345,9 @@ func (c *Client) getJSON(url string, result interface{}) error {
 		return err
 	}
 	defer resp.Body.Close()
-
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("GET %s failed: %s — %s", req.URL.Path, resp.Status, readErrorSnippet(resp))
+	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
@@ -347,7 +373,9 @@ func (c *Client) putJSON(url string, data interface{}) error {
 		return err
 	}
 	defer resp.Body.Close()
-
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("PUT %s failed: %s — %s", req.URL.Path, resp.Status, readErrorSnippet(resp))
+	}
 	return nil
 }
 
@@ -444,7 +472,9 @@ func (c *Client) delete(url string) error {
 		return err
 	}
 	defer resp.Body.Close()
-
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("DELETE %s failed: %s — %s", req.URL.Path, resp.Status, readErrorSnippet(resp))
+	}
 	return nil
 }
 
@@ -470,6 +500,9 @@ func (c *Client) GetSnapshotStatus() (*SnapshotStatus, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("GET %s failed: %s — %s", req.URL.Path, resp.Status, readErrorSnippet(resp))
+	}
 
 	var status SnapshotStatus
 	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
@@ -504,6 +537,9 @@ func (c *Client) GetTasks() (*TasksResponse, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("GET %s failed: %s — %s", req.URL.Path, resp.Status, readErrorSnippet(resp))
+	}
 
 	var tasks TasksResponse
 	if err := json.NewDecoder(resp.Body).Decode(&tasks); err != nil {
@@ -532,6 +568,18 @@ func (c *Client) CreateSnapshot(repo, snapshot string, body map[string]any) erro
 		return err
 	}
 	defer resp.Body.Close()
-
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("PUT %s failed: %s — %s", req.URL.Path, resp.Status, readErrorSnippet(resp))
+	}
 	return nil
+}
+
+func readErrorSnippet(resp *http.Response) string {
+	const limit = 4096
+	b, _ := io.ReadAll(io.LimitReader(resp.Body, limit))
+	s := strings.TrimSpace(string(b))
+	if s == "" {
+		return ""
+	}
+	return s
 }
