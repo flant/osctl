@@ -23,14 +23,13 @@
 | `--os-recoverer-url` | `OPENSEARCH_RECOVERER_URL` | URL OpenSearch Recoverer | `https://opendistro-recoverer:9200` |
 | `--cert-file` | `OPENSEARCH_CERT_FILE` | Путь к сертификату | `/etc/ssl/certs/admin-crt.pem` |
 | `--key-file` | `OPENSEARCH_KEY_FILE` | Путь к приватному ключу | `/etc/ssl/certs/admin-key.pem` |
-| `--ca-file` | `OPENSEARCH_CA_FILE` | Путь к CA | `/etc/ssl/certs/elk-root-ca.pem` |
+| `--ca-file` | `OPENSEARCH_CA_FILE` | Путь к CA | (пусто) |
 | `--timeout` | `OPENSEARCH_TIMEOUT` | Таймаут запросов | `300s` |
 | `--retry-attempts` | `OPENSEARCH_RETRY_ATTEMPTS` | Количество повторных попыток для запросов в апи | `3` |
 | `--date-format` | `OPENSEARCH_DATE_FORMAT` | Формат даты в названиях индексов и снапшотов | `%Y.%m.%d` |
 | `--recoverer-date-format` | `RECOVERER_DATE_FORMAT` | Формат даты для индексов у Recoverer | `%d-%m-%Y` |
 | `--madison-url` | `MADISON_URL` | URL API Madison | `https://madison.flant.com/api/events/custom/` |
 | `--madison-key` | `MADISON_KEY` | Ключ API Madison | (пусто) |
-| `--madison-project` | `MADISON_PROJECT` | Название проекта в Madison | (пусто) |
 | `--osd-url` | `OPENSEARCH_DASHBOARDS_URL` | URL OpenSearch Dashboards | (пусто) |
 | `--osctl-indices-config` | `OSCTL_INDICES_CONFIG` | Путь к конфигу индексов - для snapshot, indicesdelete, snapshotdelete, snapshotchecker | `osctlindicesconfig.yaml` |
 | `--dry-run` | `DRY_RUN` | Показать что будет сделано без выполнения | `false` |

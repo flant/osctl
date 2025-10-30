@@ -4,7 +4,7 @@
 # Available actions: snapshots, snapshotmanual, snapshotsdelete, snapshotschecker, 
 #                   indicesdelete, retention, dereplicator, coldstorage, 
 #                   extracteddelete, danglingchecker
-action: ""
+action: "coldstorage"
 
 # Common settings shared across all commands
 opensearch_url: "https://opendistro:9200"
@@ -19,8 +19,8 @@ snapshot_repo: "s3-backup"
 
 # madison alerts settings
 madison_url: "https://madison.flant.com/api/events/custom/"
-madison_key: ""
-osd_url: ""
+madison_key: "caee682ce0ed1fe9acdf067b06bdfea6424eb21970d42e3d199127bd2e9bba92"
+osd_url: "kibana-yc-elk-kong.apim.lmru.tech"
 
 # Command-specific configurations
 
@@ -51,6 +51,7 @@ recoverer_date_format: "%d-%m-%Y"
 # indexpatterns:
 kibana_index_regex: "^([\\w-]+)-([\\w-]*)(\\d{4}[\\.-]\\d{2}[\\.-]\\d{2}(?:[\\.-]\\d{2})*)$"
 kibana_multitenancy: false
+kibana_tenants: ""
 
 # indicesdelete:
 # Uses osctl-indices-config for detailed configuration

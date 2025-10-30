@@ -27,7 +27,6 @@ type Config struct {
 	MadisonURL               string
 	OSDURL                   string
 	MadisonKey               string
-	MadisonProject           string
 	SnapshotRepo             string
 	RetentionThreshold       string
 	DereplicatorDaysCount    string
@@ -44,7 +43,6 @@ type Config struct {
 	ShardingExcludeRegex     string
 	KibanaIndexRegex         string
 	KibanaMultitenancy       string
-	KibanaTenants            string
 	RecovererEnabled         string
 	KubeNamespace            string
 	SnapshotManualKind       string
@@ -128,7 +126,6 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		KibanaUser:               getValue(cmd, "kibana-user", "KIBANA_API_USER", viper.GetString("kibana_user")),
 		KibanaPass:               getValue(cmd, "kibana-pass", "KIBANA_API_PASS", viper.GetString("kibana_pass")),
 		MadisonKey:               getValue(cmd, "madison-key", "MADISON_KEY", viper.GetString("madison_key")),
-		MadisonProject:           getValue(cmd, "madison-project", "MADISON_PROJECT", viper.GetString("madison_project")),
 		SnapshotRepo:             getValue(cmd, "snap-repo", "SNAPSHOT_REPOSITORY", viper.GetString("snapshot_repo")),
 		RetentionThreshold:       getValue(cmd, "retention-threshold", "RETENTION_THRESHOLD", viper.GetString("retention_threshold")),
 		DereplicatorDaysCount:    getValue(cmd, "dereplicator-days-count", "DEREPLICATOR_DAYS", viper.GetString("dereplicator_days_count")),
@@ -142,7 +139,6 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		ShardingExcludeRegex:     getValue(cmd, "exclude-sharding", "EXCLUDE_SHARDING", viper.GetString("exclude_sharding")),
 		KibanaIndexRegex:         getValue(cmd, "kibana-index-regex", "KIBANA_INDEX_REGEX", viper.GetString("kibana_index_regex")),
 		KibanaMultitenancy:       getValue(cmd, "kibana-multitenancy", "KIBANA_MULTITENANCY", viper.GetString("kibana_multitenancy")),
-		KibanaTenants:            getValue(cmd, "kibana-tenants", "KIBANA_TENANTS", viper.GetString("kibana_tenants")),
 		RecovererEnabled:         getValue(cmd, "recoverer-enabled", "RECOVERER_ENABLED", viper.GetString("recoverer_enabled")),
 		KubeNamespace:            getValue(cmd, "kube-namespace", "KUBE_NAMESPACE", viper.GetString("kube_namespace")),
 		SnapshotManualKind:       getValue(cmd, "snapshot-manual-kind", "SNAPSHOT_KIND", viper.GetString("snapshot_manual_kind")),
@@ -160,6 +156,10 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		RemoteCRT:                getValue(cmd, "remote-crt", "REMOTE_CRT", viper.GetString("remote_crt")),
 	}
 
+	if commandName == "sharding" {
+		NewValidator("sharding_target_size_gib", configInstance.ShardingTargetSizeGiB).IntStringBetween(1, 50)
+	}
+
 	return nil
 }
 
@@ -169,7 +169,7 @@ func setDefaults() {
 	viper.SetDefault("opensearch_recoverer_url", "https://opendistro-recoverer:9200")
 	viper.SetDefault("cert_file", "/etc/ssl/certs/admin-crt.pem")
 	viper.SetDefault("key_file", "/etc/ssl/certs/admin-key.pem")
-	viper.SetDefault("ca_file", "/etc/ssl/certs/elk-root-ca.pem")
+	viper.SetDefault("ca_file", "")
 	viper.SetDefault("timeout", "300s")
 	viper.SetDefault("retry_attempts", 3)
 	viper.SetDefault("date_format", "%Y.%m.%d")
@@ -179,7 +179,6 @@ func setDefaults() {
 	viper.SetDefault("kibana_user", "")
 	viper.SetDefault("kibana_pass", "")
 	viper.SetDefault("madison_key", "")
-	viper.SetDefault("madison_project", "lm-elk")
 	viper.SetDefault("snapshot_repo", "s3-backup")
 	viper.SetDefault("retention_threshold", 75.0)
 	viper.SetDefault("dereplicator_days_count", 2)
@@ -301,6 +300,19 @@ func (v *Validator) Max(max int) *Validator {
 	if num, ok := v.value.(int); ok {
 		if num > max {
 			panic(ValidationError{Field: v.field, Message: fmt.Sprintf("must be at most %d", max)})
+		}
+	}
+	return v
+}
+
+func (v *Validator) IntStringBetween(min, max int) *Validator {
+	if str, ok := v.value.(string); ok && str != "" {
+		n, err := strconv.Atoi(str)
+		if err != nil {
+			panic(ValidationError{Field: v.field, Message: "must be an integer"})
+		}
+		if n < min || n > max {
+			panic(ValidationError{Field: v.field, Message: fmt.Sprintf("must be between %d and %d", min, max)})
 		}
 	}
 	return v
@@ -740,7 +752,6 @@ type CommandConfig struct {
 	MadisonURL               string
 	OSDURL                   string
 	MadisonKey               string
-	MadisonProject           string
 	SnapshotRepo             string
 	RetentionThreshold       string
 	DereplicatorDaysCount    string
@@ -757,7 +768,6 @@ type CommandConfig struct {
 	ShardingExcludeRegex     string
 	KibanaIndexRegex         string
 	KibanaMultitenancy       string
-	KibanaTenants            string
 	RecovererEnabled         string
 	KubeNamespace            string
 	KibanaMultidomainEnabled string
@@ -779,7 +789,6 @@ func GetCommandConfig(cmd *cobra.Command) *CommandConfig {
 		MadisonURL:               cfg.MadisonURL,
 		OSDURL:                   cfg.OSDURL,
 		MadisonKey:               cfg.MadisonKey,
-		MadisonProject:           cfg.MadisonProject,
 		SnapshotRepo:             cfg.SnapshotRepo,
 		RetentionThreshold:       cfg.RetentionThreshold,
 		DereplicatorDaysCount:    cfg.DereplicatorDaysCount,
@@ -796,7 +805,6 @@ func GetCommandConfig(cmd *cobra.Command) *CommandConfig {
 		ShardingExcludeRegex:     cfg.ShardingExcludeRegex,
 		KibanaIndexRegex:         cfg.KibanaIndexRegex,
 		KibanaMultitenancy:       cfg.KibanaMultitenancy,
-		KibanaTenants:            cfg.KibanaTenants,
 		RecovererEnabled:         cfg.RecovererEnabled,
 		KubeNamespace:            cfg.KubeNamespace,
 		KibanaMultidomainEnabled: cfg.KibanaMultidomainEnabled,

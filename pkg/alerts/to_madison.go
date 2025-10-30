@@ -12,7 +12,6 @@ import (
 
 type Client struct {
 	apiKey     string
-	project    string
 	kibanaHost string
 	madisonURL string
 	httpClient *http.Client
@@ -25,7 +24,6 @@ type Alert struct {
 
 type Labels struct {
 	Trigger       string `json:"trigger"`
-	Project       string `json:"project"`
 	SeverityLevel string `json:"severity_level"`
 	SnapshotsList string `json:"SnapshotsList"`
 	Kibana        string `json:"kibana"`
@@ -36,10 +34,9 @@ type Annotations struct {
 	Description string `json:"description"`
 }
 
-func NewMadisonClient(apiKey, project, kibanaHost, madisonURL string) *Client {
+func NewMadisonClient(apiKey, kibanaHost, madisonURL string) *Client {
 	return &Client{
 		apiKey:     apiKey,
-		project:    project,
 		kibanaHost: kibanaHost,
 		madisonURL: madisonURL,
 		httpClient: &http.Client{
@@ -69,7 +66,6 @@ func (c *Client) SendMadisonSnapshotMissingAlert(missingSnapshots []string) (str
 	payload := Alert{
 		Labels: Labels{
 			Trigger:       "SnapshotsMissing",
-			Project:       c.project,
 			SeverityLevel: "5",
 			SnapshotsList: snapshotsList,
 			Kibana:        c.kibanaHost,
@@ -126,7 +122,6 @@ func (c *Client) SendMadisonDanglingIndicesAlert(danglingIndices []string) (stri
 	description := fmt.Sprintf("Кластер содержит dangling индексы.\nПроверьте индексы в %s\nGET _dangling?pretty", c.kibanaHost)
 
 	payload := map[string]any{
-		"project":        c.project,
 		"severity_level": 4,
 		"type":           "Events::Continuous",
 		"source_type":    "custom",
@@ -185,7 +180,6 @@ func (c *Client) SendMadisonSnapshotCreationFailedAlert(snapshotName, indexName 
 	payload := Alert{
 		Labels: Labels{
 			Trigger:       "SnapshotCreationFailed",
-			Project:       c.project,
 			SeverityLevel: "4",
 			SnapshotsList: snapshotName,
 			Kibana:        c.kibanaHost,

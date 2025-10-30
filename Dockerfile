@@ -13,6 +13,8 @@ RUN CGO_ENABLED=0 go build -v -a -tags netgo -ldflags="-extldflags '-static' -s 
 
 FROM debian:bookworm-slim
 
+WORKDIR /app
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

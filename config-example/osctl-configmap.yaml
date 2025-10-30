@@ -27,7 +27,6 @@ data:
     # madison alerts settings
     madison_url: "https://madison.flant.com/api/events/custom/"
     madison_key: ""
-    madison_project: ""
     osd_url: ""
 
     # Command-specific configurations

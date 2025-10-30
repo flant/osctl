@@ -26,13 +26,12 @@ func init() {
 func runDanglingChecker(cmd *cobra.Command, args []string) error {
 	cfg := config.GetCommandConfig(cmd)
 
-	madisonKey := cfg.MadisonKey
-	madisonProject := cfg.MadisonProject
-	osdURL := cfg.OSDURL
+    madisonKey := cfg.MadisonKey
+    osdURL := cfg.OSDURL
 
-	if madisonKey == "" || madisonProject == "" || osdURL == "" || cfg.MadisonURL == "" {
-		return fmt.Errorf("madison-key, madison-project, osd-url and madison-url parameters are required")
-	}
+    if madisonKey == "" || osdURL == "" || cfg.MadisonURL == "" {
+        return fmt.Errorf("madison-key, osd-url and madison-url parameters are required")
+    }
 
 	logger := logging.NewLogger()
 	client, err := opensearch.NewClient(cfg.OpenSearchURL, cfg.CertFile, cfg.KeyFile, cfg.CAFile, cfg.GetTimeout(), cfg.GetRetryAttempts())
@@ -61,7 +60,7 @@ func runDanglingChecker(cmd *cobra.Command, args []string) error {
 		indexNames = append(indexNames, idx.IndexName)
 	}
 
-	madisonClient := alerts.NewMadisonClient(madisonKey, madisonProject, osdURL, cfg.MadisonURL)
+    madisonClient := alerts.NewMadisonClient(madisonKey, osdURL, cfg.MadisonURL)
 	response, err := madisonClient.SendMadisonDanglingIndicesAlert(indexNames)
 	if err != nil {
 		return fmt.Errorf("failed to send Madison alert: %v", err)

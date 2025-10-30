@@ -137,7 +137,7 @@ func runSnapshotChecker(cmd *cobra.Command, args []string) error {
 
 func sendMissingSnapshotsAlert(cfg *config.Config, missingSnapshots []string) error {
 	logger := logging.NewLogger()
-	madisonClient := alerts.NewMadisonClient(cfg.MadisonKey, cfg.MadisonProject, cfg.OSDURL, cfg.MadisonURL)
+	madisonClient := alerts.NewMadisonClient(cfg.MadisonKey, cfg.OSDURL, cfg.MadisonURL)
 	response, err := madisonClient.SendMadisonSnapshotMissingAlert(missingSnapshots)
 	if err != nil {
 		return err

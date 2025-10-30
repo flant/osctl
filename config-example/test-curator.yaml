@@ -1,0 +1,116 @@
+s3_snapshots:
+  unit_count:
+    all: 60
+    unknown: 7
+cron:
+  restore: 10 3 * * *
+  snapshot: 30 0 * * *
+unknown:
+  days_count: 7
+  snapshot: true
+  schedule: 30 0 * * *
+indices:
+  - kind: prefix
+    value: filebeat
+    system: false
+    days_count: 25
+    snapshot: true
+    schedule: 50 0 * * *
+  - kind: prefix
+    value: infra
+    system: false
+    days_count: 25
+    snapshot: false
+    schedule: 54 0 * * *
+  - kind: prefix
+    value: d8
+    system: false
+    days_count: 7
+    snapshot: true
+    snapshot_count_s3: 7
+    schedule: 0 1 * * *
+  - kind: prefix
+    value: .kibana
+    system: true
+    repository: s3-backup-sys
+    days_count: 30
+    snapshot: true
+    schedule: 5 1 * * *
+  - kind: prefix
+    value: kong-fluentd
+    system: false
+    days_count: 25
+    snapshot: true
+    schedule: 10 1 * * *
+  - kind: prefix
+    value: kong-ingress
+    system: false
+    days_count: 25
+    snapshot: true
+    schedule: 15 1 * * *
+  - kind: prefix
+    value: kong-internal
+    system: false
+    days_count: 25
+    snapshot: true
+    schedule: 20 2 * * *
+  - kind: prefix
+    value: other-kong-x1-fluentd
+    system: false
+    days_count: 25
+    snapshot: true
+    schedule: 25 2 * * *
+  - kind: prefix
+    value: kong-x1-fluentd-doc
+    system: false
+    days_count: 25
+    snapshot: true
+    schedule: 30 2 * * *
+  - kind: prefix
+    value: other-kong-x1-stage-fluentd
+    system: false
+    days_count: 25
+    snapshot: true
+    schedule: 35 3 * * *
+  - kind: prefix
+    value: kong-x1-stage-fluentd-doc
+    system: false
+    days_count: 25
+    snapshot: true
+    schedule: 40 3 * * *
+  - kind: prefix
+    value: other-kong-yc-a-stage-fluentd
+    system: false
+    days_count: 25
+    snapshot: true
+    schedule: 35 3 * * *
+  - kind: prefix
+    value: kong-yc-a-stage-fluentd-doc
+    system: false
+    days_count: 25
+    snapshot: true
+    schedule: 40 3 * * *
+  - kind: prefix
+    value: other-kong-x2-fluentd
+    system: false
+    days_count: 25
+    snapshot: true
+    schedule: 45 3 * * *
+  - kind: prefix
+    value: kong-x2-fluentd-doc
+    system: false
+    days_count: 25
+    snapshot: true
+    schedule: 50 3 * * *
+  - kind: prefix
+    value: other-kong-yc-fluentd
+    system: false
+    days_count: 25
+    snapshot: true
+    schedule: 55 4 * * *
+  - kind: prefix
+    value: kong-yc-fluentd-doc
+    system: false
+    days_count: 25
+    snapshot: true
+    schedule: 0 6 * * *

@@ -49,8 +49,8 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 	}
 
 	var madisonClient *alerts.Client
-	if cfg.MadisonKey != "" && cfg.MadisonProject != "" && cfg.OSDURL != "" && cfg.MadisonURL != "" {
-		madisonClient = alerts.NewMadisonClient(cfg.MadisonKey, cfg.MadisonProject, cfg.OSDURL, cfg.MadisonURL)
+	if cfg.MadisonKey != "" && cfg.OSDURL != "" && cfg.MadisonURL != "" {
+		madisonClient = alerts.NewMadisonClient(cfg.MadisonKey, cfg.OSDURL, cfg.MadisonURL)
 	}
 
 	yesterday := utils.FormatDate(time.Now().AddDate(0, 0, -1), cfg.DateFormat)

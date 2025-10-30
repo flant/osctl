@@ -154,7 +154,6 @@ func addFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().String("madison-url", "", "Madison API URL")
 	cmd.PersistentFlags().String("osd-url", "", "OpenSearch Dashboards URL")
 	cmd.PersistentFlags().String("madison-key", "", "Madison API key")
-	cmd.PersistentFlags().String("madison-project", "", "Madison project name")
 	cmd.PersistentFlags().Bool("dry-run", false, "Show what would be done without executing")
 
 	commandName := cmd.Name()
