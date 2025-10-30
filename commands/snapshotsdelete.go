@@ -94,14 +94,8 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 				snapshotsToDelete = append(snapshotsToDelete, snapshotName)
 			}
 		}
-		cutoffTime := time.Now().AddDate(0, 0, -s3Config.UnitCount.Unknown)
 		for _, snapshot := range danglingSnapshots {
-			if snapshot.StartTimeInMillis > 0 {
-				snapshotTime := time.Unix(0, snapshot.StartTimeInMillis*int64(time.Millisecond))
-				if snapshotTime.Before(cutoffTime) || snapshotTime.Equal(cutoffTime) {
-					snapshotsToDelete = append(snapshotsToDelete, snapshot.Snapshot)
-				}
-			}
+			logger.Info(fmt.Sprintf("Dangling snapshot (default repo) snapshot=%s", snapshot.Snapshot))
 		}
 	}
 
@@ -130,6 +124,11 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 			name := s.Snapshot
 			ic := utils.FindMatchingSnapshotConfig(name, indicesConfig)
 			if ic == nil || ic.Repository != repo || !ic.Snapshot {
+				logger.Info(fmt.Sprintf("Dangling snapshot (repo=%s) snapshot=%s", repo, name))
+				continue
+			}
+			if !utils.HasDateInName(name, cfg.DateFormat) {
+				logger.Info(fmt.Sprintf("Skip repo snapshot without date repo=%s snapshot=%s", repo, name))
 				continue
 			}
 			daysCount := s3Config.UnitCount.All
