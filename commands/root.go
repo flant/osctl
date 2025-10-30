@@ -10,18 +10,18 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "osctl",
 	Short: "OpenSearch indices lifecycle management tool",
-	Long: `osctl is a comprehensive tool for managing OpenSearch cluster indices lifecycle.
+	Long: `osctl is a tool for managing OpenSearch cluster indices lifecycle.
 
 Available Commands:
   snapshots         Create snapshots of indices
   snapshot-manual   Create manual snapshots for specific indices using CLI flags
-  snapshotsdelete   Delete old snapshots based on retention policy
-  indicesdelete     Delete old indices based on retention policy
+  snapshotsdelete   Delete old snapshots based on policy
+  indicesdelete     Delete old indices based on policy
   retention         Manage disk space by deleting old indices when threshold exceeded
   dereplicator      Reduce replicas for old indices to save disk space
   snapshotschecker  Check for missing snapshots and send alerts
   danglingchecker   Check for dangling indices and send alerts
-  sharding          Create index templates with optimal shard counts
+  sharding          Create or update index templates with optimal shard counts
   indexpatterns     Manage Kibana index patterns
   datasource        Create Kibana data sources
   coldstorage       Migrate indices to cold storage nodes
@@ -107,6 +107,12 @@ func executeActionCommand(action string, args []string) error {
 		targetCmd = extractedDeleteCmd
 	case "danglingchecker":
 		targetCmd = danglingCheckerCmd
+	case "sharding":
+		targetCmd = shardingCmd
+	case "indexpatterns":
+		targetCmd = indexPatternsCmd
+	case "datasource":
+		targetCmd = dataSourceCmd
 	default:
 		return fmt.Errorf("unknown action: %s", action)
 	}

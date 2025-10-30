@@ -163,7 +163,7 @@ func CreateSnapshotWithRetry(client *opensearch.Client, snapshotName, indexName,
 			logger.Warn(fmt.Sprintf("Failed to wait for snapshot tasks error=%v", err))
 		}
 
-		snapshotRequest := map[string]interface{}{
+		snapshotRequest := map[string]any{
 			"indices":              indexName,
 			"ignore_unavailable":   true,
 			"include_global_state": false,
@@ -360,32 +360,6 @@ func GroupIndicesForSnapshots(indices []string, indicesConfig []config.IndexConf
 	}
 
 	return groups
-}
-
-func formatSnapshotDuration(durationMillis int64) string {
-	if durationMillis == 0 {
-		return "unknown"
-	}
-
-	durationSeconds := durationMillis / 1000
-
-	if durationSeconds < 60 {
-		return fmt.Sprintf("%ds", durationSeconds)
-	} else if durationSeconds < 3600 {
-		minutes := durationSeconds / 60
-		seconds := durationSeconds % 60
-		if seconds == 0 {
-			return fmt.Sprintf("%dm", minutes)
-		}
-		return fmt.Sprintf("%dm%ds", minutes, seconds)
-	} else {
-		hours := durationSeconds / 3600
-		minutes := (durationSeconds % 3600) / 60
-		if minutes == 0 {
-			return fmt.Sprintf("%dh", hours)
-		}
-		return fmt.Sprintf("%dh%dm", hours, minutes)
-	}
 }
 
 func formatDuration(d time.Duration) string {

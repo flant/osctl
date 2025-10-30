@@ -87,43 +87,26 @@ func runSharding(cmd *cobra.Command, args []string) error {
 		priority := dashCount * 1000
 		templateName := strings.Replace(name, today, "sharding", 1)
 
-		maxSize := int64(0)
-		for idx, sz := range sizes {
-			if strings.HasPrefix(idx, strings.TrimSuffix(base, "-")) {
-				if sz > maxSize {
-					maxSize = sz
-				}
-			}
-		}
-		if szToday, err := strconv.ParseInt(it.Size, 10, 64); err == nil && szToday > maxSize {
-			maxSize = szToday
-		}
-		shards := 1
-		if maxSize > targetBytes {
-			shards = int(math.Floor(float64(maxSize)/float64(targetBytes))) + 1
-			if shards > dataNodes {
-				logger.Warn(fmt.Sprintf("Index %s needs %d primary shards, but cluster has %d data nodes. Reducing to %d", name, shards, dataNodes, dataNodes))
-				shards = dataNodes
-			}
-		}
+		maxSize := computeMaxSizeForPattern(sizes, base, it.Size)
+		shards := computeShardCount(maxSize, targetBytes, dataNodes, name, logger)
 		logger.Info(fmt.Sprintf("Evaluate pattern=%s template=%s maxSize=%dB targetBytes=%dB shards=%d dataNodes=%d priority=%d", pattern, templateName, maxSize, targetBytes, shards, dataNodes, priority))
 
 		existing, err := client.FindIndexTemplateByPattern(pattern)
 		if err != nil {
 			return err
 		}
-		settings := map[string]interface{}{
-			"index": map[string]interface{}{
+		settings := map[string]any{
+			"index": map[string]any{
 				"number_of_shards":           shards,
 				"number_of_replicas":         1,
 				"mapping.total_fields.limit": 2000,
 				"query.default_field":        []string{"message", "text", "log", "original_message"},
 			},
 		}
-		template := map[string]interface{}{
+		template := map[string]any{
 			"index_patterns": []string{pattern},
 			"priority":       priority,
-			"template": map[string]interface{}{
+			"template": map[string]any{
 				"settings": settings["index"],
 			},
 		}
@@ -134,10 +117,10 @@ func runSharding(cmd *cobra.Command, args []string) error {
 			}
 		} else {
 			logger.Info(fmt.Sprintf("Update existing template %s: set number_of_shards=%d", existing, shards))
-			current := map[string]interface{}{
-				"template": map[string]interface{}{
-					"settings": map[string]interface{}{
-						"index": map[string]interface{}{
+			current := map[string]any{
+				"template": map[string]any{
+					"settings": map[string]any{
+						"index": map[string]any{
 							"number_of_shards": shards,
 						},
 					},
@@ -150,4 +133,31 @@ func runSharding(cmd *cobra.Command, args []string) error {
 		logger.Info(fmt.Sprintf("Applied sharding template %s for pattern %s with %d shards", templateName, pattern, shards))
 	}
 	return nil
+}
+
+func computeMaxSizeForPattern(sizes map[string]int64, base string, todaySizeStr string) int64 {
+	maxSize := int64(0)
+	for idx, sz := range sizes {
+		if strings.HasPrefix(idx, strings.TrimSuffix(base, "-")) {
+			if sz > maxSize {
+				maxSize = sz
+			}
+		}
+	}
+	if szToday, err := strconv.ParseInt(todaySizeStr, 10, 64); err == nil && szToday > maxSize {
+		maxSize = szToday
+	}
+	return maxSize
+}
+
+func computeShardCount(maxSize int64, targetBytes int64, dataNodes int, indexName string, logger *logging.Logger) int {
+	shards := 1
+	if maxSize > targetBytes {
+		shards = int(math.Floor(float64(maxSize)/float64(targetBytes))) + 1
+		if shards > dataNodes {
+			logger.Warn(fmt.Sprintf("Index %s needs %d primary shards, but cluster has %d data nodes. Reducing to %d", indexName, shards, dataNodes, dataNodes))
+			shards = dataNodes
+		}
+	}
+	return shards
 }

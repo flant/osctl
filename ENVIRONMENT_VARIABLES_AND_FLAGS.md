@@ -185,9 +185,10 @@ osctl --action=snapshot
 | `--datasource-name` | `DATA_SOURCE_NAME` | Название data-source | `recoverer` |
 | `--kube-namespace` | `KUBE_NAMESPACE` | Namespace для секретов | `infra-elklogs` |
 | `--kibana-multidomain-enabled` | `KIBANA_MULTIDOMAIN_ENABLED` | Управление секретом `multi-certs` и перезапуск Kibana если было обновление сертификатов | `false` |
+| `--remote-crt` | `REMOTE_CRT` | Конкатенированные base64 сертификаты, разделённые `|` (используется при multidomain) | (пусто) |
 
 В режиме multitenancy список тенантов берется из `--kibana-tenants-config` (`KIBANA_TENANTS_CONFIG`), файл обязателен.
 
-Переменные окружения для multidomain:
-- `REMOTE_CRT`: конкатенированные base64 сертификаты, разделённые `|` (будут склеены и объединены с `recoverer-certs/ca.crt`, если есть)
+Переменные окружения и ключи конфига для multidomain:
+- `REMOTE_CRT` / `remote_crt`: конкатенированные base64 сертификаты, разделённые `|` (будут склеены и объединены с `recoverer-certs/ca.crt`, если есть)
 

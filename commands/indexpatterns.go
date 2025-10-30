@@ -16,8 +16,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// tenants types moved to pkg/config/tenantsconfig.go
-
 var indexPatternsCmd = &cobra.Command{
 	Use:   "indexpatterns",
 	Short: "Manage Kibana index patterns",
@@ -71,19 +69,9 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 				logger.Info(fmt.Sprintf("Skip tenant %s: .kibana alias not found", t.Name))
 				continue
 			}
-			sr, err := osClient.Search(tenantIndex, "q=type:index-pattern&size=1000")
+			existing, existingTitles, err := getExistingIndexPatternTitles(osClient, tenantIndex)
 			if err != nil {
 				return err
-			}
-			existing := map[string]struct{}{}
-			existingTitles := []string{}
-			for _, h := range sr.Hits.Hits {
-				if src, ok := h.Source["index-pattern"].(map[string]interface{}); ok {
-					if title, ok := src["title"].(string); ok {
-						existing[title] = struct{}{}
-						existingTitles = append(existingTitles, title)
-					}
-				}
 			}
 			logger.Info(fmt.Sprintf("Tenant %s existing index patterns (%d): %s", t.Name, len(existingTitles), strings.Join(existingTitles, ", ")))
 			toCreate := []string{}
@@ -107,9 +95,9 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 				logger.Info(fmt.Sprintf("Tenant %s: will create index patterns: %s", t.Name, strings.Join(toCreate, ", ")))
 			}
 			for _, p := range toCreate {
-				payload := map[string]interface{}{
+				payload := map[string]any{
 					"type": "index-pattern",
-					"index-pattern": map[string]interface{}{
+					"index-pattern": map[string]any{
 						"title":         p,
 						"timeFieldName": "@timestamp",
 					},
@@ -147,19 +135,9 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 		}
 	}
 	logger.Info(fmt.Sprintf("Required patterns (%d): %s", len(needed), strings.Join(needed, ", ")))
-	fr, err := osClient.Search(".kibana", "q=type:index-pattern&size=1000")
+	existing, existingTitles, err := getExistingIndexPatternTitles(osClient, ".kibana")
 	if err != nil {
 		return err
-	}
-	existing := map[string]struct{}{}
-	existingTitles := []string{}
-	for _, h := range fr.Hits.Hits {
-		if src, ok := h.Source["index-pattern"].(map[string]interface{}); ok {
-			if t, ok := src["title"].(string); ok {
-				existing[t] = struct{}{}
-				existingTitles = append(existingTitles, t)
-			}
-		}
 	}
 	logger.Info(fmt.Sprintf("Existing index patterns in .kibana (%d): %s", len(existingTitles), strings.Join(existingTitles, ", ")))
 	toCreate := []string{}
@@ -179,9 +157,9 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 		logger.Info(fmt.Sprintf("Will create index patterns: %s", strings.Join(toCreate, ", ")))
 	}
 	for _, p := range toCreate {
-		payload := map[string]interface{}{
+		payload := map[string]any{
 			"type": "index-pattern",
-			"index-pattern": map[string]interface{}{
+			"index-pattern": map[string]any{
 				"title":         p,
 				"timeFieldName": "@timestamp",
 			},
@@ -197,7 +175,7 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 		if err == nil {
 			var dsId string
 			for _, h := range frDS.Hits.Hits {
-				if src, ok := h.Source["data-source"].(map[string]interface{}); ok {
+				if src, ok := h.Source["data-source"].(map[string]any); ok {
 					if t, ok := src["title"].(string); ok && t == config.GetConfig().DataSourceName {
 						dsId = strings.TrimPrefix(h.ID, "data-source:")
 						break
@@ -206,9 +184,9 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 			}
 			if dsId != "" {
 				logger.Info(fmt.Sprintf("Found data-source reference id=%s for title=%s", dsId, config.GetConfig().DataSourceName))
-				payload := map[string]interface{}{
+				payload := map[string]any{
 					"type": "index-pattern",
-					"index-pattern": map[string]interface{}{
+					"index-pattern": map[string]any{
 						"title":         "extracted_*",
 						"timeFieldName": "@timestamp",
 					},
@@ -225,4 +203,24 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 		}
 	}
 	return nil
+}
+
+func getExistingIndexPatternTitles(osClient *opensearch.Client, index string) (map[string]struct{}, []string, error) {
+	sr, err := osClient.Search(index, "q=type:index-pattern&size=1000")
+	if err != nil {
+		return nil, nil, err
+	}
+	existing := map[string]struct{}{}
+	titles := []string{}
+	for _, h := range sr.Hits.Hits {
+		if src, ok := h.Source["index-pattern"].(map[string]any); ok {
+			if t, ok := src["title"].(string); ok {
+				if _, seen := existing[t]; !seen {
+					existing[t] = struct{}{}
+					titles = append(titles, t)
+				}
+			}
+		}
+	}
+	return existing, titles, nil
 }

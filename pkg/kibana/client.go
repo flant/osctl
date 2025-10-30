@@ -34,9 +34,9 @@ func (c *Client) do(req *http.Request) (*http.Response, error) {
 }
 
 type SavedObject struct {
-	ID         string                 `json:"id"`
-	Type       string                 `json:"type"`
-	Attributes map[string]interface{} `json:"attributes"`
+	ID         string         `json:"id"`
+	Type       string         `json:"type"`
+	Attributes map[string]any `json:"attributes"`
 }
 
 type FindResponse struct {
@@ -73,12 +73,12 @@ func (c *Client) FindSavedObjects(tenant string, objType string, perPage int) (*
 
 func (c *Client) CreateDataSource(tenant, title, endpoint, user, password string) error {
 	u := fmt.Sprintf("%s/api/saved_objects/data-source", c.baseURL)
-	body := map[string]interface{}{
-		"attributes": map[string]interface{}{
+	body := map[string]any{
+		"attributes": map[string]any{
 			"title":       title,
 			"description": "",
 			"endpoint":    endpoint,
-			"auth": map[string]interface{}{
+			"auth": map[string]any{
 				"type": "username_password",
 				"credentials": map[string]string{
 					"username": user,

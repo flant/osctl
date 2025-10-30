@@ -152,8 +152,8 @@ func (c *Client) GetIndicesWithFields(pattern, fields string, sortBy ...string) 
 
 type NodesResponse struct {
 	Nodes map[string]struct {
-		Roles      []string               `json:"roles"`
-		Attributes map[string]interface{} `json:"attributes"`
+		Roles      []string       `json:"roles"`
+		Attributes map[string]any `json:"attributes"`
 	} `json:"nodes"`
 }
 
@@ -187,8 +187,8 @@ func (c *Client) GetDataNodeCount(coldAttribute string) (int, error) {
 }
 
 type OSSearchHit struct {
-	ID     string                 `json:"_id"`
-	Source map[string]interface{} `json:"_source"`
+	ID     string         `json:"_id"`
+	Source map[string]any `json:"_source"`
 }
 type OSSearchHits struct {
 	Total struct {
@@ -266,9 +266,9 @@ type IndexTemplate struct {
 	IndexTemplates []struct {
 		Name          string `json:"name"`
 		IndexTemplate struct {
-			IndexPatterns []string               `json:"index_patterns"`
-			Template      map[string]interface{} `json:"template"`
-			Priority      int                    `json:"priority"`
+			IndexPatterns []string       `json:"index_patterns"`
+			Template      map[string]any `json:"template"`
+			Priority      int            `json:"priority"`
 		} `json:"index_template"`
 	} `json:"index_templates"`
 }
@@ -289,7 +289,7 @@ func (c *Client) FindIndexTemplateByPattern(pattern string) (string, error) {
 	return "", nil
 }
 
-func (c *Client) PutIndexTemplate(name string, body map[string]interface{}) error {
+func (c *Client) PutIndexTemplate(name string, body map[string]any) error {
 	url := fmt.Sprintf("%s/_index_template/%s", c.baseURL, name)
 	return c.putJSON(url, body)
 }
@@ -354,8 +354,8 @@ func (c *Client) putJSON(url string, data interface{}) error {
 func (c *Client) SetReplicas(index string, replicas int) error {
 	url := fmt.Sprintf("%s/%s/_settings", c.baseURL, index)
 
-	settings := map[string]interface{}{
-		"index": map[string]interface{}{
+	settings := map[string]any{
+		"index": map[string]any{
 			"number_of_replicas": replicas,
 		},
 	}
@@ -366,8 +366,8 @@ func (c *Client) SetReplicas(index string, replicas int) error {
 func (c *Client) SetColdStorage(index, coldAttribute string) error {
 	url := fmt.Sprintf("%s/%s/_settings", c.baseURL, index)
 
-	settings := map[string]interface{}{
-		"index": map[string]interface{}{
+	settings := map[string]any{
+		"index": map[string]any{
 			"routing.allocation.require.temp": coldAttribute,
 			"number_of_replicas":              0,
 		},
@@ -513,7 +513,7 @@ func (c *Client) GetTasks() (*TasksResponse, error) {
 	return &tasks, nil
 }
 
-func (c *Client) CreateSnapshot(repo, snapshot string, body map[string]interface{}) error {
+func (c *Client) CreateSnapshot(repo, snapshot string, body map[string]any) error {
 	url := fmt.Sprintf("%s/_snapshot/%s/%s", c.baseURL, repo, snapshot)
 
 	jsonBody, err := json.Marshal(body)

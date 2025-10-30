@@ -58,6 +58,7 @@ type Config struct {
 	OsctlIndicesConfig       *OsctlIndicesConfig
 	OSCTLTenantsConfig       string
 	KibanaMultidomainEnabled string
+	RemoteCRT                string
 }
 
 var (
@@ -156,6 +157,7 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		OSCTLTenantsConfig:       tenantsPath,
 		KibanaMultidomainEnabled: getValue(cmd, "kibana-multidomain-enabled", "KIBANA_MULTIDOMAIN_ENABLED", viper.GetString("kibana_multidomain_enabled")),
 		DataSourceName:           getValue(cmd, "datasource-name", "DATA_SOURCE_NAME", viper.GetString("datasource_name")),
+		RemoteCRT:                getValue(cmd, "remote-crt", "REMOTE_CRT", viper.GetString("remote_crt")),
 	}
 
 	return nil
@@ -204,6 +206,7 @@ func setDefaults() {
 	viper.SetDefault("kibana_tenants_config", "osctltenants.yaml")
 	viper.SetDefault("kibana_multidomain_enabled", false)
 	viper.SetDefault("datasource_name", "recoverer")
+	viper.SetDefault("remote_crt", "")
 }
 
 func GetAvailableActions() []string {
@@ -647,6 +650,7 @@ var CommandFlags = map[string][]FlagDefinition{
 		{"datasource-name", "string", "recoverer", "Data source title", []string{}},
 		{"kube-namespace", "string", "default", "Kubernetes namespace for secrets", []string{}},
 		{"kibana-multidomain-enabled", "bool", false, "Enable Kibana multidomain cert management", []string{}},
+		{"remote-crt", "string", "", "Concatenated base64 certs separated by | for multidomain", []string{}},
 	},
 	"extracteddelete": {
 		{"os-recoverer-url", "string", "", "OpenSearch recoverer cluster URL", []string{}},
@@ -665,7 +669,6 @@ var CommandFlags = map[string][]FlagDefinition{
 	"indexpatterns": {
 		{"kibana-index-regex", "string", "^(.*?)-\\d{4}\\.\\d{2}\\.\\d{2}.*$", "Regex to extract pattern from today's indices", []string{}},
 		{"kibana-multitenancy", "bool", false, "Enable multitenancy mode", []string{}},
-		// Tenants are always sourced from YAML config; no CLI list
 		{"kibana-tenants-config", "string", "osctltenants.yaml", "Path to YAML tenants and patterns", []string{}},
 		{"recoverer-enabled", "bool", false, "Enable recoverer extracted_* pattern creation", []string{}},
 	},
@@ -758,6 +761,7 @@ type CommandConfig struct {
 	RecovererEnabled         string
 	KubeNamespace            string
 	KibanaMultidomainEnabled string
+	RemoteCRT                string
 }
 
 func GetCommandConfig(cmd *cobra.Command) *CommandConfig {
@@ -796,5 +800,6 @@ func GetCommandConfig(cmd *cobra.Command) *CommandConfig {
 		RecovererEnabled:         cfg.RecovererEnabled,
 		KubeNamespace:            cfg.KubeNamespace,
 		KibanaMultidomainEnabled: cfg.KibanaMultidomainEnabled,
+		RemoteCRT:                cfg.RemoteCRT,
 	}
 }

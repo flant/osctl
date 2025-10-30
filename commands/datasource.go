@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"os"
 	"osctl/pkg/config"
 	"osctl/pkg/kibana"
 	"osctl/pkg/logging"
 	"osctl/pkg/opensearch"
+	"slices"
 	"strings"
 	"time"
 
@@ -62,20 +62,11 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 	}
 	logger.Info(fmt.Sprintf("Tenants to process (%d): %s", len(tenants), strings.Join(tenants, ", ")))
 	for _, tenant := range tenants {
-		fr, err := kb.FindSavedObjects(tenant, "data-source", 10000)
+		existingTitles, err := getTenantDataSourceTitles(kb, tenant)
 		if err != nil {
 			return err
 		}
-		exists := false
-		existingTitles := []string{}
-		for _, so := range fr.SavedObjects {
-			if title, ok := so.Attributes["title"].(string); ok && title == dataSourceName {
-				exists = true
-			}
-			if title, ok := so.Attributes["title"].(string); ok {
-				existingTitles = append(existingTitles, title)
-			}
-		}
+		exists := slices.Contains(existingTitles, dataSourceName)
 		logger.Info(fmt.Sprintf("Tenant %s existing data-sources (%d): %s", tenant, len(existingTitles), strings.Join(existingTitles, ", ")))
 		if !exists {
 			if err := kb.CreateDataSource(tenant, dataSourceName, cfg.OpenSearchURL, user, pass); err != nil {
@@ -88,7 +79,7 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 	}
 
 	if cfg.GetKibanaMultidomainEnabled() {
-		remote := os.Getenv("REMOTE_CRT")
+		remote := cfg.RemoteCRT
 		parts := strings.Split(remote, "|")
 		var concatenated string
 		for _, p := range parts {
@@ -154,4 +145,18 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 		}
 	}
 	return nil
+}
+
+func getTenantDataSourceTitles(kb *kibana.Client, tenant string) ([]string, error) {
+	fr, err := kb.FindSavedObjects(tenant, "data-source", 10000)
+	if err != nil {
+		return nil, err
+	}
+	titles := []string{}
+	for _, so := range fr.SavedObjects {
+		if title, ok := so.Attributes["title"].(string); ok {
+			titles = append(titles, title)
+		}
+	}
+	return titles, nil
 }

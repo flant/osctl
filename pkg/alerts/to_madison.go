@@ -125,7 +125,7 @@ func (c *Client) SendMadisonDanglingIndicesAlert(danglingIndices []string) (stri
 	summary := "Кластер содержит dangling индексы"
 	description := fmt.Sprintf("Кластер содержит dangling индексы.\nПроверьте индексы в %s\nGET _dangling?pretty", c.kibanaHost)
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"project":        c.project,
 		"severity_level": 4,
 		"type":           "Events::Continuous",

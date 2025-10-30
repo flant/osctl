@@ -1,7 +1,6 @@
 package logging
 
 import (
-	"os"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -14,17 +13,7 @@ var initOnce sync.Once
 func NewLogger() *Logger {
 	initOnce.Do(func() {
 		log.SetFormatter(&log.JSONFormatter{})
-		log.SetOutput(os.Stdout)
-		switch os.Getenv("LOG_LEVEL") {
-		case "debug":
-			log.SetLevel(log.DebugLevel)
-		case "warn":
-			log.SetLevel(log.WarnLevel)
-		case "error":
-			log.SetLevel(log.ErrorLevel)
-		default:
-			log.SetLevel(log.InfoLevel)
-		}
+		log.SetLevel(log.InfoLevel)
 	})
 	return &Logger{}
 }
