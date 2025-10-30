@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: osctl-snapshot
+  namespace: infra-elklogs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: osctl-snapshot
+  template:
+    metadata:
+      labels:
+        app: osctl-snapshot
+    spec:
+      containers:
+      - name: osctl-snapshot
+        image: ghcr.io/flant/osctl:latest
+        volumeMounts:
+        - mountPath: /app/config.yaml
+          name: config
+          subPath: config.yaml
+        - mountPath: /app/osctlindicesconfig.yaml
+          name: config
+          subPath: osctlindicesconfig.yaml
+        - mountPath: /etc/ssl/certs/elk-crt.pem
+          name: certs
+          readOnly: true
+          subPath: elk-crt.pem
+        - mountPath: /etc/ssl/certs/elk-key.pem
+          name: certs
+          readOnly: true
+          subPath: elk-key.pem
+        - mountPath: /etc/ssl/certs/elk-root-ca.pem
+          name: certs
+          readOnly: true
+          subPath: elk-root-ca.pem
+      volumes:
+      - name: config
+        configMap:
+          name: osctl-config
+      - name: certs
+        secret:
+          secretName: opendistro-tls-data

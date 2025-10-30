@@ -1,0 +1,40 @@
+s3_snapshots:
+  unit_count:
+    all: 60
+    unknown: 7
+unknown:
+  days_count: 7
+  snapshot: true
+indices:
+  - kind: prefix
+    value: infra-elklogs
+    days_count: 30
+    snapshot: false
+  - kind: prefix
+    value: d8-ingress
+    days_count: 7
+    snapshot: true
+    snapshot_count_s3: 7
+  - kind: prefix
+    value: .kibana
+    system: true
+    days_count: 30
+    snapshot: true
+  - kind: prefix
+    value: fudzi
+    days_count: 14
+    snapshot: true
+  - kind: prefix
+    value: mf
+    days_count: 3
+    snapshot: true
+  - kind: prefix
+    value: triffle-adtech
+    days_count: 7
+    snapshot: true
+    manual_snapshot: true
+  - kind: regex
+    value: ".*-logs-.*-\\d{4}\\.\\d{2}\\.\\d{2}.*"
+    name: "app-logs"
+    days_count: 14
+    snapshot: true
