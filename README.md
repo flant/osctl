@@ -49,71 +49,15 @@ osctl snapshots --config=custom_config.yaml --osctl-indices-config=custom_osctl_
 
 ### Единая конфигурация (`config.yaml`)
 
-Пример полного `config.yaml` (все ключи опциональны, если не указано иное):
-```yaml
-# Автозапуск команды (см. список команд выше)
-action: "snapshots"
-
-# Подключение к OpenSearch
-opensearch_url: "https://your-opensearch:9200"
-cert_file: "/path/to/cert.pem"
-key_file: "/path/to/key.pem"
-ca_file: "/path/to/ca.pem"
-timeout: "300s"
-retry_attempts: 3
-
-# Форматы дат
-date_format: "%Y.%m.%d"
-recoverer_date_format: "%d-%m-%Y"
-
-# Madison (опционально)
-madison_url: "https://madison.flant.com/api/events/custom/"
-madison_key: ""
-madison_project: "lm-elk"
-
-# Общие опции
-dry_run: false
-snapshot_repo: "s3-backup"
-
-# Dereplicator
-dereplicator_days_count: 2
-dereplicator_use_snapshot: false
-
-# Retention
-retention_threshold: 75
-
-# Coldstorage
-hot_count: 4
-cold_attribute: "cold"
-
-# Extracted delete
-extracted_pattern: "extracted_"
-extracted_days: 7
-opensearch_recoverer_url: "https://opendistro-recoverer:9200"
-
-# Sharding
-sharding_target_size_gib: 25
-exclude_sharding: ""
-
-# Index patterns / Multitenancy
-kibana_index_regex: "^([\\w-]+)-([\\w-]*)(\\d{4}[\\.-]\\d{2}[\\.-]\\d{2}(?:[\\.-]\\d{2})*)$"
-kibana_multitenancy: false
-kibana_tenants_config: "osctltenants.yaml"
-recoverer_enabled: false
-
-# Datasource / Kibana
-osd_url: "https://dashboards.example.com"
-kibana_user: ""
-kibana_pass: ""
-datasource_name: "recoverer"
-kube_namespace: "infra-elklogs"
-kibana_multidomain_enabled: false
-remote_crt: ""  # base64 сертификаты, разделённые | (для multidomain)
-```
+Пример в `config.yaml`
 
 ### Конфигурация индексов (`osctlindicesconfig.yaml`)
 
 Пример в `config-example/osctlindicesconfig.yaml`
+
+### Конфигурация тенантов (`osctltenants.yaml`)
+
+Пример в `config-example/osctltenants.yaml`
 
 ## Приоритет конфигурации
 

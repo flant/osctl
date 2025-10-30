@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: es-osctl-test
-  namespace: infra-elklogs
 spec:
   progressDeadlineSeconds: 600
   replicas: 1
@@ -42,7 +41,7 @@ spec:
             weight: 100
       containers:
       - name: osctl-test
-        image: ghcr.io/flant/osctl:latest
+        image: docker-flant.art.lmru.tech/lmru/devops/opensearch--osctl:0.0.5
         command:
         - sh
         - -c
@@ -60,6 +59,18 @@ spec:
           name: certs
           readOnly: true
           subPath: elk-root-ca.pem
+        - mountPath: /etc/ssl/certs/admin-crt.pem
+          name: certs
+          readOnly: true
+          subPath: admin-crt.pem
+        - mountPath: /etc/ssl/certs/admin-key.pem
+          name: certs
+          readOnly: true
+          subPath: admin-key.pem
+        - mountPath: /etc/ssl/certs/admin-root-ca.pem
+          name: certs
+          readOnly: true
+          subPath: admin-root-ca.pem
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
