@@ -35,6 +35,8 @@ type IndexConfig struct {
 	Value           string `yaml:"value"`
 	Name            string `yaml:"name"`
 	System          bool   `yaml:"system,omitempty"`
+	Repository      string `yaml:"repository,omitempty"`
+	Schedule        string `yaml:"schedule,omitempty"`
 	DaysCount       int    `yaml:"days_count"`
 	Snapshot        bool   `yaml:"snapshot"`
 	SnapshotCountS3 int    `yaml:"snapshot_count_s3,omitempty"`

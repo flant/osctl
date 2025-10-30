@@ -51,6 +51,7 @@ type Config struct {
 	SnapshotManualSystem     string
 	SnapshotManualDaysCount  string
 	SnapshotManualCountS3    string
+	SnapshotManualRepo       string
 	OSCTLConfig              string
 	OSCTLIndicesConfig       string
 	OsctlIndicesConfig       *OsctlIndicesConfig
@@ -147,6 +148,7 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		SnapshotManualSystem:     getValue(cmd, "snapshot-manual-system", "SNAPSHOT_SYSTEM", viper.GetString("snapshot_manual_system")),
 		SnapshotManualDaysCount:  getValue(cmd, "snapshot-manual-days-count", "SNAPSHOT_DAYS_COUNT", viper.GetString("snapshot_manual_days_count")),
 		SnapshotManualCountS3:    getValue(cmd, "snapshot-manual-count-s3", "SNAPSHOT_COUNT_S3", viper.GetString("snapshot_manual_count_s3")),
+		SnapshotManualRepo:       getValue(cmd, "snapshot-manual-repo", "SNAPSHOT_MANUAL_REPO", viper.GetString("snapshot_manual_repo")),
 		OSCTLConfig:              getValue(cmd, "config", "OSCTL_CONFIG", viper.GetString("osctl_config")),
 		OSCTLIndicesConfig:       getValue(cmd, "osctl-indices-config", "OSCTL_INDICES_CONFIG", viper.GetString("osctl_indices_config")),
 		OsctlIndicesConfig:       osctlIndicesConfig,
@@ -193,6 +195,7 @@ func setDefaults() {
 	viper.SetDefault("snapshot_manual_system", false)
 	viper.SetDefault("snapshot_manual_days_count", 7)
 	viper.SetDefault("snapshot_manual_count_s3", 14)
+	viper.SetDefault("snapshot_manual_repo", "")
 	viper.SetDefault("dry_run", false)
 	viper.SetDefault("osctl_config", "config.yaml")
 	viper.SetDefault("osctl_indices_config", "osctlindicesconfig.yaml")
@@ -636,6 +639,7 @@ var CommandFlags = map[string][]FlagDefinition{
 		{"snapshot-manual-system", "bool", false, "System index flag", []string{}},
 		{"snapshot-manual-days-count", "int", 0, "Days to keep index", []string{}},
 		{"snapshot-manual-count-s3", "int", 0, "Days to keep snapshot in S3 (0 = use default)", []string{}},
+		{"snapshot-manual-repo", "string", "", "Override repository for manual snapshot (empty = use snapshot_repo)", []string{}},
 	},
 	"retention": {
 		{"retention-threshold", "int", 75, "Disk usage threshold percentage", []string{"min:0", "max:100"}},

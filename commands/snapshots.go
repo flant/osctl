@@ -51,6 +51,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 	today := utils.FormatDate(time.Now(), cfg.DateFormat)
 
 	var indicesToSnapshot []string
+	repoGroups := map[string]utils.SnapshotGroup{}
 	var unknownIndices []string
 
 	systemConfigs := make([]config.IndexConfig, 0)
@@ -107,7 +108,28 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 			indexName := idx.Index
 			indexConfig := utils.FindMatchingIndexConfig(indexName, regularConfigs)
 			if indexConfig != nil && indexConfig.Snapshot && !indexConfig.ManualSnapshot {
-				indicesToSnapshot = append(indicesToSnapshot, indexName)
+				if indexConfig.Repository != "" {
+					var snapshotName string
+					if indexConfig.Kind == "regex" {
+						snapshotName = indexConfig.Name + "-" + today
+					} else {
+						snapshotName = indexConfig.Value + "-" + today
+					}
+					key := indexConfig.Repository + "|" + snapshotName
+					if g, ok := repoGroups[key]; ok {
+						g.Indices = append(g.Indices, indexName)
+						repoGroups[key] = g
+					} else {
+						repoGroups[key] = utils.SnapshotGroup{
+							SnapshotName: snapshotName,
+							Indices:      []string{indexName},
+							Pattern:      indexConfig.Value,
+							Kind:         indexConfig.Kind,
+						}
+					}
+				} else {
+					indicesToSnapshot = append(indicesToSnapshot, indexName)
+				}
 			} else {
 				unknownIndices = append(unknownIndices, indexName)
 			}
@@ -121,6 +143,13 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 		logger.Info(fmt.Sprintf("Indices to snapshot %s", strings.Join(indicesToSnapshot, ", ")))
 	} else {
 		logger.Info("Indices to snapshot none")
+	}
+	if len(repoGroups) > 0 {
+		repoKeys := make([]string, 0, len(repoGroups))
+		for k := range repoGroups {
+			repoKeys = append(repoKeys, k)
+		}
+		logger.Info(fmt.Sprintf("Repo-specific snapshot groups count=%d keys=%s", len(repoGroups), strings.Join(repoKeys, ", ")))
 	}
 
 	if unknownConfig.Snapshot && !unknownConfig.ManualSnapshot && len(unknownIndices) > 0 {
@@ -147,7 +176,19 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 			fmt.Println("=" + strings.Repeat("=", 30))
 		}
 
-		fmt.Printf("\nDRY RUN: Would create %d snapshots\n", len(snapshotGroups))
+		if len(repoGroups) > 0 {
+			for _, g := range repoGroups {
+				fmt.Printf("\nSnapshot (repo %s): %s\n", "custom", g.SnapshotName)
+				fmt.Printf("Pattern: %s (%s)\n", g.Pattern, g.Kind)
+				fmt.Printf("Indices (%d):\n", len(g.Indices))
+				for _, index := range g.Indices {
+					fmt.Printf("  %s\n", index)
+				}
+				fmt.Println("=" + strings.Repeat("=", 30))
+			}
+		}
+
+		fmt.Printf("\nDRY RUN: Would create %d snapshots\n", len(snapshotGroups)+len(repoGroups))
 		return nil
 	}
 
@@ -185,6 +226,41 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				logger.Error(fmt.Sprintf("Failed to create snapshot after retries snapshot=%s error=%v", group.SnapshotName, err))
 				continue
+			}
+		}
+
+		if len(repoGroups) > 0 {
+			perRepo := map[string][]utils.SnapshotGroup{}
+			for k, g := range repoGroups {
+				parts := strings.SplitN(k, "|", 2)
+				repo := parts[0]
+				perRepo[repo] = append(perRepo[repo], g)
+			}
+			for repo, groups := range perRepo {
+				existing, err := client.GetSnapshots(repo, "*"+today+"*")
+				if err != nil {
+					logger.Error(fmt.Sprintf("Failed to get snapshots from repo repo=%s error=%v", repo, err))
+					continue
+				}
+				for _, g := range groups {
+					exists, err := utils.CheckAndCleanSnapshot(g.SnapshotName, strings.Join(g.Indices, ","), existing, client, repo, logger)
+					if err != nil {
+						logger.Error(fmt.Sprintf("Failed to check/clean snapshot repo=%s snapshot=%s error=%v", repo, g.SnapshotName, err))
+						continue
+					}
+					if exists {
+						logger.Info(fmt.Sprintf("Valid snapshot already exists repo=%s snapshot=%s", repo, g.SnapshotName))
+						continue
+					}
+					indicesStr := strings.Join(g.Indices, ",")
+					logger.Info(fmt.Sprintf("Creating snapshot repo=%s snapshot=%s", repo, g.SnapshotName))
+					logger.Info(fmt.Sprintf("Snapshot indices %s", indicesStr))
+					err = utils.CreateSnapshotWithRetry(client, g.SnapshotName, indicesStr, repo, madisonClient, logger)
+					if err != nil {
+						logger.Error(fmt.Sprintf("Failed to create snapshot after retries repo=%s snapshot=%s error=%v", repo, g.SnapshotName, err))
+						continue
+					}
+				}
 			}
 		}
 	}

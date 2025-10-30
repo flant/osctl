@@ -141,6 +141,7 @@ osctl --action=snapshot
 | `--snapshot-manual-value` | `SNAPSHOT_VALUE` | Значение паттерна | (пусто) |
 | `--snapshot-manual-name` | `SNAPSHOT_NAME` | Имя снапшота (обязательно для regex) | (пусто) |
 | `--snapshot-manual-system` | `SNAPSHOT_SYSTEM` | Флаг системного индекса (получает индексы с точкой, независимо от даты) | `false` |
+| `--snapshot-manual-repo` | `SNAPSHOT_MANUAL_REPO` | Переопределить репозиторий для manual снапшота | (пусто) |
 
 ### `sharding`
 

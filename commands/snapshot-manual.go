@@ -137,7 +137,12 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to wait for snapshot tasks: %v", err)
 	}
 
-	allSnapshots, err := client.GetSnapshots(cfg.SnapshotRepo, "*"+today+"*")
+	repoToUse := cfg.SnapshotRepo
+	if cfg.SnapshotManualRepo != "" {
+		repoToUse = cfg.SnapshotManualRepo
+	}
+
+	allSnapshots, err := client.GetSnapshots(repoToUse, "*"+today+"*")
 	if err != nil {
 		return fmt.Errorf("failed to get snapshots: %v", err)
 	}
@@ -152,7 +157,7 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 		logger.Info("Existing snapshots today none")
 	}
 
-	exists, err := utils.CheckAndCleanSnapshot(snapshotGroup.SnapshotName, strings.Join(snapshotGroup.Indices, ","), allSnapshots, client, cfg.SnapshotRepo, logger)
+	exists, err := utils.CheckAndCleanSnapshot(snapshotGroup.SnapshotName, strings.Join(snapshotGroup.Indices, ","), allSnapshots, client, repoToUse, logger)
 	if err != nil {
 		logger.Error(fmt.Sprintf("Failed to check/clean snapshot snapshot=%s error=%v", snapshotGroup.SnapshotName, err))
 		return err
@@ -166,7 +171,7 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 	indicesStr := strings.Join(snapshotGroup.Indices, ",")
 	logger.Info(fmt.Sprintf("Creating snapshot %s", snapshotGroup.SnapshotName))
 	logger.Info(fmt.Sprintf("Snapshot indices %s", indicesStr))
-	err = utils.CreateSnapshotWithRetry(client, snapshotGroup.SnapshotName, indicesStr, cfg.SnapshotRepo, madisonClient, logger)
+	err = utils.CreateSnapshotWithRetry(client, snapshotGroup.SnapshotName, indicesStr, repoToUse, madisonClient, logger)
 	if err != nil {
 		logger.Error(fmt.Sprintf("Failed to create snapshot after retries snapshot=%s error=%v", snapshotGroup.SnapshotName, err))
 		return err

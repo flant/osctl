@@ -132,21 +132,6 @@ func WaitForSnapshotTasks(client *opensearch.Client, logger *logging.Logger, tar
 	return nil
 }
 
-func FilterUnknownSnapshots(snapshots []string) []string {
-	var filtered []string
-	for _, snapshotName := range snapshots {
-		parts := strings.Split(snapshotName, "-")
-		if len(parts) < 2 {
-			continue
-		}
-		indexName := strings.Join(parts[:len(parts)-1], "-")
-		if !ShouldSkipIndex(indexName) {
-			filtered = append(filtered, snapshotName)
-		}
-	}
-	return filtered
-}
-
 func CreateSnapshotWithRetry(client *opensearch.Client, snapshotName, indexName, snapRepo string, madisonClient interface{}, logger *logging.Logger) error {
 	const maxRetries = 5
 
