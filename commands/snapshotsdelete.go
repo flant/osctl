@@ -94,9 +94,6 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 				snapshotsToDelete = append(snapshotsToDelete, snapshotName)
 			}
 		}
-	}
-
-	if unknownConfig.Snapshot && s3Config.UnitCount.Unknown > 0 {
 		cutoffTime := time.Now().AddDate(0, 0, -s3Config.UnitCount.Unknown)
 		for _, snapshot := range danglingSnapshots {
 			if snapshot.StartTimeInMillis > 0 {
