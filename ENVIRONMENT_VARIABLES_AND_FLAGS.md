@@ -8,7 +8,7 @@
 1. **Флаги командной строки**
 2. **Переменные окружения**
 3. **Общий конфиг файл** (`config.yaml`)
-4. **Файл конфигурации индексов** (`osctlindicesconfig.yaml`) - для команд snapshot, indicesdelete, snapshotdelete, snapshotchecker
+4. **Файл конфигурации индексов** (`osctlindicesconfig.yaml`) - для команд snapshot, indicesdelete, snapshotsdelete, snapshotchecker
 5. **Значения по умолчанию** (наименьший приоритет)
 
 ## Общие флаги
@@ -31,7 +31,7 @@
 | `--madison-url` | `MADISON_URL` | URL API Madison | `https://madison.flant.com/api/events/custom/` |
 | `--madison-key` | `MADISON_KEY` | Ключ API Madison | (пусто) |
 | `--osd-url` | `OPENSEARCH_DASHBOARDS_URL` | URL OpenSearch Dashboards | (пусто) |
-| `--osctl-indices-config` | `OSCTL_INDICES_CONFIG` | Путь к конфигу индексов - для snapshot, indicesdelete, snapshotdelete, snapshotchecker | `osctlindicesconfig.yaml` |
+| `--osctl-indices-config` | `OSCTL_INDICES_CONFIG` | Путь к конфигу индексов - для snapshot, indicesdelete, snapshotsdelete, snapshotchecker | `osctlindicesconfig.yaml` |
 | `--dry-run` | `DRY_RUN` | Показать что будет сделано без выполнения | `false` |
 | `--snap-repo` | `SNAPSHOT_REPOSITORY` | Название репо для снапшотов | (пусто) |
 

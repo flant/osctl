@@ -12,18 +12,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var snapshotDeleteCmd = &cobra.Command{
-	Use:   "snapshotdelete",
+var snapshotsDeleteCmd = &cobra.Command{
+	Use:   "snapshotsdelete",
 	Short: "Delete snapshots",
 	Long:  `Delete snapshots`,
-	RunE:  runSnapshotDelete,
+	RunE:  runSnapshotsDelete,
 }
 
 func init() {
-	addFlags(snapshotDeleteCmd)
+	addFlags(snapshotsDeleteCmd)
 }
 
-func runSnapshotDelete(cmd *cobra.Command, args []string) error {
+func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 	cfg := config.GetConfig()
 	logger := logging.NewLogger()
 

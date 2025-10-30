@@ -57,15 +57,40 @@ func runColdStorage(cmd *cobra.Command, args []string) error {
 		logger.Info("Found indices none")
 	}
 
-	var coldIndices []string
+	var candidates []string
 	for _, index := range allIndices {
 		if shouldMoveToColdStorage(index.Index, cutoffDate, dateFormat) {
-			coldIndices = append(coldIndices, index.Index)
+			candidates = append(candidates, index.Index)
 		}
 	}
 
-	if len(coldIndices) == 0 {
+	if len(candidates) == 0 {
 		logger.Info("No indices found for cold storage migration")
+		return nil
+	}
+
+	var coldIndices []string
+	var alreadyCold []string
+	for _, idx := range candidates {
+		req, err := client.GetIndexColdRequirement(idx)
+		if err != nil {
+			logger.Error(fmt.Sprintf("Skip index due to read settings error index=%s error=%v", idx, err))
+			continue
+		}
+		if req == coldAttribute {
+			logger.Info(fmt.Sprintf("Already in cold: index=%s attr=%s", idx, req))
+			alreadyCold = append(alreadyCold, idx)
+			continue
+		}
+		logger.Info(fmt.Sprintf("Candidate for cold storage: index=%s current_attr=%s target_attr=%s", idx, req, coldAttribute))
+		coldIndices = append(coldIndices, idx)
+	}
+
+	if len(alreadyCold) > 0 {
+		logger.Info(fmt.Sprintf("Skip already in cold count=%d list=%s", len(alreadyCold), strings.Join(alreadyCold, ", ")))
+	}
+	if len(coldIndices) == 0 {
+		logger.Info("No indices require cold storage migration")
 		return nil
 	}
 
@@ -88,7 +113,7 @@ func runColdStorage(cmd *cobra.Command, args []string) error {
 		logger.Info(fmt.Sprintf("Migrated to cold storage index=%s", index))
 	}
 
-	logger.Info(fmt.Sprintf("Cold storage migration completed processed=%d", len(coldIndices)))
+	logger.Info(fmt.Sprintf("Cold storage migration completed processed=%d skipped_already_cold=%d", len(coldIndices), len(alreadyCold)))
 	return nil
 }
 

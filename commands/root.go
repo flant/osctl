@@ -95,7 +95,7 @@ func executeActionCommand(action string, args []string) error {
 	case "snapshot-manual":
 		targetCmd = snapshotManualCmd
 	case "snapshotsdelete":
-		targetCmd = snapshotDeleteCmd
+		targetCmd = snapshotsDeleteCmd
 	case "snapshotschecker":
 		targetCmd = snapshotCheckerCmd
 	case "indicesdelete":
@@ -128,7 +128,7 @@ func init() {
 	addFlags(rootCmd)
 	rootCmd.AddCommand(snapshotCmd)
 	rootCmd.AddCommand(snapshotManualCmd)
-	rootCmd.AddCommand(snapshotDeleteCmd)
+	rootCmd.AddCommand(snapshotsDeleteCmd)
 	rootCmd.AddCommand(indicesDeleteCmd)
 	rootCmd.AddCommand(retentionCmd)
 	rootCmd.AddCommand(shardingCmd)

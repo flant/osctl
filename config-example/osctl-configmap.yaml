@@ -67,7 +67,7 @@ data:
     # snapshotchecker:
     # Uses osctl-indices-config for detailed configuration
 
-    # snapshotdelete:
+    # snapshotsdelete:
     # Uses osctl-indices-config for detailed configuration
 
     # snapshotmanual:

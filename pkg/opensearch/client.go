@@ -461,6 +461,60 @@ func (c *Client) GetDanglingIndices() ([]DanglingIndex, error) {
 	return result.DanglingIndices, nil
 }
 
+func (c *Client) GetIndexColdRequirement(index string) (string, error) {
+	url := fmt.Sprintf("%s/%s/_settings", c.baseURL, index)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %v", err)
+	}
+
+	resp, err := c.executeRequest(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return "", fmt.Errorf("GET %s failed: %s — %s", req.URL.Path, resp.Status, readErrorSnippet(resp))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var raw map[string]struct {
+		Settings map[string]any `json:"settings"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return "", err
+	}
+	for _, data := range raw {
+		settings, ok := data.Settings["index"].(map[string]any)
+		if !ok {
+			return "", nil
+		}
+		routing, ok := settings["routing"].(map[string]any)
+		if !ok {
+			return "", nil
+		}
+		allocation, ok := routing["allocation"].(map[string]any)
+		if !ok {
+			return "", nil
+		}
+		require, ok := allocation["require"].(map[string]any)
+		if !ok {
+			return "", nil
+		}
+		if v, ok := require["temp"]; ok {
+			if s, ok := v.(string); ok {
+				return s, nil
+			}
+		}
+	}
+	return "", nil
+}
+
 func (c *Client) delete(url string) error {
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
