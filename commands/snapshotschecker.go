@@ -43,7 +43,6 @@ func runSnapshotsChecker(cmd *cobra.Command, args []string) error {
 
 	unknownConfig := cfg.GetOsctlIndicesUnknownConfig()
 
-	yesterday := utils.GetYesterdayFormatted(cfg.DateFormat)
 	dayBeforeYesterday := utils.GetDayBeforeYesterdayFormatted(cfg.DateFormat)
 
 	logger.Info(fmt.Sprintf("Getting indices for date date=%s", dayBeforeYesterday))
@@ -82,33 +81,22 @@ func runSnapshotsChecker(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	logger.Info(fmt.Sprintf("Getting snapshots for date date=%s", yesterday))
-	allSnapshots, err := client.GetSnapshots(cfg.SnapshotRepo, "*"+yesterday+"*")
+	logger.Info("Getting all snapshots from repository")
+	allSnapshots, err := client.GetSnapshots(cfg.SnapshotRepo, "*")
 	if err != nil {
 		return fmt.Errorf("failed to get snapshots: %v", err)
 	}
 
 	var snapshotNames []string
 	for _, s := range allSnapshots {
-		snapshotNames = append(snapshotNames, s.Snapshot)
-	}
-	if len(snapshotNames) > 0 {
-		logger.Info(fmt.Sprintf("Found snapshots %s", strings.Join(snapshotNames, ", ")))
-	} else {
-		logger.Info("Found snapshots none")
-	}
-
-	unknownName := "unknown-" + yesterday
-	var unknownIndices []string
-	for _, s := range allSnapshots {
-		if s.Snapshot == unknownName {
-			unknownIndices = append(unknownIndices, s.Indices...)
-			break
+		if s.State == "SUCCESS" {
+			snapshotNames = append(snapshotNames, s.Snapshot)
 		}
 	}
-	if len(unknownIndices) > 0 {
-		logger.Info(fmt.Sprintf("Indices in %s", unknownName))
-		logger.Info(fmt.Sprintf("Unknown snapshot indices %s", strings.Join(unknownIndices, ", ")))
+	if len(snapshotNames) > 0 {
+		logger.Info(fmt.Sprintf("Found successful snapshots count=%d", len(snapshotNames)))
+	} else {
+		logger.Info("Found snapshots none")
 	}
 
 	var missingSnapshots []string

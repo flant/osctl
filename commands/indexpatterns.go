@@ -57,7 +57,8 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		for _, t := range tf.Tenants {
-			aliasPattern := ".kibana*_" + t.Name
+			normalizedName := utils.NormalizeTenantName(t.Name)
+			aliasPattern := ".kibana*_" + normalizedName
 			aliases, err := osClient.GetAliases(aliasPattern)
 			if err != nil {
 				return err

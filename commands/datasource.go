@@ -58,32 +58,38 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 	kb := kibana.NewClient(osdURL, user, pass, cfg.GetTimeout())
 
 	tenants := []string{"global"}
+	tenantNamesForLog := []string{"global"}
 	if cfg.GetDataSourceKibanaMultitenancy() {
 		tf, err := config.GetConfig().GetTenantsConfig()
 		if err != nil {
 			return err
 		}
-		tenants = append(tenants, tf.GetTenantNames()...)
+		for _, t := range tf.Tenants {
+			normalizedName := utils.NormalizeTenantName(t.Name)
+			tenants = append(tenants, normalizedName)
+			tenantNamesForLog = append(tenantNamesForLog, t.Name)
+		}
 	}
-	logger.Info(fmt.Sprintf("Tenants to process (%d): %s", len(tenants), strings.Join(tenants, ", ")))
-	for _, tenant := range tenants {
+	logger.Info(fmt.Sprintf("Tenants to process (%d): %s", len(tenants), strings.Join(tenantNamesForLog, ", ")))
+	for i, tenant := range tenants {
+		tenantNameForLog := tenantNamesForLog[i]
 		existingTitles, err := getTenantDataSourceTitles(kb, tenant)
 		if err != nil {
 			return err
 		}
 		exists := slices.Contains(existingTitles, dataSourceName)
-		logger.Info(fmt.Sprintf("Tenant %s existing data-sources (%d): %s", tenant, len(existingTitles), strings.Join(existingTitles, ", ")))
+		logger.Info(fmt.Sprintf("Tenant %s existing data-sources (%d): %s", tenantNameForLog, len(existingTitles), strings.Join(existingTitles, ", ")))
 		if !exists {
 			if dryRun {
-				logger.Info(fmt.Sprintf("DRY RUN: Would create data source in tenant %s", tenant))
+				logger.Info(fmt.Sprintf("DRY RUN: Would create data source in tenant %s", tenantNameForLog))
 			} else {
 				if err := kb.CreateDataSource(tenant, dataSourceName, cfg.OpenSearchURL, user, pass); err != nil {
 					return err
 				}
-				logger.Info(fmt.Sprintf("Created data source in tenant %s", tenant))
+				logger.Info(fmt.Sprintf("Created data source in tenant %s", tenantNameForLog))
 			}
 		} else {
-			logger.Info(fmt.Sprintf("Data source already exists in tenant %s (title=%s)", tenant, dataSourceName))
+			logger.Info(fmt.Sprintf("Data source already exists in tenant %s (title=%s)", tenantNameForLog, dataSourceName))
 		}
 	}
 

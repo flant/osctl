@@ -104,3 +104,7 @@ func DeleteIndicesBatch(client *opensearch.Client, indices []string, dryRun bool
 
 	return nil
 }
+
+func NormalizeTenantName(name string) string {
+	return strings.ReplaceAll(name, "-", "")
+}
