@@ -10,7 +10,7 @@ action: ""
 opensearch_url: "https://opendistro:9200"
 cert_file: "/etc/ssl/certs/admin-crt.pem"
 key_file: "/etc/ssl/certs/admin-key.pem"
-ca_file: "/etc/ssl/certs/elk-root-ca.pem"
+ca_file: ""
 timeout: "300s"
 retry_attempts: 3
 date_format: "%Y.%m.%d"
@@ -31,9 +31,9 @@ hot_count: 4
 # danglingchecker
 
 # datasource
-data_source_name: "opensearch-logs"
-kube_namespace: "default"
-recoverer_enabled: false
+data_source_name: "recoverer"
+kube_namespace: "infra-elklogs"
+recoverer_enabled: true
 kibana_user: ""
 kibana_pass: ""
 

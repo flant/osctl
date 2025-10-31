@@ -1,8 +1,8 @@
 # Configuration File for osctl
 
 # Action to execute (optional) - if set, osctl will automatically run this command
-# Available actions: snapshots, snapshotmanual, snapshotsdelete, snapshotschecker, 
-#                   indicesdelete, retention, dereplicator, coldstorage, 
+# Available actions: snapshots, snapshotmanual, snapshotsdelete, snapshotschecker,
+#                   indicesdelete, retention, dereplicator, coldstorage,
 #                   extracteddelete, danglingchecker
 action: "coldstorage"
 
@@ -10,12 +10,12 @@ action: "coldstorage"
 opensearch_url: "https://opendistro:9200"
 cert_file: "/etc/ssl/certs/admin-crt.pem"
 key_file: "/etc/ssl/certs/admin-key.pem"
-ca_file: "/etc/ssl/certs/elk-root-ca.pem"
+ca_file: ""
 timeout: "300s"
 retry_attempts: 3
 date_format: "%Y.%m.%d"
 dry_run: false
-snapshot_repo: "s3-backup"
+snapshot_repo: "s3-backup-new"
 
 # madison alerts settings
 madison_url: "https://madison.flant.com/api/events/custom/"
@@ -26,14 +26,14 @@ osd_url: "kibana-yc-elk-kong.apim.lmru.tech"
 
 # coldstorage
 cold_attribute: "cold"
-hot_count: 3
+hot_count: 4
 
 # danglingchecker
 
 # datasource
-data_source_name: "opensearch-logs"
-kube_namespace: "default"
-recoverer_enabled: false
+data_source_name: "recoverer"
+kube_namespace: "infra-elklogs"
+recoverer_enabled: true
 kibana_user: ""
 kibana_pass: ""
 
@@ -51,7 +51,7 @@ recoverer_date_format: "%d-%m-%Y"
 # indexpatterns:
 kibana_index_regex: "^([\\w-]+)-([\\w-]*)(\\d{4}[\\.-]\\d{2}[\\.-]\\d{2}(?:[\\.-]\\d{2})*)$"
 kibana_multitenancy: false
-kibana_tenants: ""
+
 
 # indicesdelete:
 # Uses osctl-indices-config for detailed configuration
@@ -74,6 +74,8 @@ exclude_sharding: ""
 
 # snapshotmanual:
 snapshot_manual_kind: "prefix"
-snapshot_manual_value: ""
+snapshot_manual_value: ".kibana"
 snapshot_manual_name: ""
-snapshot_manual_system: false
+snapshot_manual_repo: "s3-backup-sys"
+snapshot_manual_system: true
+
