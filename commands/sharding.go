@@ -46,11 +46,11 @@ func runSharding(cmd *cobra.Command, args []string) error {
 	targetBytes := int64(targetGiB) * 1024 * 1024 * 1024
 
 	today := utils.FormatDate(time.Now(), cfg.DateFormat)
-	indicesAll, err := client.GetIndicesWithFields("*", "index,ss")
+	indicesAll, err := client.GetIndicesWithFields("*", "index,pss")
 	if err != nil {
 		return err
 	}
-	indicesToday, err := client.GetIndicesWithFields(fmt.Sprintf("*-%s*,-.*", today), "index,ss", "ss")
+	indicesToday, err := client.GetIndicesWithFields(fmt.Sprintf("*-%s*,-.*", today), "index,pss", "pss")
 	if err != nil {
 		return err
 	}
@@ -226,31 +226,44 @@ func runSharding(cmd *cobra.Command, args []string) error {
 			}
 		} else {
 			curShards := 1
-			curReplicas := 1
 			if tpl, err := client.GetIndexTemplate(existing); err == nil {
 				if len(tpl.IndexTemplates) > 0 {
 					if tset, ok := tpl.IndexTemplates[0].IndexTemplate.Template["settings"].(map[string]any); ok {
 						if idx, ok := tset["index"].(map[string]any); ok {
 							if v, ok := idx["number_of_shards"]; ok {
-								if s, err := strconv.Atoi(fmt.Sprintf("%v", v)); err == nil {
-									curShards = s
+								logger.Info(fmt.Sprintf("DEBUG: Template %s current shards value: %v (type: %T)", existing, v, v))
+								var s int
+								switch val := v.(type) {
+								case string:
+									if parsed, err := strconv.Atoi(val); err == nil {
+										s = parsed
+									}
+								case int:
+									s = val
+								case int64:
+									s = int(val)
+								case float64:
+									s = int(val)
+								default:
+									if parsed, err := strconv.Atoi(fmt.Sprintf("%v", v)); err == nil {
+										s = parsed
+									}
 								}
-							}
-							if v, ok := idx["number_of_replicas"]; ok {
-								if r, err := strconv.Atoi(fmt.Sprintf("%v", v)); err == nil {
-									curReplicas = r
+								if s > 0 {
+									curShards = s
 								}
 							}
 						}
 					}
 				}
 			}
-			if curShards == shards && curReplicas == replicas {
-				logger.Info(fmt.Sprintf("Template %s already has correct settings: shards=%d, replicas=%d", existing, shards, replicas))
+			logger.Info(fmt.Sprintf("DEBUG: Template %s: current shards=%d, target shards=%d", existing, curShards, shards))
+			if curShards == shards {
+				logger.Info(fmt.Sprintf("Template %s already has correct shards: %d", existing, shards))
 				continue
 			}
 			if dryRun {
-				logger.Info(fmt.Sprintf("DRY RUN: Would update template %s: shards %d->%d, replicas %d->%d", existing, curShards, shards, curReplicas, replicas))
+				logger.Info(fmt.Sprintf("DRY RUN: Would update template %s: shards %d to %d", existing, curShards, shards))
 				changes = append(changes, templateChange{
 					action:      "update",
 					template:    existing,
@@ -258,32 +271,18 @@ func runSharding(cmd *cobra.Command, args []string) error {
 					shards:      shards,
 					replicas:    replicas,
 					oldShards:   curShards,
-					oldReplicas: curReplicas,
+					oldReplicas: replicas,
 				})
 			} else {
-				logger.Info(fmt.Sprintf("Update existing template %s: set number_of_shards=%d number_of_replicas=%d", existing, shards, replicas))
-				updateIndexSettings := map[string]any{
-					"number_of_shards":   shards,
-					"number_of_replicas": replicas,
-				}
-				if cfg.ShardingRoutingAllocationTemp != "" {
-					updateIndexSettings["routing"] = map[string]any{
-						"allocation": map[string]any{
-							"require": map[string]any{
-								"temp": cfg.ShardingRoutingAllocationTemp,
-							},
-						},
-					}
-				}
+				logger.Info(fmt.Sprintf("Update existing template %s: set number_of_shards=%d", existing, shards))
 				current := map[string]any{
 					"template": map[string]any{
 						"settings": map[string]any{
-							"index": updateIndexSettings,
+							"index": map[string]any{
+								"number_of_shards": shards,
+							},
 						},
 					},
-				}
-				if pi.isHourly {
-					current["composed_of"] = []string{"default_template"}
 				}
 				if err := client.PutIndexTemplate(existing, current); err != nil {
 					return err
@@ -302,7 +301,7 @@ func runSharding(cmd *cobra.Command, args []string) error {
 			if ch.action == "create" {
 				logger.Info(fmt.Sprintf("CREATE: template=%s pattern=%s shards=%d replicas=%d priority=%d", ch.template, ch.pattern, ch.shards, ch.replicas, ch.priority))
 			} else {
-				logger.Info(fmt.Sprintf("UPDATE: template=%s pattern=%s shards %d->%d replicas %d->%d", ch.template, ch.pattern, ch.oldShards, ch.shards, ch.oldReplicas, ch.replicas))
+				logger.Info(fmt.Sprintf("UPDATE: template=%s pattern=%s shards %d to %d", ch.template, ch.pattern, ch.oldShards, ch.shards))
 			}
 		}
 		logger.Info("")
