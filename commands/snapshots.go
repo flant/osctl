@@ -198,7 +198,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 		fmt.Println("=" + strings.Repeat("=", 50))
 
 		for i, group := range filteredMain {
-			fmt.Printf("\nSnapshot %d: %s\n", i+1, group.SnapshotName)
+			fmt.Printf("\nSnapshot %d (repo %s): %s\n", i+1, cfg.SnapshotRepo, group.SnapshotName)
 			fmt.Printf("Pattern: %s (%s)\n", group.Pattern, group.Kind)
 			fmt.Printf("Indices (%d):\n", len(group.Indices))
 			for _, index := range group.Indices {
