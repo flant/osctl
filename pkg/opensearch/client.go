@@ -296,9 +296,11 @@ func (c *Client) FindIndexTemplateByPattern(pattern string) (string, error) {
 	if err := c.getJSON(url, &it); err != nil {
 		return "", err
 	}
+	normalizedPattern := strings.TrimSuffix(pattern, "*")
 	for _, t := range it.IndexTemplates {
 		for _, p := range t.IndexTemplate.IndexPatterns {
-			if p == pattern {
+			normalizedP := strings.TrimSuffix(p, "*")
+			if normalizedP == normalizedPattern {
 				return t.Name, nil
 			}
 		}

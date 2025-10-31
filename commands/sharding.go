@@ -256,19 +256,12 @@ func runSharding(cmd *cobra.Command, args []string) error {
 }
 
 func computeMaxSizeForPattern(sizes map[string]int64, base string, todaySizeStr string) int64 {
-	normalizedBase := base
-	if len(normalizedBase) >= 3 && normalizedBase[len(normalizedBase)-3] == '-' {
-		a := normalizedBase[len(normalizedBase)-2]
-		b := normalizedBase[len(normalizedBase)-1]
-		if a >= '0' && a <= '9' && b >= '0' && b <= '9' {
-			normalizedBase = normalizedBase[:len(normalizedBase)-3]
-		}
-	}
-	normalizedBase = strings.TrimSuffix(normalizedBase, "-")
+	normalizedBase := strings.TrimSuffix(base, "-")
 
 	maxSize := int64(0)
+	searchPrefix := normalizedBase + "-"
 	for idx, sz := range sizes {
-		if strings.HasPrefix(idx, normalizedBase) {
+		if strings.HasPrefix(idx, searchPrefix) {
 			if sz > maxSize {
 				maxSize = sz
 			}
