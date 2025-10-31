@@ -10,7 +10,7 @@ import (
 
 type TenantSpec struct {
 	Name     string   `yaml:"name"`
-	Patterns []string `yaml:"patterns"`
+	Patterns []string `yaml:"indices"`
 }
 
 type TenantsFile struct {
