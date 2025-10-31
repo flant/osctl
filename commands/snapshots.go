@@ -167,8 +167,13 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 			existingMain = nil
 		}
 		filteredMain := make([]utils.SnapshotGroup, 0, len(snapshotGroups))
+		inProgressMain := make([]string, 0)
 		for _, g := range snapshotGroups {
-			if utils.HasSnapshotSuccessByName(g.SnapshotName, existingMain) {
+			if state, ok := utils.GetSnapshotStateByName(g.SnapshotName, existingMain); ok && state == "SUCCESS" {
+				continue
+			}
+			if state, ok := utils.GetSnapshotStateByName(g.SnapshotName, existingMain); ok && state == "IN_PROGRESS" {
+				inProgressMain = append(inProgressMain, fmt.Sprintf("repo=%s snapshot=%s", cfg.SnapshotRepo, g.SnapshotName))
 				continue
 			}
 			filteredMain = append(filteredMain, g)
@@ -181,13 +186,18 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 			perRepo[repo] = append(perRepo[repo], g)
 		}
 		filteredPerRepo := map[string][]utils.SnapshotGroup{}
+		inProgressPerRepo := make([]string, 0)
 		for repo, groups := range perRepo {
 			existing, err := client.GetSnapshots(repo, "*"+today+"*")
 			if err != nil {
 				existing = nil
 			}
 			for _, g := range groups {
-				if utils.HasSnapshotSuccessByName(g.SnapshotName, existing) {
+				if state, ok := utils.GetSnapshotStateByName(g.SnapshotName, existing); ok && state == "SUCCESS" {
+					continue
+				}
+				if state, ok := utils.GetSnapshotStateByName(g.SnapshotName, existing); ok && state == "IN_PROGRESS" {
+					inProgressPerRepo = append(inProgressPerRepo, fmt.Sprintf("repo=%s snapshot=%s", repo, g.SnapshotName))
 					continue
 				}
 				filteredPerRepo[repo] = append(filteredPerRepo[repo], g)
@@ -196,6 +206,17 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 
 		fmt.Println("\nDRY RUN: Snapshot creation plan")
 		fmt.Println("=" + strings.Repeat("=", 50))
+
+		if len(inProgressMain)+len(inProgressPerRepo) > 0 {
+			fmt.Println("\nCurrently IN_PROGRESS snapshots:")
+			for _, msg := range inProgressMain {
+				fmt.Printf("  %s\n", msg)
+			}
+			for _, msg := range inProgressPerRepo {
+				fmt.Printf("  %s\n", msg)
+			}
+			fmt.Println("=" + strings.Repeat("=", 30))
+		}
 
 		for i, group := range filteredMain {
 			fmt.Printf("\nSnapshot %d (repo %s): %s\n", i+1, cfg.SnapshotRepo, group.SnapshotName)

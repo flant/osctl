@@ -104,13 +104,6 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 		snapshotName = value + "-" + today
 	}
 
-	snapshotGroup := utils.SnapshotGroup{
-		SnapshotName: snapshotName,
-		Indices:      matchingIndices,
-		Pattern:      value,
-		Kind:         kind,
-	}
-
 	repoToUse := cfg.SnapshotRepo
 	if cfg.SnapshotManualRepo != "" {
 		repoToUse = cfg.SnapshotManualRepo
@@ -118,18 +111,24 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 
 	if cfg.GetDryRun() {
 		existing, err := client.GetSnapshots(repoToUse, snapshotName)
-		if err == nil && utils.HasSnapshotSuccessByName(snapshotName, existing) {
-			logger.Info(fmt.Sprintf("Valid snapshot already exists snapshot=%s", snapshotName))
-			return nil
+		if err == nil {
+			if state, ok := utils.GetSnapshotStateByName(snapshotName, existing); ok && state == "SUCCESS" {
+				logger.Info(fmt.Sprintf("Valid snapshot already exists snapshot=%s", snapshotName))
+				return nil
+			}
+			if state, ok := utils.GetSnapshotStateByName(snapshotName, existing); ok && state == "IN_PROGRESS" {
+				logger.Info(fmt.Sprintf("Snapshot is currently IN_PROGRESS snapshot=%s repo=%s", snapshotName, repoToUse))
+				return nil
+			}
 		}
 		fmt.Println("\nDRY RUN: Manual snapshot creation plan")
 		fmt.Println("=" + strings.Repeat("=", 50))
 
-		fmt.Printf("\nSnapshot: %s\n", snapshotGroup.SnapshotName)
-		fmt.Printf("Pattern: %s (%s)\n", snapshotGroup.Pattern, snapshotGroup.Kind)
-		fmt.Printf("Indices (%d):\n", len(snapshotGroup.Indices))
+		fmt.Printf("\nSnapshot: %s\n", snapshotName)
+		fmt.Printf("Pattern: %s (%s)\n", value, kind)
+		fmt.Printf("Indices (%d):\n", len(matchingIndices))
 
-		for _, index := range snapshotGroup.Indices {
+		for _, index := range matchingIndices {
 			fmt.Printf("  %s\n", index)
 		}
 
@@ -162,23 +161,23 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 		logger.Info("Existing snapshots today none")
 	}
 
-	exists, err := utils.CheckAndCleanSnapshot(snapshotGroup.SnapshotName, strings.Join(snapshotGroup.Indices, ","), allSnapshots, client, repoToUse, logger)
+	exists, err := utils.CheckAndCleanSnapshot(snapshotName, strings.Join(matchingIndices, ","), allSnapshots, client, repoToUse, logger)
 	if err != nil {
-		logger.Error(fmt.Sprintf("Failed to check/clean snapshot snapshot=%s error=%v", snapshotGroup.SnapshotName, err))
+		logger.Error(fmt.Sprintf("Failed to check/clean snapshot snapshot=%s error=%v", snapshotName, err))
 		return err
 	}
 
 	if exists {
-		logger.Info(fmt.Sprintf("Valid snapshot already exists snapshot=%s", snapshotGroup.SnapshotName))
+		logger.Info(fmt.Sprintf("Valid snapshot already exists snapshot=%s", snapshotName))
 		return nil
 	}
 
-	indicesStr := strings.Join(snapshotGroup.Indices, ",")
-	logger.Info(fmt.Sprintf("Creating snapshot %s", snapshotGroup.SnapshotName))
+	indicesStr := strings.Join(matchingIndices, ",")
+	logger.Info(fmt.Sprintf("Creating snapshot %s", snapshotName))
 	logger.Info(fmt.Sprintf("Snapshot indices %s", indicesStr))
-	err = utils.CreateSnapshotWithRetry(client, snapshotGroup.SnapshotName, indicesStr, repoToUse, madisonClient, logger)
+	err = utils.CreateSnapshotWithRetry(client, snapshotName, indicesStr, repoToUse, madisonClient, logger)
 	if err != nil {
-		logger.Error(fmt.Sprintf("Failed to create snapshot after retries snapshot=%s error=%v", snapshotGroup.SnapshotName, err))
+		logger.Error(fmt.Sprintf("Failed to create snapshot after retries snapshot=%s error=%v", snapshotName, err))
 		return err
 	}
 

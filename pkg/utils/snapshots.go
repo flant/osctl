@@ -44,13 +44,13 @@ func CheckAndCleanSnapshot(snapshotName string, indexName string, snapshots []op
 	return false, nil
 }
 
-func HasSnapshotSuccessByName(snapshotName string, snapshots []opensearch.Snapshot) bool {
+func GetSnapshotStateByName(snapshotName string, snapshots []opensearch.Snapshot) (string, bool) {
 	for _, snapshot := range snapshots {
-		if snapshot.Snapshot == snapshotName && snapshot.State == "SUCCESS" {
-			return true
+		if snapshot.Snapshot == snapshotName {
+			return snapshot.State, true
 		}
 	}
-	return false
+	return "", false
 }
 
 func WaitForSnapshotCompletion(client *opensearch.Client, logger *logging.Logger, targetSnapshot string) error {
