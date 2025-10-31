@@ -226,7 +226,11 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 	if !cfg.GetDryRun() {
 		allSnapshots, err := client.GetSnapshots(cfg.SnapshotRepo, "*"+today+"*")
 		if err != nil {
-			return fmt.Errorf("failed to get snapshots: %v", err)
+			if strings.Contains(err.Error(), "snapshot_missing_exception") || strings.Contains(err.Error(), "404") {
+				allSnapshots = nil
+			} else {
+				return fmt.Errorf("failed to get snapshots: %v", err)
+			}
 		}
 		var existingNames []string
 		for _, s := range allSnapshots {
@@ -270,8 +274,12 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 			for repo, groups := range perRepo {
 				existing, err := client.GetSnapshots(repo, "*"+today+"*")
 				if err != nil {
-					logger.Error(fmt.Sprintf("Failed to get snapshots from repo repo=%s error=%v", repo, err))
-					continue
+					if strings.Contains(err.Error(), "snapshot_missing_exception") || strings.Contains(err.Error(), "404") {
+						existing = nil
+					} else {
+						logger.Error(fmt.Sprintf("Failed to get snapshots from repo repo=%s error=%v", repo, err))
+						continue
+					}
 				}
 				for _, g := range groups {
 					exists, err := utils.CheckAndCleanSnapshot(g.SnapshotName, strings.Join(g.Indices, ","), existing, client, repo, logger)

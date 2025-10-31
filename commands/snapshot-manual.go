@@ -137,7 +137,11 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 
 	allSnapshots, err := client.GetSnapshots(repoToUse, "*"+today+"*")
 	if err != nil {
-		return fmt.Errorf("failed to get snapshots: %v", err)
+		if strings.Contains(err.Error(), "snapshot_missing_exception") || strings.Contains(err.Error(), "404") {
+			allSnapshots = nil
+		} else {
+			return fmt.Errorf("failed to get snapshots: %v", err)
+		}
 	}
 
 	var existNames []string
