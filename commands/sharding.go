@@ -61,10 +61,10 @@ func runSharding(cmd *cobra.Command, args []string) error {
 		if strings.HasPrefix(ii.Index, ".") {
 			continue
 		}
-		if b, err := strconv.ParseInt(ii.Size, 10, 64); err == nil {
+		if b, err := strconv.ParseInt(ii.PriStoreSize, 10, 64); err == nil {
 			sizes[ii.Index] = b
 		} else {
-			logger.Info(fmt.Sprintf("DEBUG: Failed to parse size as int for index %s: %s", ii.Index, ii.Size))
+			logger.Info(fmt.Sprintf("DEBUG: Failed to parse size as int for index %s: %s", ii.Index, ii.PriStoreSize))
 			sizes[ii.Index] = 0
 		}
 	}
@@ -121,20 +121,20 @@ func runSharding(cmd *cobra.Command, args []string) error {
 		if pi, ok := patterns[pattern]; ok {
 			pi.indices = append(pi.indices, name)
 			pi.isHourly = pi.isHourly || isHourly
-			if sz, err := strconv.ParseInt(it.Size, 10, 64); err == nil && sz > pi.maxSize {
+			if sz, err := strconv.ParseInt(it.PriStoreSize, 10, 64); err == nil && sz > pi.maxSize {
 				pi.maxSize = sz
-				pi.maxSizeStr = it.Size
+				pi.maxSizeStr = it.PriStoreSize
 			}
 		} else {
 			patterns[pattern] = &patternInfo{
 				base:       base,
 				pattern:    pattern,
 				maxSize:    0,
-				maxSizeStr: it.Size,
+				maxSizeStr: it.PriStoreSize,
 				indices:    []string{name},
 				isHourly:   isHourly,
 			}
-			if sz, err := strconv.ParseInt(it.Size, 10, 64); err == nil {
+			if sz, err := strconv.ParseInt(it.PriStoreSize, 10, 64); err == nil {
 				patterns[pattern].maxSize = sz
 			}
 		}

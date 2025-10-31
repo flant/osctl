@@ -39,6 +39,7 @@ type IndexInfo struct {
 	Index        string `json:"index"`
 	Rep          string `json:"rep"`
 	Size         string `json:"ss"`
+	PriStoreSize string `json:"pri.store.size"`
 	CreationDate string `json:"cd"`
 }
 
