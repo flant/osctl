@@ -64,7 +64,7 @@ func CheckSnapshotStateInRepo(client *opensearch.Client, repo string, snapshotNa
 	return "", false, nil
 }
 
-func WaitForSnapshotCompletion(client *opensearch.Client, logger *logging.Logger, targetSnapshot string) error {
+func WaitForSnapshotCompletion(client *opensearch.Client, logger *logging.Logger, targetSnapshot string, targetRepo string) error {
 	for {
 		status, err := client.GetSnapshotStatus()
 		if err != nil {
@@ -73,12 +73,27 @@ func WaitForSnapshotCompletion(client *opensearch.Client, logger *logging.Logger
 			continue
 		}
 
-		if len(status.Snapshots) == 0 {
+		filtered := status.Snapshots
+		if targetRepo != "" || targetSnapshot != "" {
+			tmp := []opensearch.SnapshotInfo{}
+			for _, s := range status.Snapshots {
+				if targetRepo != "" && s.Repository != targetRepo {
+					continue
+				}
+				if targetSnapshot != "" && s.Snapshot != targetSnapshot {
+					continue
+				}
+				tmp = append(tmp, s)
+			}
+			filtered = tmp
+		}
+
+		if len(filtered) == 0 {
 			break
 		}
 
-		identifiers := make([]string, 0, len(status.Snapshots))
-		for _, s := range status.Snapshots {
+		identifiers := make([]string, 0, len(filtered))
+		for _, s := range filtered {
 			if s.Repository != "" || s.Snapshot != "" {
 				if s.Repository != "" && s.Snapshot != "" {
 					identifiers = append(identifiers, fmt.Sprintf("%s/%s", s.Repository, s.Snapshot))
@@ -90,15 +105,15 @@ func WaitForSnapshotCompletion(client *opensearch.Client, logger *logging.Logger
 
 		if len(identifiers) > 0 {
 			if targetSnapshot != "" {
-				logger.Info(fmt.Sprintf("Waiting for snapshots to complete count=%d jobs=%v target=%s", len(status.Snapshots), identifiers, targetSnapshot))
+				logger.Info(fmt.Sprintf("Waiting for snapshots to complete count=%d jobs=%v target=%s", len(identifiers), identifiers, targetSnapshot))
 			} else {
-				logger.Info(fmt.Sprintf("Waiting for snapshots to complete count=%d jobs=%v", len(status.Snapshots), identifiers))
+				logger.Info(fmt.Sprintf("Waiting for snapshots to complete count=%d jobs=%v", len(identifiers), identifiers))
 			}
 		} else {
 			if targetSnapshot != "" {
-				logger.Info(fmt.Sprintf("Waiting for snapshots to complete count=%d target=%s", len(status.Snapshots), targetSnapshot))
+				logger.Info(fmt.Sprintf("Waiting for snapshots to complete target=%s", targetSnapshot))
 			} else {
-				logger.Info(fmt.Sprintf("Waiting for snapshots to complete count=%d", len(status.Snapshots)))
+				logger.Info("Waiting for snapshots to complete")
 			}
 		}
 		time.Sleep(60 * time.Second)
@@ -106,7 +121,7 @@ func WaitForSnapshotCompletion(client *opensearch.Client, logger *logging.Logger
 	return nil
 }
 
-func WaitForSnapshotTasks(client *opensearch.Client, logger *logging.Logger, targetSnapshot string) error {
+func WaitForSnapshotTasks(client *opensearch.Client, logger *logging.Logger, targetSnapshot string, targetRepo string) error {
 	for {
 		tasks, err := client.GetTasks()
 		if err != nil {
@@ -120,12 +135,24 @@ func WaitForSnapshotTasks(client *opensearch.Client, logger *logging.Logger, tar
 		for _, node := range tasks.Nodes {
 			for _, task := range node.Tasks {
 				if strings.Contains(task.Action, "snapshot") {
-					hasSnapshotTasks = true
-					if task.Description != "" {
-						jobDescriptions = append(jobDescriptions, task.Description)
-					} else {
-						jobDescriptions = append(jobDescriptions, task.Action)
+					desc := task.Description
+					if desc == "" {
+						desc = task.Action
 					}
+					if targetRepo != "" || targetSnapshot != "" {
+						match := false
+						if targetRepo != "" && strings.Contains(desc, targetRepo+"/") {
+							match = true
+						}
+						if targetSnapshot != "" && strings.Contains(desc, targetSnapshot) {
+							match = true
+						}
+						if !match {
+							continue
+						}
+					}
+					hasSnapshotTasks = true
+					jobDescriptions = append(jobDescriptions, desc)
 				}
 			}
 		}
@@ -158,12 +185,12 @@ func CreateSnapshotWithRetry(client *opensearch.Client, snapshotName, indexName,
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		logger.Info(fmt.Sprintf("Creating snapshot attempt snapshot=%s attempt=%d maxRetries=%d", snapshotName, attempt, maxRetries))
 
-		err := WaitForSnapshotCompletion(client, logger, "")
+		err := WaitForSnapshotCompletion(client, logger, "", snapRepo)
 		if err != nil {
 			logger.Warn(fmt.Sprintf("Failed to wait for snapshot completion error=%v", err))
 		}
 
-		err = WaitForSnapshotTasks(client, logger, "")
+		err = WaitForSnapshotTasks(client, logger, "", snapRepo)
 		if err != nil {
 			logger.Warn(fmt.Sprintf("Failed to wait for snapshot tasks error=%v", err))
 		}

@@ -125,12 +125,12 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	err = utils.WaitForSnapshotCompletion(client, logger, "")
+	err = utils.WaitForSnapshotCompletion(client, logger, "", repoToUse)
 	if err != nil {
 		return fmt.Errorf("failed to wait for snapshot completion: %v", err)
 	}
 
-	err = utils.WaitForSnapshotTasks(client, logger, "")
+	err = utils.WaitForSnapshotTasks(client, logger, "", repoToUse)
 	if err != nil {
 		return fmt.Errorf("failed to wait for snapshot tasks: %v", err)
 	}
