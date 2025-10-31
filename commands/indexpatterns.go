@@ -32,6 +32,7 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 	cfg := config.GetCommandConfig(cmd)
 
 	osdURL := cfg.OSDURL
+	dryRun := cfg.GetDryRun()
 
 	if osdURL == "" {
 		return fmt.Errorf("osd-url parameter is required")
@@ -103,6 +104,10 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 					},
 				}
 				id := fmt.Sprintf("index-pattern:%s", uuid.NewString())
+				if dryRun {
+					logger.Info(fmt.Sprintf("DRY RUN: Would create index pattern %s in tenant %s", p, t.Name))
+					continue
+				}
 				if err := osClient.CreateDoc(tenantIndex, id, payload); err != nil {
 					return err
 				}
@@ -165,6 +170,10 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 			},
 		}
 		id := fmt.Sprintf("index-pattern:%s", uuid.NewString())
+		if dryRun {
+			logger.Info(fmt.Sprintf("DRY RUN: Would create index pattern %s", p))
+			continue
+		}
 		if err := osClient.CreateDoc(".kibana", id, payload); err != nil {
 			return err
 		}
@@ -196,7 +205,9 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 						"name": "dataSource",
 					}},
 				}
-				if err := osClient.CreateDoc(".kibana", "index-pattern:recoverer-extracted", payload); err == nil {
+				if dryRun {
+					logger.Info("DRY RUN: Would create index pattern extracted_* with data-source reference")
+				} else if err := osClient.CreateDoc(".kibana", "index-pattern:recoverer-extracted", payload); err == nil {
 					logger.Info("Created index pattern extracted_* with data-source reference")
 				}
 			}

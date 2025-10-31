@@ -25,13 +25,14 @@ func init() {
 
 func runDanglingChecker(cmd *cobra.Command, args []string) error {
 	cfg := config.GetCommandConfig(cmd)
+	dryRun := cfg.GetDryRun()
 
-    madisonKey := cfg.MadisonKey
-    osdURL := cfg.OSDURL
+	madisonKey := cfg.MadisonKey
+	osdURL := cfg.OSDURL
 
-    if madisonKey == "" || osdURL == "" || cfg.MadisonURL == "" {
-        return fmt.Errorf("madison-key, osd-url and madison-url parameters are required")
-    }
+	if madisonKey == "" || osdURL == "" || cfg.MadisonURL == "" {
+		return fmt.Errorf("madison-key, osd-url and madison-url parameters are required")
+	}
 
 	logger := logging.NewLogger()
 	client, err := opensearch.NewClient(cfg.OpenSearchURL, cfg.CertFile, cfg.KeyFile, cfg.CAFile, cfg.GetTimeout(), cfg.GetRetryAttempts())
@@ -60,13 +61,21 @@ func runDanglingChecker(cmd *cobra.Command, args []string) error {
 		indexNames = append(indexNames, idx.IndexName)
 	}
 
-    madisonClient := alerts.NewMadisonClient(madisonKey, osdURL, cfg.MadisonURL)
-	response, err := madisonClient.SendMadisonDanglingIndicesAlert(indexNames)
-	if err != nil {
-		return fmt.Errorf("failed to send Madison alert: %v", err)
+	if dryRun {
+		logger.Info("DRY RUN: Would send Madison alert for dangling indices")
+	} else {
+		madisonClient := alerts.NewMadisonClient(madisonKey, osdURL, cfg.MadisonURL)
+		response, err := madisonClient.SendMadisonDanglingIndicesAlert(indexNames)
+		if err != nil {
+			return fmt.Errorf("failed to send Madison alert: %v", err)
+		}
+		logger.Info(fmt.Sprintf("Madison alert sent successfully: type=DanglingIndices response=%s", response))
 	}
-	logger.Info(fmt.Sprintf("Madison alert sent successfully: type=DanglingIndices response=%s", response))
 
-	logger.Info(fmt.Sprintf("Sent Madison alert for dangling indices count=%d", len(danglingIndices)))
+	if dryRun {
+		logger.Info(fmt.Sprintf("DRY RUN: Would send Madison alert for dangling indices count=%d", len(danglingIndices)))
+	} else {
+		logger.Info(fmt.Sprintf("Sent Madison alert for dangling indices count=%d", len(danglingIndices)))
+	}
 	return nil
 }

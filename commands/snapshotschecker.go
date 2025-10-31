@@ -27,6 +27,7 @@ func runSnapshotChecker(cmd *cobra.Command, args []string) error {
 	cfg := config.GetConfig()
 	cmdCfg := config.GetCommandConfig(cmd)
 	logger := logging.NewLogger()
+	dryRun := cmdCfg.GetDryRun()
 
 	logger.Info("Starting snapshot checking")
 
@@ -123,9 +124,13 @@ func runSnapshotChecker(cmd *cobra.Command, args []string) error {
 	if len(missingSnapshots) > 0 {
 		logger.Warn(fmt.Sprintf("Missing snapshots found count=%d", len(missingSnapshots)))
 		logger.Warn(fmt.Sprintf("Missing snapshots list %s", strings.Join(missingSnapshots, ", ")))
-		err := sendMissingSnapshotsAlert(cfg, missingSnapshots)
-		if err != nil {
-			logger.Error(fmt.Sprintf("Failed to send Madison alert error=%v", err))
+		if dryRun {
+			logger.Info("DRY RUN: Would send Madison alert for missing snapshots")
+		} else {
+			err := sendMissingSnapshotsAlert(cfg, missingSnapshots)
+			if err != nil {
+				logger.Error(fmt.Sprintf("Failed to send Madison alert error=%v", err))
+			}
 		}
 	} else {
 		logger.Info("All snapshots are present")

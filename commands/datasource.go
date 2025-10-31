@@ -44,6 +44,7 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 	}
 
 	logger := logging.NewLogger()
+	dryRun := cfg.GetDryRun()
 	_, err := utils.NewOSClientFromCommandConfig(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
@@ -69,10 +70,14 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 		exists := slices.Contains(existingTitles, dataSourceName)
 		logger.Info(fmt.Sprintf("Tenant %s existing data-sources (%d): %s", tenant, len(existingTitles), strings.Join(existingTitles, ", ")))
 		if !exists {
-			if err := kb.CreateDataSource(tenant, dataSourceName, cfg.OpenSearchURL, user, pass); err != nil {
-				return err
+			if dryRun {
+				logger.Info(fmt.Sprintf("DRY RUN: Would create data source in tenant %s", tenant))
+			} else {
+				if err := kb.CreateDataSource(tenant, dataSourceName, cfg.OpenSearchURL, user, pass); err != nil {
+					return err
+				}
+				logger.Info(fmt.Sprintf("Created data source in tenant %s", tenant))
 			}
-			logger.Info(fmt.Sprintf("Created data source in tenant %s", tenant))
 		} else {
 			logger.Info(fmt.Sprintf("Data source already exists in tenant %s (title=%s)", tenant, dataSourceName))
 		}
@@ -120,14 +125,22 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 					return nil
 				}
 			}
-			existing.Data = map[string][]byte{"multi.crt": desired}
-			if _, err := cs.CoreV1().Secrets(ns).Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
-				return err
+			if dryRun {
+				logger.Info("DRY RUN: Would update secret multi-certs with new multi.crt contents")
+			} else {
+				existing.Data = map[string][]byte{"multi.crt": desired}
+				if _, err := cs.CoreV1().Secrets(ns).Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
+					return err
+				}
 			}
 		} else if apierrors.IsNotFound(err) {
-			sec := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "multi-certs", Namespace: ns}, Type: corev1.SecretTypeOpaque, Data: map[string][]byte{"multi.crt": desired}}
-			if _, err := cs.CoreV1().Secrets(ns).Create(ctx, sec, metav1.CreateOptions{}); err != nil {
-				return err
+			if dryRun {
+				logger.Info("DRY RUN: Would create secret multi-certs with multi.crt contents")
+			} else {
+				sec := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "multi-certs", Namespace: ns}, Type: corev1.SecretTypeOpaque, Data: map[string][]byte{"multi.crt": desired}}
+				if _, err := cs.CoreV1().Secrets(ns).Create(ctx, sec, metav1.CreateOptions{}); err != nil {
+					return err
+				}
 			}
 		} else {
 			return err
@@ -139,8 +152,12 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 				dep.Spec.Template.Annotations = map[string]string{}
 			}
 			dep.Spec.Template.Annotations["osctl/restartedAt"] = time.Now().Format(time.RFC3339)
-			if _, err := cs.AppsV1().Deployments(ns).Update(ctx, dep, metav1.UpdateOptions{}); err == nil {
-				logger.Info("Updated multi-certs and restarted kibana")
+			if dryRun {
+				logger.Info("DRY RUN: Would update multi-certs and restart kibana")
+			} else {
+				if _, err := cs.AppsV1().Deployments(ns).Update(ctx, dep, metav1.UpdateOptions{}); err == nil {
+					logger.Info("Updated multi-certs and restarted kibana")
+				}
 			}
 		}
 	}

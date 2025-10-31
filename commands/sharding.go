@@ -31,6 +31,7 @@ func runSharding(cmd *cobra.Command, args []string) error {
 	cfg := config.GetCommandConfig(cmd)
 
 	logger := logging.NewLogger()
+	dryRun := cfg.GetDryRun()
 	client, err := opensearch.NewClient(cfg.OpenSearchURL, cfg.CertFile, cfg.KeyFile, cfg.CAFile, cfg.GetTimeout(), cfg.GetRetryAttempts())
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
@@ -111,26 +112,38 @@ func runSharding(cmd *cobra.Command, args []string) error {
 			},
 		}
 		if existing == "" {
-			logger.Info(fmt.Sprintf("Create index template %s for pattern %s with %d shards", templateName, pattern, shards))
-			if err := client.PutIndexTemplate(templateName, template); err != nil {
-				return err
+			if dryRun {
+				logger.Info(fmt.Sprintf("DRY RUN: Would create index template %s for pattern %s with %d shards", templateName, pattern, shards))
+			} else {
+				logger.Info(fmt.Sprintf("Create index template %s for pattern %s with %d shards", templateName, pattern, shards))
+				if err := client.PutIndexTemplate(templateName, template); err != nil {
+					return err
+				}
 			}
 		} else {
-			logger.Info(fmt.Sprintf("Update existing template %s: set number_of_shards=%d", existing, shards))
-			current := map[string]any{
-				"template": map[string]any{
-					"settings": map[string]any{
-						"index": map[string]any{
-							"number_of_shards": shards,
+			if dryRun {
+				logger.Info(fmt.Sprintf("DRY RUN: Would update existing template %s: set number_of_shards=%d", existing, shards))
+			} else {
+				logger.Info(fmt.Sprintf("Update existing template %s: set number_of_shards=%d", existing, shards))
+				current := map[string]any{
+					"template": map[string]any{
+						"settings": map[string]any{
+							"index": map[string]any{
+								"number_of_shards": shards,
+							},
 						},
 					},
-				},
-			}
-			if err := client.PutIndexTemplate(existing, current); err != nil {
-				return err
+				}
+				if err := client.PutIndexTemplate(existing, current); err != nil {
+					return err
+				}
 			}
 		}
-		logger.Info(fmt.Sprintf("Applied sharding template %s for pattern %s with %d shards", templateName, pattern, shards))
+		if dryRun {
+			logger.Info(fmt.Sprintf("DRY RUN: Would apply sharding template %s for pattern %s with %d shards", templateName, pattern, shards))
+		} else {
+			logger.Info(fmt.Sprintf("Applied sharding template %s for pattern %s with %d shards", templateName, pattern, shards))
+		}
 	}
 	return nil
 }
