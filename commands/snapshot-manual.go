@@ -97,12 +97,7 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 
 	logger.Info(fmt.Sprintf("Matched indices %s", strings.Join(matchingIndices, ", ")))
 
-	var snapshotName string
-	if kind == "regex" {
-		snapshotName = name + "-" + today
-	} else {
-		snapshotName = value + "-" + today
-	}
+	snapshotName := utils.BuildSnapshotName(kind, name, value, today)
 
 	repoToUse := cfg.SnapshotRepo
 	if cfg.SnapshotManualRepo != "" {
@@ -110,16 +105,13 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 	}
 
 	if cfg.GetDryRun() {
-		existing, err := client.GetSnapshots(repoToUse, snapshotName)
-		if err == nil {
-			if state, ok := utils.GetSnapshotStateByName(snapshotName, existing); ok && state == "SUCCESS" {
-				logger.Info(fmt.Sprintf("Valid snapshot already exists snapshot=%s", snapshotName))
-				return nil
-			}
-			if state, ok := utils.GetSnapshotStateByName(snapshotName, existing); ok && state == "IN_PROGRESS" {
-				logger.Info(fmt.Sprintf("Snapshot is currently IN_PROGRESS snapshot=%s repo=%s", snapshotName, repoToUse))
-				return nil
-			}
+		if state, ok, _ := utils.CheckSnapshotStateInRepo(client, repoToUse, snapshotName); ok && state == "SUCCESS" {
+			logger.Info(fmt.Sprintf("Valid snapshot already exists snapshot=%s", snapshotName))
+			return nil
+		}
+		if state, ok, _ := utils.CheckSnapshotStateInRepo(client, repoToUse, snapshotName); ok && state == "IN_PROGRESS" {
+			logger.Info(fmt.Sprintf("Snapshot is currently IN_PROGRESS snapshot=%s repo=%s", snapshotName, repoToUse))
+			return nil
 		}
 		fmt.Println("\nDRY RUN: Manual snapshot creation plan")
 		fmt.Println("=" + strings.Repeat("=", 50))

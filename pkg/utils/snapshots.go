@@ -53,6 +53,17 @@ func GetSnapshotStateByName(snapshotName string, snapshots []opensearch.Snapshot
 	return "", false
 }
 
+func CheckSnapshotStateInRepo(client *opensearch.Client, repo string, snapshotName string) (string, bool, error) {
+	snaps, err := client.GetSnapshots(repo, snapshotName)
+	if err != nil {
+		return "", false, err
+	}
+	if state, ok := GetSnapshotStateByName(snapshotName, snaps); ok {
+		return state, true, nil
+	}
+	return "", false, nil
+}
+
 func WaitForSnapshotCompletion(client *opensearch.Client, logger *logging.Logger, targetSnapshot string) error {
 	for {
 		status, err := client.GetSnapshotStatus()
@@ -321,13 +332,7 @@ func GroupIndicesForSnapshots(indices []string, indicesConfig []config.IndexConf
 		}
 
 		if len(matchingIndices) > 0 {
-			var snapshotName string
-			if indexConfig.Kind == "regex" {
-				snapshotName = indexConfig.Name + "-" + dateStr
-			} else {
-				snapshotName = indexConfig.Value + "-" + dateStr
-			}
-
+			snapshotName := BuildSnapshotNameFromConfig(indexConfig, dateStr)
 			groups = append(groups, SnapshotGroup{
 				SnapshotName: snapshotName,
 				Indices:      matchingIndices,
@@ -368,4 +373,35 @@ func formatDuration(d time.Duration) string {
 		return fmt.Sprintf("%dm", minutes)
 	}
 	return fmt.Sprintf("%dm%ds", minutes, seconds)
+}
+
+func BuildSnapshotName(kind, name, value, dateStr string) string {
+	if kind == "regex" {
+		return name + "-" + dateStr
+	}
+	return value + "-" + dateStr
+}
+
+func BuildSnapshotNameFromConfig(indexConfig config.IndexConfig, dateStr string) string {
+	return BuildSnapshotName(indexConfig.Kind, indexConfig.Name, indexConfig.Value, dateStr)
+}
+
+func AddIndexToSnapshotGroups(indexName string, indexConfig config.IndexConfig, dateStr string, repoGroups map[string]SnapshotGroup, indicesToSnapshot *[]string) {
+	if indexConfig.Repository != "" {
+		snapshotName := BuildSnapshotNameFromConfig(indexConfig, dateStr)
+		key := indexConfig.Repository + "|" + snapshotName
+		if g, ok := repoGroups[key]; ok {
+			g.Indices = append(g.Indices, indexName)
+			repoGroups[key] = g
+		} else {
+			repoGroups[key] = SnapshotGroup{
+				SnapshotName: snapshotName,
+				Indices:      []string{indexName},
+				Pattern:      indexConfig.Value,
+				Kind:         indexConfig.Kind,
+			}
+		}
+	} else {
+		*indicesToSnapshot = append(*indicesToSnapshot, indexName)
+	}
 }

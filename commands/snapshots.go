@@ -84,7 +84,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 			indexName := idx.Index
 			indexConfig := utils.FindMatchingIndexConfig(indexName, systemConfigs)
 			if indexConfig != nil && indexConfig.Snapshot && !indexConfig.ManualSnapshot {
-				indicesToSnapshot = append(indicesToSnapshot, indexName)
+				utils.AddIndexToSnapshotGroups(indexName, *indexConfig, today, repoGroups, &indicesToSnapshot)
 			}
 		}
 	}
@@ -108,28 +108,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 			indexName := idx.Index
 			indexConfig := utils.FindMatchingIndexConfig(indexName, regularConfigs)
 			if indexConfig != nil && indexConfig.Snapshot && !indexConfig.ManualSnapshot {
-				if indexConfig.Repository != "" {
-					var snapshotName string
-					if indexConfig.Kind == "regex" {
-						snapshotName = indexConfig.Name + "-" + today
-					} else {
-						snapshotName = indexConfig.Value + "-" + today
-					}
-					key := indexConfig.Repository + "|" + snapshotName
-					if g, ok := repoGroups[key]; ok {
-						g.Indices = append(g.Indices, indexName)
-						repoGroups[key] = g
-					} else {
-						repoGroups[key] = utils.SnapshotGroup{
-							SnapshotName: snapshotName,
-							Indices:      []string{indexName},
-							Pattern:      indexConfig.Value,
-							Kind:         indexConfig.Kind,
-						}
-					}
-				} else {
-					indicesToSnapshot = append(indicesToSnapshot, indexName)
-				}
+				utils.AddIndexToSnapshotGroups(indexName, *indexConfig, today, repoGroups, &indicesToSnapshot)
 			} else {
 				unknownIndices = append(unknownIndices, indexName)
 			}
