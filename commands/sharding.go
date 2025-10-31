@@ -71,6 +71,18 @@ func runSharding(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	type templateChange struct {
+		action      string
+		template    string
+		pattern     string
+		shards      int
+		replicas    int
+		priority    int
+		oldShards   int
+		oldReplicas int
+	}
+	var changes []templateChange
+
 	for _, it := range indicesToday {
 		name := it.Index
 		if strings.HasPrefix(name, ".") {
@@ -122,6 +134,14 @@ func runSharding(cmd *cobra.Command, args []string) error {
 		if existing == "" {
 			if dryRun {
 				logger.Info(fmt.Sprintf("DRY RUN: Would create index template %s for pattern %s with shards=%d replicas=%d priority=%d", templateName, pattern, shards, replicas, priority))
+				changes = append(changes, templateChange{
+					action:   "create",
+					template: templateName,
+					pattern:  pattern,
+					shards:   shards,
+					replicas: replicas,
+					priority: priority,
+				})
 			} else {
 				logger.Info(fmt.Sprintf("Create index template %s for pattern %s with %d shards", templateName, pattern, shards))
 				if err := client.PutIndexTemplate(templateName, template); err != nil {
@@ -155,6 +175,15 @@ func runSharding(cmd *cobra.Command, args []string) error {
 			}
 			if dryRun {
 				logger.Info(fmt.Sprintf("DRY RUN: Would update template %s: shards %d->%d, replicas %d->%d", existing, curShards, shards, curReplicas, replicas))
+				changes = append(changes, templateChange{
+					action:      "update",
+					template:    existing,
+					pattern:     pattern,
+					shards:      shards,
+					replicas:    replicas,
+					oldShards:   curShards,
+					oldReplicas: curReplicas,
+				})
 			} else {
 				logger.Info(fmt.Sprintf("Update existing template %s: set number_of_shards=%d number_of_replicas=%d", existing, shards, replicas))
 				current := map[string]any{
@@ -173,6 +202,23 @@ func runSharding(cmd *cobra.Command, args []string) error {
 			}
 		}
 	}
+
+	if dryRun && len(changes) > 0 {
+		logger.Info("")
+		logger.Info("DRY RUN SUMMARY")
+		logger.Info("===============")
+		logger.Info(fmt.Sprintf("Total templates to process: %d", len(changes)))
+		logger.Info("")
+		for _, ch := range changes {
+			if ch.action == "create" {
+				logger.Info(fmt.Sprintf("CREATE: template=%s pattern=%s shards=%d replicas=%d priority=%d", ch.template, ch.pattern, ch.shards, ch.replicas, ch.priority))
+			} else {
+				logger.Info(fmt.Sprintf("UPDATE: template=%s pattern=%s shards %d->%d replicas %d->%d", ch.template, ch.pattern, ch.oldShards, ch.shards, ch.oldReplicas, ch.replicas))
+			}
+		}
+		logger.Info("")
+	}
+
 	return nil
 }
 
