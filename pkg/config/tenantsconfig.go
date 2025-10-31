@@ -40,6 +40,18 @@ func (c *Config) GetTenantsConfig() (*TenantsFile, error) {
 	return LoadTenantsConfig(c.OSCTLTenantsConfig)
 }
 
+func (c *CommandConfig) GetIndexPatternsTenantsConfig() (*TenantsFile, error) {
+	configPath := c.IndexPatternsKibanaTenantsConfig
+	if configPath == "" {
+		configPath = "osctltenants.yaml"
+	}
+	st, err := os.Stat(configPath)
+	if err != nil || st.IsDir() {
+		return nil, fmt.Errorf("indexpatterns-kibana-tenants-config '%s' not found or is a directory", configPath)
+	}
+	return LoadTenantsConfig(configPath)
+}
+
 func (tf *TenantsFile) GetTenantNames() []string {
 	out := []string{}
 	for _, t := range tf.Tenants {

@@ -60,6 +60,7 @@ type Config struct {
 	DataSourceKibanaMultidomainEnabled string
 	DataSourceRemoteCRT                string
 	IndexPatternsKibanaMultitenancy    string
+	IndexPatternsKibanaTenantsConfig   string
 	IndexPatternsRecovererEnabled      string
 }
 
@@ -162,6 +163,7 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		DataSourceKibanaMultidomainEnabled: getValue(cmd, "datasource-kibana-multidomain-enabled", "DATASOURCE_KIBANA_MULTIDOMAIN_ENABLED", viper.GetString("datasource_kibana_multidomain_enabled")),
 		DataSourceRemoteCRT:                getValue(cmd, "datasource-remote-crt", "DATASOURCE_REMOTE_CRT", viper.GetString("datasource_remote_crt")),
 		IndexPatternsKibanaMultitenancy:    getValue(cmd, "indexpatterns-kibana-multitenancy", "INDEXPATTERNS_KIBANA_MULTITENANCY", viper.GetString("indexpatterns_kibana_multitenancy")),
+		IndexPatternsKibanaTenantsConfig:   getValue(cmd, "indexpatterns-kibana-tenants-config", "INDEXPATTERNS_KIBANA_TENANTS_CONFIG", viper.GetString("indexpatterns_kibana_tenants_config")),
 		IndexPatternsRecovererEnabled:      getValue(cmd, "indexpatterns-recoverer-enabled", "INDEXPATTERNS_RECOVERER_ENABLED", viper.GetString("indexpatterns_recoverer_enabled")),
 	}
 
@@ -825,6 +827,7 @@ type CommandConfig struct {
 	DataSourceKibanaMultidomainEnabled string
 	DataSourceRemoteCRT                string
 	IndexPatternsKibanaMultitenancy    string
+	IndexPatternsKibanaTenantsConfig   string
 	IndexPatternsRecovererEnabled      string
 }
 
@@ -867,6 +870,7 @@ func GetCommandConfig(cmd *cobra.Command) *CommandConfig {
 		DataSourceKibanaMultidomainEnabled: cfg.DataSourceKibanaMultidomainEnabled,
 		DataSourceRemoteCRT:                cfg.DataSourceRemoteCRT,
 		IndexPatternsKibanaMultitenancy:    cfg.IndexPatternsKibanaMultitenancy,
+		IndexPatternsKibanaTenantsConfig:   cfg.IndexPatternsKibanaTenantsConfig,
 		IndexPatternsRecovererEnabled:      cfg.IndexPatternsRecovererEnabled,
 	}
 }

@@ -52,7 +52,7 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 		if cfg.KibanaIndexRegex != "" {
 			logger.Info("kibana_index_regex is ignored in multitenancy mode")
 		}
-		tf, err := config.GetConfig().GetTenantsConfig()
+		tf, err := cfg.GetIndexPatternsTenantsConfig()
 		if err != nil {
 			return err
 		}
@@ -78,17 +78,22 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 			logger.Info(fmt.Sprintf("Tenant %s existing index patterns (%d): %s", t.Name, len(existingTitles), strings.Join(existingTitles, ", ")))
 			toCreate := []string{}
 			seen := map[string]struct{}{}
+			logger.Info(fmt.Sprintf("Tenant %s: checking patterns from config (%d): %s", t.Name, len(t.Patterns), strings.Join(t.Patterns, ", ")))
 			for _, p := range t.Patterns {
 				pp := strings.TrimSpace(p)
 				if pp == "" {
 					continue
 				}
 				if _, ok := seen[pp]; ok {
+					logger.Info(fmt.Sprintf("Tenant %s: pattern %s already seen, skipping", t.Name, pp))
 					continue
 				}
 				seen[pp] = struct{}{}
 				if _, ok := existing[pp]; !ok {
+					logger.Info(fmt.Sprintf("Tenant %s: pattern %s not found in existing, will create", t.Name, pp))
 					toCreate = append(toCreate, pp)
+				} else {
+					logger.Info(fmt.Sprintf("Tenant %s: pattern %s already exists, skipping", t.Name, pp))
 				}
 			}
 			if len(toCreate) == 0 {
