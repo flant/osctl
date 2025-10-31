@@ -65,8 +65,7 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		for _, t := range tf.Tenants {
-			normalizedName := utils.NormalizeTenantName(t.Name)
-			tenants = append(tenants, normalizedName)
+			tenants = append(tenants, t.Name)
 			tenantNamesForLog = append(tenantNamesForLog, t.Name)
 		}
 	}
