@@ -105,19 +105,26 @@ func executeActionCommand(action string, args []string) error {
 
 func init() {
 	addFlags(rootCmd)
-	rootCmd.AddCommand(snapshotCmd)
-	rootCmd.AddCommand(snapshotManualCmd)
-	rootCmd.AddCommand(snapshotsDeleteCmd)
-	rootCmd.AddCommand(indicesDeleteCmd)
-	rootCmd.AddCommand(retentionCmd)
-	rootCmd.AddCommand(shardingCmd)
-	rootCmd.AddCommand(indexPatternsCmd)
-	rootCmd.AddCommand(dataSourceCmd)
-	rootCmd.AddCommand(dereplicatorCmd)
-	rootCmd.AddCommand(snapshotsCheckerCmd)
-	rootCmd.AddCommand(danglingCheckerCmd)
-	rootCmd.AddCommand(coldStorageCmd)
-	rootCmd.AddCommand(extractedDeleteCmd)
+	rootCmd.SilenceUsage = true
+	commands := []*cobra.Command{
+		snapshotCmd,
+		snapshotManualCmd,
+		snapshotsDeleteCmd,
+		indicesDeleteCmd,
+		retentionCmd,
+		shardingCmd,
+		indexPatternsCmd,
+		dataSourceCmd,
+		dereplicatorCmd,
+		snapshotsCheckerCmd,
+		danglingCheckerCmd,
+		coldStorageCmd,
+		extractedDeleteCmd,
+	}
+	for _, cmd := range commands {
+		cmd.SilenceUsage = true
+		rootCmd.AddCommand(cmd)
+	}
 }
 
 func addFlags(cmd *cobra.Command) {
