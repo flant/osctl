@@ -162,33 +162,70 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 	}
 
 	if cfg.GetDryRun() {
+		existingMain, err := client.GetSnapshots(cfg.SnapshotRepo, "*"+today+"*")
+		if err != nil {
+			existingMain = nil
+		}
+		filteredMain := make([]utils.SnapshotGroup, 0, len(snapshotGroups))
+		for _, g := range snapshotGroups {
+			if utils.HasSnapshotSuccessByName(g.SnapshotName, existingMain) {
+				continue
+			}
+			filteredMain = append(filteredMain, g)
+		}
+
+		perRepo := map[string][]utils.SnapshotGroup{}
+		for k, g := range repoGroups {
+			parts := strings.SplitN(k, "|", 2)
+			repo := parts[0]
+			perRepo[repo] = append(perRepo[repo], g)
+		}
+		filteredPerRepo := map[string][]utils.SnapshotGroup{}
+		for repo, groups := range perRepo {
+			existing, err := client.GetSnapshots(repo, "*"+today+"*")
+			if err != nil {
+				existing = nil
+			}
+			for _, g := range groups {
+				if utils.HasSnapshotSuccessByName(g.SnapshotName, existing) {
+					continue
+				}
+				filteredPerRepo[repo] = append(filteredPerRepo[repo], g)
+			}
+		}
+
 		fmt.Println("\nDRY RUN: Snapshot creation plan")
 		fmt.Println("=" + strings.Repeat("=", 50))
 
-		for i, group := range snapshotGroups {
+		for i, group := range filteredMain {
 			fmt.Printf("\nSnapshot %d: %s\n", i+1, group.SnapshotName)
 			fmt.Printf("Pattern: %s (%s)\n", group.Pattern, group.Kind)
 			fmt.Printf("Indices (%d):\n", len(group.Indices))
-
 			for _, index := range group.Indices {
 				fmt.Printf("  %s\n", index)
 			}
 			fmt.Println("=" + strings.Repeat("=", 30))
 		}
 
-		if len(repoGroups) > 0 {
-			for _, g := range repoGroups {
-				fmt.Printf("\nSnapshot (repo %s): %s\n", "custom", g.SnapshotName)
-				fmt.Printf("Pattern: %s (%s)\n", g.Pattern, g.Kind)
-				fmt.Printf("Indices (%d):\n", len(g.Indices))
-				for _, index := range g.Indices {
-					fmt.Printf("  %s\n", index)
+		if len(filteredPerRepo) > 0 {
+			for repo, groups := range filteredPerRepo {
+				for _, g := range groups {
+					fmt.Printf("\nSnapshot (repo %s): %s\n", repo, g.SnapshotName)
+					fmt.Printf("Pattern: %s (%s)\n", g.Pattern, g.Kind)
+					fmt.Printf("Indices (%d):\n", len(g.Indices))
+					for _, index := range g.Indices {
+						fmt.Printf("  %s\n", index)
+					}
+					fmt.Println("=" + strings.Repeat("=", 30))
 				}
-				fmt.Println("=" + strings.Repeat("=", 30))
 			}
 		}
 
-		fmt.Printf("\nDRY RUN: Would create %d snapshots\n", len(snapshotGroups)+len(repoGroups))
+		total := len(filteredMain)
+		for _, groups := range filteredPerRepo {
+			total += len(groups)
+		}
+		fmt.Printf("\nDRY RUN: Would create %d snapshots\n", total)
 		return nil
 	}
 

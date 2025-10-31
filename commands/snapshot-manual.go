@@ -111,7 +111,17 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 		Kind:         kind,
 	}
 
+	repoToUse := cfg.SnapshotRepo
+	if cfg.SnapshotManualRepo != "" {
+		repoToUse = cfg.SnapshotManualRepo
+	}
+
 	if cfg.GetDryRun() {
+		existing, err := client.GetSnapshots(repoToUse, snapshotName)
+		if err == nil && utils.HasSnapshotSuccessByName(snapshotName, existing) {
+			logger.Info(fmt.Sprintf("Valid snapshot already exists snapshot=%s", snapshotName))
+			return nil
+		}
 		fmt.Println("\nDRY RUN: Manual snapshot creation plan")
 		fmt.Println("=" + strings.Repeat("=", 50))
 
@@ -135,11 +145,6 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 	err = utils.WaitForSnapshotTasks(client, logger, "")
 	if err != nil {
 		return fmt.Errorf("failed to wait for snapshot tasks: %v", err)
-	}
-
-	repoToUse := cfg.SnapshotRepo
-	if cfg.SnapshotManualRepo != "" {
-		repoToUse = cfg.SnapshotManualRepo
 	}
 
 	allSnapshots, err := client.GetSnapshots(repoToUse, "*"+today+"*")
