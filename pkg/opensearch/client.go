@@ -287,6 +287,7 @@ type IndexTemplate struct {
 			IndexPatterns []string       `json:"index_patterns"`
 			Template      map[string]any `json:"template"`
 			Priority      int            `json:"priority"`
+			ComposedOf    []string       `json:"composed_of,omitempty"`
 		} `json:"index_template"`
 	} `json:"index_templates"`
 }

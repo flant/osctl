@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"osctl/pkg/config"
@@ -275,15 +276,46 @@ func runSharding(cmd *cobra.Command, args []string) error {
 				})
 			} else {
 				logger.Info(fmt.Sprintf("Update existing template %s: set number_of_shards=%d", existing, shards))
-				current := map[string]any{
-					"index_patterns": []string{pattern},
-					"template": map[string]any{
-						"settings": map[string]any{
-							"index": map[string]any{
-								"number_of_shards": shards,
+				var current map[string]any
+				if tpl, err := client.GetIndexTemplate(existing); err == nil && len(tpl.IndexTemplates) > 0 {
+					it := tpl.IndexTemplates[0].IndexTemplate
+					templateJSON, _ := json.Marshal(it)
+					json.Unmarshal(templateJSON, &current)
+					if settings, ok := current["template"].(map[string]any); ok {
+						if settingsMap, ok := settings["settings"].(map[string]any); ok {
+							if indexSettings, ok := settingsMap["index"].(map[string]any); ok {
+								indexSettings["number_of_shards"] = shards
+								if queryField, exists := indexSettings["query"]; exists {
+									if queryMap, ok := queryField.(map[string]any); ok {
+										queryMap["default_field"] = []string{"message", "text", "log", "original_message"}
+									} else {
+										indexSettings["query"] = map[string]any{
+											"default_field": []string{"message", "text", "log", "original_message"},
+										}
+									}
+								} else {
+									indexSettings["query"] = map[string]any{
+										"default_field": []string{"message", "text", "log", "original_message"},
+									}
+								}
+							}
+						}
+					}
+				} else {
+					current = map[string]any{
+						"index_patterns": []string{pattern},
+						"priority":       priority,
+						"template": map[string]any{
+							"settings": map[string]any{
+								"index": map[string]any{
+									"number_of_shards": shards,
+									"query": map[string]any{
+										"default_field": []string{"message", "text", "log", "original_message"},
+									},
+								},
 							},
 						},
-					},
+					}
 				}
 				if err := client.PutIndexTemplate(existing, current); err != nil {
 					return err
