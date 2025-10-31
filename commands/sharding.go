@@ -96,10 +96,14 @@ func runSharding(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
+		replicas := 1
+		if dataNodes <= 1 {
+			replicas = 0
+		}
 		settings := map[string]any{
 			"index": map[string]any{
 				"number_of_shards":           shards,
-				"number_of_replicas":         1,
+				"number_of_replicas":         replicas,
 				"mapping.total_fields.limit": 2000,
 				"query.default_field":        []string{"message", "text", "log", "original_message"},
 			},
@@ -129,7 +133,8 @@ func runSharding(cmd *cobra.Command, args []string) error {
 					"template": map[string]any{
 						"settings": map[string]any{
 							"index": map[string]any{
-								"number_of_shards": shards,
+								"number_of_shards":   shards,
+								"number_of_replicas": replicas,
 							},
 						},
 					},
