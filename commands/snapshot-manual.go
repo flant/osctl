@@ -113,7 +113,7 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 		fmt.Println("\nDRY RUN: Manual snapshot creation plan")
 		fmt.Println("=" + strings.Repeat("=", 50))
 
-		fmt.Printf("\nSnapshot: %s\n", snapshotName)
+		fmt.Printf("\nSnapshot (repo %s): %s\n", repoToUse, snapshotName)
 		fmt.Printf("Pattern: %s (%s)\n", value, kind)
 		fmt.Printf("Indices (%d):\n", len(matchingIndices))
 

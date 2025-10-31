@@ -158,6 +158,21 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		RemoteCRT:                getValue(cmd, "remote-crt", "REMOTE_CRT", viper.GetString("remote_crt")),
 	}
 
+	switch commandName {
+	case "snapshots", "snapshotsdelete":
+		if configInstance.SnapshotRepo == "" {
+			return fmt.Errorf("snap-repo is required for %s", commandName)
+		}
+	case "snapshot-manual":
+		repoToUse := configInstance.SnapshotRepo
+		if configInstance.SnapshotManualRepo != "" {
+			repoToUse = configInstance.SnapshotManualRepo
+		}
+		if repoToUse == "" {
+			return fmt.Errorf("snap-repo is required (or set snapshot-manual-repo) for %s", commandName)
+		}
+	}
+
 	if commandName == "sharding" {
 		NewValidator("sharding_target_size_gib", configInstance.ShardingTargetSizeGiB).IntStringBetween(1, 50)
 	}

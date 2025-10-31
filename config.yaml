@@ -75,4 +75,5 @@ exclude_sharding: ""
 snapshot_manual_kind: "prefix"
 snapshot_manual_value: ""
 snapshot_manual_name: ""
+snapshot_manual_repo: ""
 snapshot_manual_system: false
