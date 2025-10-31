@@ -10,22 +10,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "osctl",
 	Short: "OpenSearch indices lifecycle management tool",
-	Long: `osctl is a tool for managing OpenSearch cluster indices lifecycle.
-
-Available Commands:
-  snapshots         Create snapshots of indices
-  snapshot-manual   Create manual snapshots for specific indices using CLI flags
-  snapshotsdelete   Delete old snapshots based on policy
-  indicesdelete     Delete old indices based on policy
-  retention         Manage disk space by deleting old indices when threshold exceeded
-  dereplicator      Reduce replicas for old indices to save disk space
-  snapshotschecker  Check for missing snapshots and send alerts
-  danglingchecker   Check for dangling indices and send alerts
-  sharding          Create or update index templates with optimal shard counts
-  indexpatterns     Manage Kibana index patterns
-  datasource        Create Kibana data sources
-  coldstorage       Migrate indices to cold storage nodes
-  extracteddelete   Delete extracted indices that are no longer needed`,
+	Long:  `osctl is a tool for managing OpenSearch cluster indices lifecycle.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		actionFlag, _ := cmd.Flags().GetString("action")
@@ -97,7 +82,7 @@ func executeActionCommand(action string, args []string) error {
 	case "snapshotsdelete":
 		targetCmd = snapshotsDeleteCmd
 	case "snapshotschecker":
-		targetCmd = snapshotCheckerCmd
+		targetCmd = snapshotsCheckerCmd
 	case "indicesdelete":
 		targetCmd = indicesDeleteCmd
 	case "retention":
@@ -135,7 +120,7 @@ func init() {
 	rootCmd.AddCommand(indexPatternsCmd)
 	rootCmd.AddCommand(dataSourceCmd)
 	rootCmd.AddCommand(dereplicatorCmd)
-	rootCmd.AddCommand(snapshotCheckerCmd)
+	rootCmd.AddCommand(snapshotsCheckerCmd)
 	rootCmd.AddCommand(danglingCheckerCmd)
 	rootCmd.AddCommand(coldStorageCmd)
 	rootCmd.AddCommand(extractedDeleteCmd)

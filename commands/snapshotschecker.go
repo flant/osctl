@@ -11,19 +11,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var snapshotCheckerCmd = &cobra.Command{
-	Use:   "snapshotchecker",
+var snapshotsCheckerCmd = &cobra.Command{
+	Use:   "snapshotschecker",
 	Short: "Check for missing snapshots and send alerts",
 	Long: `Check for missing snapshots of indices and send alerts to Madison.
 Supports both whitelist and exclude list modes.`,
-	RunE: runSnapshotChecker,
+	RunE: runSnapshotsChecker,
 }
 
 func init() {
-	addFlags(snapshotCheckerCmd)
+	addFlags(snapshotsCheckerCmd)
 }
 
-func runSnapshotChecker(cmd *cobra.Command, args []string) error {
+func runSnapshotsChecker(cmd *cobra.Command, args []string) error {
 	cfg := config.GetConfig()
 	cmdCfg := config.GetCommandConfig(cmd)
 	logger := logging.NewLogger()
