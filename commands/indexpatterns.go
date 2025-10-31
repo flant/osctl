@@ -52,7 +52,7 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 		if cfg.KibanaIndexRegex != "" {
 			logger.Info("kibana_index_regex is ignored in multitenancy mode")
 		}
-		tf, err := cfg.GetIndexPatternsTenantsConfig()
+		tf, err := config.GetConfig().GetTenantsConfig()
 		if err != nil {
 			return err
 		}

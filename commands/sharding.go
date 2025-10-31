@@ -6,7 +6,6 @@ import (
 	"math"
 	"osctl/pkg/config"
 	"osctl/pkg/logging"
-	"osctl/pkg/opensearch"
 	"osctl/pkg/utils"
 	"regexp"
 	"strconv"
@@ -33,7 +32,7 @@ func runSharding(cmd *cobra.Command, args []string) error {
 
 	logger := logging.NewLogger()
 	dryRun := cfg.GetDryRun()
-	client, err := opensearch.NewClient(cfg.OpenSearchURL, cfg.CertFile, cfg.KeyFile, cfg.CAFile, cfg.GetTimeout(), cfg.GetRetryAttempts())
+	client, err := utils.NewOSClientFromCommandConfig(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}

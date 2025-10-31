@@ -43,9 +43,9 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 
 	logger.Info(fmt.Sprintf("Starting manual snapshot creation kind=%s value=%s name=%s system=%t", kind, value, name, system))
 
-	client, err := opensearch.NewClient(cfg.OpenSearchURL, cfg.CertFile, cfg.KeyFile, cfg.CAFile, cfg.GetTimeout(), cfg.GetRetryAttempts())
+	client, err := utils.NewOSClientFromConfig(cfg)
 	if err != nil {
-		return fmt.Errorf("failed to create OpenSearch client: %v", err)
+		return err
 	}
 
 	var madisonClient *alerts.Client
@@ -135,19 +135,12 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to wait for snapshot tasks: %v", err)
 	}
 
-	allSnapshots, err := client.GetSnapshots(repoToUse, "*"+today+"*")
+	allSnapshots, err := utils.GetSnapshotsIgnore404(client, repoToUse, "*"+today+"*")
 	if err != nil {
-		if strings.Contains(err.Error(), "snapshot_missing_exception") || strings.Contains(err.Error(), "404") {
-			allSnapshots = nil
-		} else {
-			return fmt.Errorf("failed to get snapshots: %v", err)
-		}
+		return fmt.Errorf("failed to get snapshots: %v", err)
 	}
 
-	var existNames []string
-	for _, s := range allSnapshots {
-		existNames = append(existNames, s.Snapshot)
-	}
+	existNames := utils.SnapshotsToNames(allSnapshots)
 	if len(existNames) > 0 {
 		logger.Info(fmt.Sprintf("Existing snapshots today %s", strings.Join(existNames, ", ")))
 	} else {

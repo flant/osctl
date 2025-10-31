@@ -46,10 +46,7 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get all indices: %v", err)
 	}
-	var allIndexNames []string
-	for _, idx := range allIndices {
-		allIndexNames = append(allIndexNames, idx.Index)
-	}
+	allIndexNames := utils.IndexInfosToNames(allIndices)
 	if len(allIndexNames) > 0 {
 		logger.Info(fmt.Sprintf("Found indices %s", strings.Join(allIndexNames, ", ")))
 	} else {

@@ -37,9 +37,9 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 
 	logger.Info(fmt.Sprintf("Starting snapshot deletion indicesCount=%d allDays=%d unknownDays=%d", len(indicesConfig), s3Config.UnitCount.All, s3Config.UnitCount.Unknown))
 
-	client, err := opensearch.NewClient(cfg.OpenSearchURL, cfg.CertFile, cfg.KeyFile, cfg.CAFile, cfg.GetTimeout(), cfg.GetRetryAttempts())
+	client, err := utils.NewOSClientFromConfig(cfg)
 	if err != nil {
-		return fmt.Errorf("failed to create OpenSearch client: %v", err)
+		return err
 	}
 
 	allSnapshots, err := client.GetSnapshots(cfg.SnapshotRepo, "*")

@@ -224,18 +224,11 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 	}
 
 	if !cfg.GetDryRun() {
-		allSnapshots, err := client.GetSnapshots(cfg.SnapshotRepo, "*"+today+"*")
+		allSnapshots, err := utils.GetSnapshotsIgnore404(client, cfg.SnapshotRepo, "*"+today+"*")
 		if err != nil {
-			if strings.Contains(err.Error(), "snapshot_missing_exception") || strings.Contains(err.Error(), "404") {
-				allSnapshots = nil
-			} else {
-				return fmt.Errorf("failed to get snapshots: %v", err)
-			}
+			return fmt.Errorf("failed to get snapshots: %v", err)
 		}
-		var existingNames []string
-		for _, s := range allSnapshots {
-			existingNames = append(existingNames, s.Snapshot)
-		}
+		existingNames := utils.SnapshotsToNames(allSnapshots)
 		if len(existingNames) > 0 {
 			logger.Info(fmt.Sprintf("Existing snapshots today %s", strings.Join(existingNames, ", ")))
 		} else {
@@ -272,14 +265,10 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 				perRepo[repo] = append(perRepo[repo], g)
 			}
 			for repo, groups := range perRepo {
-				existing, err := client.GetSnapshots(repo, "*"+today+"*")
+				existing, err := utils.GetSnapshotsIgnore404(client, repo, "*"+today+"*")
 				if err != nil {
-					if strings.Contains(err.Error(), "snapshot_missing_exception") || strings.Contains(err.Error(), "404") {
-						existing = nil
-					} else {
-						logger.Error(fmt.Sprintf("Failed to get snapshots from repo repo=%s error=%v", repo, err))
-						continue
-					}
+					logger.Error(fmt.Sprintf("Failed to get snapshots from repo repo=%s error=%v", repo, err))
+					continue
 				}
 				for _, g := range groups {
 					exists, err := utils.CheckAndCleanSnapshot(g.SnapshotName, strings.Join(g.Indices, ","), existing, client, repo, logger)

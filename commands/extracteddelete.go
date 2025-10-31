@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"osctl/pkg/config"
 	"osctl/pkg/logging"
-	"osctl/pkg/opensearch"
 	"osctl/pkg/utils"
 	"strings"
 	"time"
@@ -31,9 +30,9 @@ func runExtractedDelete(cmd *cobra.Command, args []string) error {
 	dryRun := cfg.GetDryRun()
 
 	logger := logging.NewLogger()
-	client, err := opensearch.NewClient(cfg.OpenSearchRecovererURL, cfg.CertFile, cfg.KeyFile, cfg.CAFile, cfg.GetTimeout(), cfg.GetRetryAttempts())
+	client, err := utils.NewOSClientFromCommandConfigWithError(cfg, cfg.OpenSearchRecovererURL)
 	if err != nil {
-		return fmt.Errorf("failed to create OpenSearch client: %v", err)
+		return err
 	}
 
 	cutoffDate := utils.FormatDate(time.Now().AddDate(0, 0, -days), dateFormat)
@@ -49,10 +48,7 @@ func runExtractedDelete(cmd *cobra.Command, args []string) error {
 	}
 	logger.Info(fmt.Sprintf("Retrieved extracted indices from OpenSearch count=%d", len(allIndices)))
 
-	var names []string
-	for _, idx := range allIndices {
-		names = append(names, idx.Index)
-	}
+	names := utils.IndexInfosToNames(allIndices)
 	if len(names) > 0 {
 		logger.Info(fmt.Sprintf("Found extracted indices %s", strings.Join(names, ", ")))
 	} else {

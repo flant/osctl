@@ -9,6 +9,25 @@ import (
 	"time"
 )
 
+func GetSnapshotsIgnore404(client *opensearch.Client, repo, pattern string) ([]opensearch.Snapshot, error) {
+	snapshots, err := client.GetSnapshots(repo, pattern)
+	if err != nil {
+		if strings.Contains(err.Error(), "snapshot_missing_exception") || strings.Contains(err.Error(), "404") {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return snapshots, nil
+}
+
+func SnapshotsToNames(snapshots []opensearch.Snapshot) []string {
+	names := make([]string, len(snapshots))
+	for i, s := range snapshots {
+		names[i] = s.Snapshot
+	}
+	return names
+}
+
 func HasValidSnapshot(index string, snapshots []opensearch.Snapshot) bool {
 	for _, snapshot := range snapshots {
 		if snapshot.State != "SUCCESS" {

@@ -112,10 +112,7 @@ func runRetention(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(indicesToDelete) > 0 {
-		var delNames []string
-		for _, idx := range indicesToDelete {
-			delNames = append(delNames, idx.Index)
-		}
+		delNames := utils.IndexInfosToNames(indicesToDelete)
 		logger.Info(fmt.Sprintf("Indices selected for deletion %s", strings.Join(delNames, ", ")))
 	}
 	for _, idx := range indicesToDelete {

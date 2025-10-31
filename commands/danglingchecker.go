@@ -5,7 +5,7 @@ import (
 	"osctl/pkg/alerts"
 	"osctl/pkg/config"
 	"osctl/pkg/logging"
-	"osctl/pkg/opensearch"
+	"osctl/pkg/utils"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -35,7 +35,7 @@ func runDanglingChecker(cmd *cobra.Command, args []string) error {
 	}
 
 	logger := logging.NewLogger()
-	client, err := opensearch.NewClient(cfg.OpenSearchURL, cfg.CertFile, cfg.KeyFile, cfg.CAFile, cfg.GetTimeout(), cfg.GetRetryAttempts())
+	client, err := utils.NewOSClientFromCommandConfig(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}
@@ -50,9 +50,9 @@ func runDanglingChecker(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	var indexNames []string
-	for _, di := range danglingIndices {
-		indexNames = append(indexNames, di.IndexName)
+	indexNames := make([]string, len(danglingIndices))
+	for i, di := range danglingIndices {
+		indexNames[i] = di.IndexName
 	}
 	logger.Info(fmt.Sprintf("Dangling indices found (%d): %s", len(indexNames), strings.Join(indexNames, ", ")))
 
