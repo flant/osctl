@@ -129,7 +129,7 @@ func (c *Client) GetIndicesWithFields(pattern, fields string, sortBy ...string) 
 		sortParam = sortBy[0]
 	}
 
-	url := fmt.Sprintf("%s/_cat/indices/%s?format=json&h=%s", c.baseURL, pattern, fields)
+	url := fmt.Sprintf("%s/_cat/indices/%s?format=json&bytes=b&h=%s", c.baseURL, pattern, fields)
 	if sortParam != "" {
 		url += fmt.Sprintf("&s=%s", sortParam)
 	}
@@ -297,9 +297,11 @@ func (c *Client) FindIndexTemplateByPattern(pattern string) (string, error) {
 		return "", err
 	}
 	normalizedPattern := strings.TrimSuffix(pattern, "*")
+	normalizedPattern = strings.TrimSuffix(normalizedPattern, "-")
 	for _, t := range it.IndexTemplates {
 		for _, p := range t.IndexTemplate.IndexPatterns {
 			normalizedP := strings.TrimSuffix(p, "*")
+			normalizedP = strings.TrimSuffix(normalizedP, "-")
 			if normalizedP == normalizedPattern {
 				return t.Name, nil
 			}
@@ -315,6 +317,15 @@ func (c *Client) PutIndexTemplate(name string, body map[string]any) error {
 
 func (c *Client) GetIndexTemplate(name string) (*IndexTemplate, error) {
 	url := fmt.Sprintf("%s/_index_template/%s", c.baseURL, name)
+	var it IndexTemplate
+	if err := c.getJSON(url, &it); err != nil {
+		return nil, err
+	}
+	return &it, nil
+}
+
+func (c *Client) GetAllIndexTemplates() (*IndexTemplate, error) {
+	url := fmt.Sprintf("%s/_index_template", c.baseURL)
 	var it IndexTemplate
 	if err := c.getJSON(url, &it); err != nil {
 		return nil, err

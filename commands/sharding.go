@@ -63,6 +63,9 @@ func runSharding(cmd *cobra.Command, args []string) error {
 		}
 		if b, err := strconv.ParseInt(ii.Size, 10, 64); err == nil {
 			sizes[ii.Index] = b
+		} else {
+			logger.Info(fmt.Sprintf("DEBUG: Failed to parse size as int for index %s: %s", ii.Index, ii.Size))
+			sizes[ii.Index] = 0
 		}
 	}
 
@@ -89,6 +92,7 @@ func runSharding(cmd *cobra.Command, args []string) error {
 		maxSize    int64
 		maxSizeStr string
 		indices    []string
+		isHourly   bool
 	}
 	patterns := make(map[string]*patternInfo)
 
@@ -99,18 +103,24 @@ func runSharding(cmd *cobra.Command, args []string) error {
 			continue
 		}
 		base := name
+		isHourly := false
 		if pos := strings.LastIndex(name, today); pos >= 0 {
+			restAfterDate := name[pos+len(today):]
+			if len(restAfterDate) > 0 && strings.HasPrefix(restAfterDate, "-") {
+				isHourly = true
+			}
 			base = strings.TrimSuffix(name[:pos], "-")
 		} else {
 			base = strings.TrimSuffix(base, today)
 		}
-		pattern := base + "*"
+		pattern := base + "-*"
 		if excludeRe != nil && excludeRe.MatchString(pattern) {
 			logger.Info(fmt.Sprintf("Skip excluded pattern %s", pattern))
 			continue
 		}
 		if pi, ok := patterns[pattern]; ok {
 			pi.indices = append(pi.indices, name)
+			pi.isHourly = pi.isHourly || isHourly
 			if sz, err := strconv.ParseInt(it.Size, 10, 64); err == nil && sz > pi.maxSize {
 				pi.maxSize = sz
 				pi.maxSizeStr = it.Size
@@ -122,6 +132,7 @@ func runSharding(cmd *cobra.Command, args []string) error {
 				maxSize:    0,
 				maxSizeStr: it.Size,
 				indices:    []string{name},
+				isHourly:   isHourly,
 			}
 			if sz, err := strconv.ParseInt(it.Size, 10, 64); err == nil {
 				patterns[pattern].maxSize = sz
@@ -129,33 +140,62 @@ func runSharding(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	allTemplates, err := client.GetAllIndexTemplates()
+	if err == nil {
+		logger.Info(fmt.Sprintf("DEBUG: Found %d existing index templates", len(allTemplates.IndexTemplates)))
+		for _, t := range allTemplates.IndexTemplates {
+			patternsStr := strings.Join(t.IndexTemplate.IndexPatterns, ", ")
+			logger.Info(fmt.Sprintf("DEBUG: Template=%s patterns=[%s] priority=%d", t.Name, patternsStr, t.IndexTemplate.Priority))
+		}
+	} else {
+		logger.Info(fmt.Sprintf("DEBUG: Failed to get all templates: %v", err))
+	}
+
 	for pattern, pi := range patterns {
 		dashCount := strings.Count(pattern, "-")
 		priority := dashCount * 1000
 		templateName := pi.base + "-sharding"
 
-		maxSize := computeMaxSizeForPattern(sizes, pi.base, pi.maxSizeStr)
+		maxSize := computeMaxSizeForPattern(sizes, pi.base, pi.maxSizeStr, pattern, logger)
 		if maxSize < pi.maxSize {
 			maxSize = pi.maxSize
 		}
 		shards := computeShardCount(maxSize, targetBytes, dataNodes, pi.indices[0], logger)
 		logger.Info(fmt.Sprintf("Evaluate pattern=%s template=%s indices=%d maxSize=%dB targetBytes=%dB shards=%d dataNodes=%d priority=%d", pattern, templateName, len(pi.indices), maxSize, targetBytes, shards, dataNodes, priority))
 
+		logger.Info(fmt.Sprintf("DEBUG: Checking for existing template with pattern=%s", pattern))
+		normalizedPattern := strings.TrimSuffix(pattern, "*")
+		logger.Info(fmt.Sprintf("DEBUG: normalizedPattern=%s", normalizedPattern))
 		existing, err := client.FindIndexTemplateByPattern(pattern)
 		if err != nil {
 			return err
+		}
+		if existing != "" {
+			logger.Info(fmt.Sprintf("DEBUG: Found existing template=%s for pattern=%s", existing, pattern))
+		} else {
+			logger.Info(fmt.Sprintf("DEBUG: No existing template found for pattern=%s (normalized: %s)", pattern, normalizedPattern))
 		}
 		replicas := 1
 		if dataNodes <= 1 {
 			replicas = 0
 		}
+		indexSettings := map[string]any{
+			"number_of_shards":           shards,
+			"number_of_replicas":         replicas,
+			"mapping.total_fields.limit": 2000,
+			"query.default_field":        []string{"message", "text", "log", "original_message"},
+		}
+		if cfg.ShardingRoutingAllocationTemp != "" {
+			indexSettings["routing"] = map[string]any{
+				"allocation": map[string]any{
+					"require": map[string]any{
+						"temp": cfg.ShardingRoutingAllocationTemp,
+					},
+				},
+			}
+		}
 		settings := map[string]any{
-			"index": map[string]any{
-				"number_of_shards":           shards,
-				"number_of_replicas":         replicas,
-				"mapping.total_fields.limit": 2000,
-				"query.default_field":        []string{"message", "text", "log", "original_message"},
-			},
+			"index": indexSettings,
 		}
 		template := map[string]any{
 			"index_patterns": []string{pattern},
@@ -163,6 +203,9 @@ func runSharding(cmd *cobra.Command, args []string) error {
 			"template": map[string]any{
 				"settings": settings["index"],
 			},
+		}
+		if pi.isHourly {
+			template["composed_of"] = []string{"default_template"}
 		}
 		if existing == "" {
 			if dryRun {
@@ -219,15 +262,28 @@ func runSharding(cmd *cobra.Command, args []string) error {
 				})
 			} else {
 				logger.Info(fmt.Sprintf("Update existing template %s: set number_of_shards=%d number_of_replicas=%d", existing, shards, replicas))
+				updateIndexSettings := map[string]any{
+					"number_of_shards":   shards,
+					"number_of_replicas": replicas,
+				}
+				if cfg.ShardingRoutingAllocationTemp != "" {
+					updateIndexSettings["routing"] = map[string]any{
+						"allocation": map[string]any{
+							"require": map[string]any{
+								"temp": cfg.ShardingRoutingAllocationTemp,
+							},
+						},
+					}
+				}
 				current := map[string]any{
 					"template": map[string]any{
 						"settings": map[string]any{
-							"index": map[string]any{
-								"number_of_shards":   shards,
-								"number_of_replicas": replicas,
-							},
+							"index": updateIndexSettings,
 						},
 					},
+				}
+				if pi.isHourly {
+					current["composed_of"] = []string{"default_template"}
 				}
 				if err := client.PutIndexTemplate(existing, current); err != nil {
 					return err
@@ -255,21 +311,46 @@ func runSharding(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func computeMaxSizeForPattern(sizes map[string]int64, base string, todaySizeStr string) int64 {
+func computeMaxSizeForPattern(sizes map[string]int64, base string, todaySizeStr string, pattern string, logger *logging.Logger) int64 {
 	normalizedBase := strings.TrimSuffix(base, "-")
+	searchPrefix := normalizedBase + "-"
+
+	logger.Info(fmt.Sprintf("DEBUG computeMaxSize: base=%s normalizedBase=%s searchPrefix=%s pattern=%s", base, normalizedBase, searchPrefix, pattern))
 
 	maxSize := int64(0)
-	searchPrefix := normalizedBase + "-"
+	foundCount := 0
+	var foundIndices []string
 	for idx, sz := range sizes {
 		if strings.HasPrefix(idx, searchPrefix) {
+			foundCount++
+			if len(foundIndices) < 5 {
+				foundIndices = append(foundIndices, fmt.Sprintf("%s(%dB)", idx, sz))
+			}
 			if sz > maxSize {
 				maxSize = sz
 			}
 		}
 	}
-	if szToday, err := strconv.ParseInt(todaySizeStr, 10, 64); err == nil && szToday > maxSize {
-		maxSize = szToday
+	if len(foundIndices) >= 5 {
+		foundIndices = append(foundIndices, fmt.Sprintf("... and %d more", foundCount-5))
 	}
+	logger.Info(fmt.Sprintf("DEBUG computeMaxSize: pattern=%s foundCount=%d maxSize=%dB foundIndices=%v", pattern, foundCount, maxSize, foundIndices))
+
+	var szToday int64
+	if b, err := strconv.ParseInt(todaySizeStr, 10, 64); err == nil {
+		szToday = b
+	} else {
+		logger.Info(fmt.Sprintf("DEBUG computeMaxSize: pattern=%s todaySizeStr=%s parse error=%v", pattern, todaySizeStr, err))
+		szToday = 0
+	}
+	if szToday > maxSize {
+		logger.Info(fmt.Sprintf("DEBUG computeMaxSize: pattern=%s todaySizeStr=%s todaySize=%dB (using today size)", pattern, todaySizeStr, szToday))
+		maxSize = szToday
+	} else if szToday == 0 && todaySizeStr != "" && todaySizeStr != "0" {
+		logger.Info(fmt.Sprintf("DEBUG computeMaxSize: pattern=%s todaySizeStr=%s could not parse size", pattern, todaySizeStr))
+	}
+
+	logger.Info(fmt.Sprintf("DEBUG computeMaxSize: pattern=%s final maxSize=%dB", pattern, maxSize))
 	return maxSize
 }
 
