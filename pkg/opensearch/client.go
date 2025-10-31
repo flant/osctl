@@ -311,6 +311,15 @@ func (c *Client) PutIndexTemplate(name string, body map[string]any) error {
 	return c.putJSON(url, body)
 }
 
+func (c *Client) GetIndexTemplate(name string) (*IndexTemplate, error) {
+	url := fmt.Sprintf("%s/_index_template/%s", c.baseURL, name)
+	var it IndexTemplate
+	if err := c.getJSON(url, &it); err != nil {
+		return nil, err
+	}
+	return &it, nil
+}
+
 func (c *Client) DeleteSnapshotsBatch(snapRepo string, snapshotNames []string) error {
 	if len(snapshotNames) == 0 {
 		return nil

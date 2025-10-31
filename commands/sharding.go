@@ -117,7 +117,7 @@ func runSharding(cmd *cobra.Command, args []string) error {
 		}
 		if existing == "" {
 			if dryRun {
-				logger.Info(fmt.Sprintf("DRY RUN: Would create index template %s for pattern %s with %d shards", templateName, pattern, shards))
+				logger.Info(fmt.Sprintf("DRY RUN: Would create index template %s for pattern %s with shards=%d replicas=%d priority=%d", templateName, pattern, shards, replicas, priority))
 			} else {
 				logger.Info(fmt.Sprintf("Create index template %s for pattern %s with %d shards", templateName, pattern, shards))
 				if err := client.PutIndexTemplate(templateName, template); err != nil {
@@ -126,7 +126,23 @@ func runSharding(cmd *cobra.Command, args []string) error {
 			}
 		} else {
 			if dryRun {
-				logger.Info(fmt.Sprintf("DRY RUN: Would update existing template %s: set number_of_shards=%d", existing, shards))
+				curShards := "?"
+				curReplicas := "?"
+				if tpl, err := client.GetIndexTemplate(existing); err == nil {
+					if len(tpl.IndexTemplates) > 0 {
+						if tset, ok := tpl.IndexTemplates[0].IndexTemplate.Template["settings"].(map[string]any); ok {
+							if idx, ok := tset["index"].(map[string]any); ok {
+								if v, ok := idx["number_of_shards"]; ok {
+									curShards = fmt.Sprintf("%v", v)
+								}
+								if v, ok := idx["number_of_replicas"]; ok {
+									curReplicas = fmt.Sprintf("%v", v)
+								}
+							}
+						}
+					}
+				}
+				logger.Info(fmt.Sprintf("DRY RUN: Would update template %s: shards %s->%d, replicas %s->%d", existing, curShards, shards, curReplicas, replicas))
 			} else {
 				logger.Info(fmt.Sprintf("Update existing template %s: set number_of_shards=%d", existing, shards))
 				current := map[string]any{
