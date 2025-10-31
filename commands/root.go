@@ -16,30 +16,25 @@ var rootCmd = &cobra.Command{
 		actionFlag, _ := cmd.Flags().GetString("action")
 		if actionFlag != "" {
 			if err := config.ValidateAction(actionFlag); err != nil {
-				fmt.Printf("Error: %v\n", err)
 				return err
 			}
 
 			if err := config.LoadConfig(cmd, actionFlag); err != nil {
-				fmt.Printf("Error: Could not load config: %v\n", err)
 				return err
 			}
 			return executeActionCommand(actionFlag, args)
 		}
 
 		if err := config.LoadConfig(cmd, "root"); err != nil {
-			fmt.Printf("Error: Could not load config: %v\n", err)
 			return err
 		}
 		cfg := config.GetConfig()
 		if cfg.Action != "" {
 			if err := config.ValidateAction(cfg.Action); err != nil {
-				fmt.Printf("Error: %v\n", err)
 				return err
 			}
 
 			if err := config.LoadConfig(cmd, cfg.Action); err != nil {
-				fmt.Printf("Error: Could not load config: %v\n", err)
 				return err
 			}
 			return executeActionCommand(cfg.Action, args)
@@ -60,7 +55,6 @@ func Execute() error {
 		}
 
 		if err := config.LoadConfig(cmd, commandName); err != nil {
-			fmt.Printf("Error: Could not load config: %v\n", err)
 			return err
 		}
 
