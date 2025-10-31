@@ -50,32 +50,21 @@ func runDanglingChecker(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	var names []string
-	for _, di := range danglingIndices {
-		names = append(names, di.IndexName)
-	}
-	logger.Info(fmt.Sprintf("Dangling indices %s", strings.Join(names, ", ")))
-
 	var indexNames []string
-	for _, idx := range danglingIndices {
-		indexNames = append(indexNames, idx.IndexName)
+	for _, di := range danglingIndices {
+		indexNames = append(indexNames, di.IndexName)
 	}
+	logger.Info(fmt.Sprintf("Dangling indices found (%d): %s", len(indexNames), strings.Join(indexNames, ", ")))
 
 	if dryRun {
-		logger.Info("DRY RUN: Would send Madison alert for dangling indices")
+		logger.Info(fmt.Sprintf("DRY RUN: Would send Madison alert for dangling indices count=%d", len(danglingIndices)))
 	} else {
 		madisonClient := alerts.NewMadisonClient(madisonKey, osdURL, cfg.MadisonURL)
 		response, err := madisonClient.SendMadisonDanglingIndicesAlert(indexNames)
 		if err != nil {
 			return fmt.Errorf("failed to send Madison alert: %v", err)
 		}
-		logger.Info(fmt.Sprintf("Madison alert sent successfully: type=DanglingIndices response=%s", response))
-	}
-
-	if dryRun {
-		logger.Info(fmt.Sprintf("DRY RUN: Would send Madison alert for dangling indices count=%d", len(danglingIndices)))
-	} else {
-		logger.Info(fmt.Sprintf("Sent Madison alert for dangling indices count=%d", len(danglingIndices)))
+		logger.Info(fmt.Sprintf("Madison alert sent successfully: type=DanglingIndices count=%d response=%s", len(danglingIndices), response))
 	}
 	return nil
 }
