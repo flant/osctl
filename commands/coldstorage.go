@@ -47,10 +47,7 @@ func runColdStorage(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get indices: %v", err)
 	}
 
-	var allNames []string
-	for _, index := range allIndices {
-		allNames = append(allNames, index.Index)
-	}
+	allNames := utils.IndexInfosToNames(allIndices)
 	if len(allNames) > 0 {
 		logger.Info(fmt.Sprintf("Found indices %s", strings.Join(allNames, ", ")))
 	} else {

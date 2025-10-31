@@ -70,10 +70,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to get system indices: %v", err)
 		}
-		var sysNames []string
-		for _, idx := range allSystemIndices {
-			sysNames = append(sysNames, idx.Index)
-		}
+		sysNames := utils.IndexInfosToNames(allSystemIndices)
 		if len(sysNames) > 0 {
 			logger.Info(fmt.Sprintf("Found system indices %s", strings.Join(sysNames, ", ")))
 		} else {
@@ -94,10 +91,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to get regular indices: %v", err)
 		}
-		var regNames []string
-		for _, idx := range allRegularIndices {
-			regNames = append(regNames, idx.Index)
-		}
+		regNames := utils.IndexInfosToNames(allRegularIndices)
 		if len(regNames) > 0 {
 			logger.Info(fmt.Sprintf("Found regular indices %s", strings.Join(regNames, ", ")))
 		} else {

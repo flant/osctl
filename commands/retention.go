@@ -71,10 +71,7 @@ func runRetention(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	var found []string
-	for _, idx := range indices {
-		found = append(found, idx.Index)
-	}
+	found := utils.IndexInfosToNames(indices)
 	logger.Info(fmt.Sprintf("Found indices to evaluate %s", strings.Join(found, ", ")))
 
 	snapshots, err := client.GetSnapshots(snapRepo, "*")

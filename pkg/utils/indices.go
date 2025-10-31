@@ -9,6 +9,14 @@ import (
 	"strings"
 )
 
+func IndexInfosToNames(list []opensearch.IndexInfo) []string {
+	names := make([]string, 0, len(list))
+	for _, idx := range list {
+		names = append(names, idx.Index)
+	}
+	return names
+}
+
 func MatchesIndex(indexName string, indexConfig config.IndexConfig) bool {
 
 	if !indexConfig.System && ShouldSkipIndex(indexName) {

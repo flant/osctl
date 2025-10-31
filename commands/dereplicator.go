@@ -50,10 +50,7 @@ func runDereplicator(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get indices: %v", err)
 	}
 
-	var allNames []string
-	for _, idx := range indices {
-		allNames = append(allNames, idx.Index)
-	}
+	allNames := utils.IndexInfosToNames(indices)
 	if len(allNames) > 0 {
 		logger.Info(fmt.Sprintf("Found indices %s", strings.Join(allNames, ", ")))
 	} else {

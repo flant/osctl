@@ -57,10 +57,7 @@ func runSnapshotChecker(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	var indexNamesList []string
-	for _, idx := range allIndices {
-		indexNamesList = append(indexNamesList, idx.Index)
-	}
+	indexNamesList := utils.IndexInfosToNames(allIndices)
 	logger.Info(fmt.Sprintf("Found indices %s", strings.Join(indexNamesList, ", ")))
 
 	var expectedIndicesList []string
