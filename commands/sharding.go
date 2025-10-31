@@ -276,6 +276,7 @@ func runSharding(cmd *cobra.Command, args []string) error {
 			} else {
 				logger.Info(fmt.Sprintf("Update existing template %s: set number_of_shards=%d", existing, shards))
 				current := map[string]any{
+					"index_patterns": []string{pattern},
 					"template": map[string]any{
 						"settings": map[string]any{
 							"index": map[string]any{
