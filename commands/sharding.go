@@ -125,26 +125,34 @@ func runSharding(cmd *cobra.Command, args []string) error {
 				}
 			}
 		} else {
-			if dryRun {
-				curShards := "?"
-				curReplicas := "?"
-				if tpl, err := client.GetIndexTemplate(existing); err == nil {
-					if len(tpl.IndexTemplates) > 0 {
-						if tset, ok := tpl.IndexTemplates[0].IndexTemplate.Template["settings"].(map[string]any); ok {
-							if idx, ok := tset["index"].(map[string]any); ok {
-								if v, ok := idx["number_of_shards"]; ok {
-									curShards = fmt.Sprintf("%v", v)
+			curShards := 1
+			curReplicas := 1
+			if tpl, err := client.GetIndexTemplate(existing); err == nil {
+				if len(tpl.IndexTemplates) > 0 {
+					if tset, ok := tpl.IndexTemplates[0].IndexTemplate.Template["settings"].(map[string]any); ok {
+						if idx, ok := tset["index"].(map[string]any); ok {
+							if v, ok := idx["number_of_shards"]; ok {
+								if s, err := strconv.Atoi(fmt.Sprintf("%v", v)); err == nil {
+									curShards = s
 								}
-								if v, ok := idx["number_of_replicas"]; ok {
-									curReplicas = fmt.Sprintf("%v", v)
+							}
+							if v, ok := idx["number_of_replicas"]; ok {
+								if r, err := strconv.Atoi(fmt.Sprintf("%v", v)); err == nil {
+									curReplicas = r
 								}
 							}
 						}
 					}
 				}
-				logger.Info(fmt.Sprintf("DRY RUN: Would update template %s: shards %s->%d, replicas %s->%d", existing, curShards, shards, curReplicas, replicas))
+			}
+			if curShards == shards && curReplicas == replicas {
+				logger.Info(fmt.Sprintf("Template %s already has correct settings: shards=%d, replicas=%d", existing, shards, replicas))
+				continue
+			}
+			if dryRun {
+				logger.Info(fmt.Sprintf("DRY RUN: Would update template %s: shards %d->%d, replicas %d->%d", existing, curShards, shards, curReplicas, replicas))
 			} else {
-				logger.Info(fmt.Sprintf("Update existing template %s: set number_of_shards=%d", existing, shards))
+				logger.Info(fmt.Sprintf("Update existing template %s: set number_of_shards=%d number_of_replicas=%d", existing, shards, replicas))
 				current := map[string]any{
 					"template": map[string]any{
 						"settings": map[string]any{
@@ -159,11 +167,6 @@ func runSharding(cmd *cobra.Command, args []string) error {
 					return err
 				}
 			}
-		}
-		if dryRun {
-			logger.Info(fmt.Sprintf("DRY RUN: Would apply sharding template %s for pattern %s with %d shards", templateName, pattern, shards))
-		} else {
-			logger.Info(fmt.Sprintf("Applied sharding template %s for pattern %s with %d shards", templateName, pattern, shards))
 		}
 	}
 	return nil
