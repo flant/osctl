@@ -54,7 +54,7 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 	kb := kibana.NewClient(osdURL, user, pass, cfg.GetTimeout())
 
 	tenants := []string{"global"}
-	if cfg.GetKibanaMultitenancy() {
+	if cfg.GetDataSourceKibanaMultitenancy() {
 		tf, err := config.GetConfig().GetTenantsConfig()
 		if err != nil {
 			return err
@@ -83,8 +83,8 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if cfg.GetKibanaMultidomainEnabled() {
-		remote := cfg.RemoteCRT
+	if cfg.GetDataSourceKibanaMultidomainEnabled() {
+		remote := cfg.DataSourceRemoteCRT
 		parts := strings.Split(remote, "|")
 		var concatenated string
 		for _, p := range parts {

@@ -45,8 +45,8 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 	}
 	_ = osdURL
 
-	if cfg.GetKibanaMultitenancy() {
-		if cfg.GetRecovererEnabled() {
+	if cfg.GetIndexPatternsKibanaMultitenancy() {
+		if cfg.GetIndexPatternsRecovererEnabled() {
 			return fmt.Errorf("recoverer_enabled must be false in multitenancy mode")
 		}
 		if cfg.KibanaIndexRegex != "" {
@@ -179,7 +179,7 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 		}
 		logger.Info(fmt.Sprintf("Created index pattern %s", p))
 	}
-	if cfg.GetRecovererEnabled() {
+	if cfg.GetIndexPatternsRecovererEnabled() {
 		frDS, err := osClient.Search(".kibana", "q=type=data-source&size=1000")
 		if err == nil {
 			var dsId string

@@ -14,50 +14,52 @@ import (
 )
 
 type Config struct {
-	Action                   string
-	OpenSearchURL            string
-	OpenSearchRecovererURL   string
-	CertFile                 string
-	KeyFile                  string
-	CAFile                   string
-	Timeout                  string
-	RetryAttempts            string
-	DateFormat               string
-	RecovererDateFormat      string
-	MadisonURL               string
-	OSDURL                   string
-	MadisonKey               string
-	SnapshotRepo             string
-	RetentionThreshold       string
-	DereplicatorDaysCount    string
-	DereplicatorUseSnapshot  string
-	DataSourceName           string
-	KibanaUser               string
-	KibanaPass               string
-	HotCount                 string
-	ColdAttribute            string
-	ExtractedPattern         string
-	ExtractedDays            string
-	DryRun                   string
-	ShardingTargetSizeGiB    string
-	ShardingExcludeRegex     string
-	KibanaIndexRegex         string
-	KibanaMultitenancy       string
-	RecovererEnabled         string
-	KubeNamespace            string
-	SnapshotManualKind       string
-	SnapshotManualValue      string
-	SnapshotManualName       string
-	SnapshotManualSystem     string
-	SnapshotManualDaysCount  string
-	SnapshotManualCountS3    string
-	SnapshotManualRepo       string
-	OSCTLConfig              string
-	OSCTLIndicesConfig       string
-	OsctlIndicesConfig       *OsctlIndicesConfig
-	OSCTLTenantsConfig       string
-	KibanaMultidomainEnabled string
-	RemoteCRT                string
+	Action                             string
+	OpenSearchURL                      string
+	OpenSearchRecovererURL             string
+	CertFile                           string
+	KeyFile                            string
+	CAFile                             string
+	Timeout                            string
+	RetryAttempts                      string
+	DateFormat                         string
+	RecovererDateFormat                string
+	MadisonURL                         string
+	OSDURL                             string
+	MadisonKey                         string
+	SnapshotRepo                       string
+	RetentionThreshold                 string
+	DereplicatorDaysCount              string
+	DereplicatorUseSnapshot            string
+	DataSourceName                     string
+	KibanaUser                         string
+	KibanaPass                         string
+	HotCount                           string
+	ColdAttribute                      string
+	ExtractedPattern                   string
+	ExtractedDays                      string
+	DryRun                             string
+	ShardingTargetSizeGiB              string
+	ShardingExcludeRegex               string
+	KibanaIndexRegex                   string
+	KubeNamespace                      string
+	SnapshotManualKind                 string
+	SnapshotManualValue                string
+	SnapshotManualName                 string
+	SnapshotManualSystem               string
+	SnapshotManualDaysCount            string
+	SnapshotManualCountS3              string
+	SnapshotManualRepo                 string
+	OSCTLConfig                        string
+	OSCTLIndicesConfig                 string
+	OsctlIndicesConfig                 *OsctlIndicesConfig
+	OSCTLTenantsConfig                 string
+	KibanaMultidomainEnabled           string
+	DataSourceKibanaMultitenancy       string
+	DataSourceKibanaMultidomainEnabled string
+	DataSourceRemoteCRT                string
+	IndexPatternsKibanaMultitenancy    string
+	IndexPatternsRecovererEnabled      string
 }
 
 var (
@@ -139,8 +141,6 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		ShardingTargetSizeGiB:    getValue(cmd, "sharding-target-size-gib", "SHARDING_TARGET_SIZE_GIB", viper.GetString("sharding_target_size_gib")),
 		ShardingExcludeRegex:     getValue(cmd, "exclude-sharding", "EXCLUDE_SHARDING", viper.GetString("exclude_sharding")),
 		KibanaIndexRegex:         getValue(cmd, "kibana-index-regex", "KIBANA_INDEX_REGEX", viper.GetString("kibana_index_regex")),
-		KibanaMultitenancy:       getValue(cmd, "kibana-multitenancy", "KIBANA_MULTITENANCY", viper.GetString("kibana_multitenancy")),
-		RecovererEnabled:         getValue(cmd, "recoverer-enabled", "RECOVERER_ENABLED", viper.GetString("recoverer_enabled")),
 		KubeNamespace:            getValue(cmd, "kube-namespace", "KUBE_NAMESPACE", viper.GetString("kube_namespace")),
 		SnapshotManualKind:       getValue(cmd, "snapshot-manual-kind", "SNAPSHOT_KIND", viper.GetString("snapshot_manual_kind")),
 		SnapshotManualValue:      getValue(cmd, "snapshot-manual-value", "SNAPSHOT_VALUE", viper.GetString("snapshot_manual_value")),
@@ -152,10 +152,15 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		OSCTLConfig:              getValue(cmd, "config", "OSCTL_CONFIG", viper.GetString("osctl_config")),
 		OSCTLIndicesConfig:       getValue(cmd, "osctl-indices-config", "OSCTL_INDICES_CONFIG", viper.GetString("osctl_indices_config")),
 		OsctlIndicesConfig:       osctlIndicesConfig,
-		OSCTLTenantsConfig:       tenantsPath,
+		OSCTLTenantsConfig:       getValue(cmd, "kibana-tenants-config", "KIBANA_TENANTS_CONFIG", tenantsPath),
 		KibanaMultidomainEnabled: getValue(cmd, "kibana-multidomain-enabled", "KIBANA_MULTIDOMAIN_ENABLED", viper.GetString("kibana_multidomain_enabled")),
 		DataSourceName:           getValue(cmd, "datasource-name", "DATA_SOURCE_NAME", viper.GetString("datasource_name")),
-		RemoteCRT:                getValue(cmd, "remote-crt", "REMOTE_CRT", viper.GetString("remote_crt")),
+
+		DataSourceKibanaMultitenancy:       getValue(cmd, "datasource-kibana-multitenancy", "DATASOURCE_KIBANA_MULTITENANCY", viper.GetString("datasource_kibana_multitenancy")),
+		DataSourceKibanaMultidomainEnabled: getValue(cmd, "datasource-kibana-multidomain-enabled", "DATASOURCE_KIBANA_MULTIDOMAIN_ENABLED", viper.GetString("datasource_kibana_multidomain_enabled")),
+		DataSourceRemoteCRT:                getValue(cmd, "datasource-remote-crt", "DATASOURCE_REMOTE_CRT", viper.GetString("datasource_remote_crt")),
+		IndexPatternsKibanaMultitenancy:    getValue(cmd, "indexpatterns-kibana-multitenancy", "INDEXPATTERNS_KIBANA_MULTITENANCY", viper.GetString("indexpatterns_kibana_multitenancy")),
+		IndexPatternsRecovererEnabled:      getValue(cmd, "indexpatterns-recoverer-enabled", "INDEXPATTERNS_RECOVERER_ENABLED", viper.GetString("indexpatterns_recoverer_enabled")),
 	}
 
 	switch commandName {
@@ -217,13 +222,13 @@ func setDefaults() {
 	viper.SetDefault("sharding_target_size_gib", 25)
 	viper.SetDefault("exclude_sharding", "")
 	viper.SetDefault("kibana_index_regex", "^([\\w-]+)-([\\w-]*)(\\d{4}[\\.-]\\d{2}[\\.-]\\d{2}(?:[\\.-]\\d{2})*)$")
-	viper.SetDefault("kibana_multitenancy", false)
+	// Removed common kibana_multitenancy; use per-command flags
 	viper.SetDefault("recoverer_enabled", false)
 	viper.SetDefault("kube_namespace", "infra-elklogs")
 	viper.SetDefault("kibana_tenants_config", "osctltenants.yaml")
 	viper.SetDefault("kibana_multidomain_enabled", false)
 	viper.SetDefault("datasource_name", "recoverer")
-	viper.SetDefault("remote_crt", "")
+	// Removed common remote_crt; use datasource_remote_crt
 }
 
 func GetAvailableActions() []string {
@@ -476,15 +481,7 @@ func (c *Config) GetDryRun() bool {
 	return false
 }
 
-func (c *Config) GetRecovererEnabled() bool {
-	if c.RecovererEnabled == "" {
-		return false
-	}
-	if value, err := strconv.ParseBool(c.RecovererEnabled); err == nil {
-		return value
-	}
-	return false
-}
+// Removed: GetRecovererEnabled — use GetIndexPatternsRecovererEnabled for indexpatterns
 
 func (c *CommandConfig) GetTimeout() time.Duration {
 	if c.Timeout == "" {
@@ -566,25 +563,47 @@ func (c *CommandConfig) GetDryRun() bool {
 	return false
 }
 
-func (c *CommandConfig) GetKibanaMultitenancy() bool {
-	if c.KibanaMultitenancy == "" {
+func (c *CommandConfig) GetDataSourceKibanaMultitenancy() bool {
+	if c.DataSourceKibanaMultitenancy == "" {
 		return false
 	}
-	if value, err := strconv.ParseBool(c.KibanaMultitenancy); err == nil {
+	if value, err := strconv.ParseBool(c.DataSourceKibanaMultitenancy); err == nil {
 		return value
 	}
 	return false
 }
 
-func (c *CommandConfig) GetRecovererEnabled() bool {
-	if c.RecovererEnabled == "" {
+func (c *CommandConfig) GetDataSourceKibanaMultidomainEnabled() bool {
+	if c.DataSourceKibanaMultidomainEnabled == "" {
 		return false
 	}
-	if value, err := strconv.ParseBool(c.RecovererEnabled); err == nil {
+	if value, err := strconv.ParseBool(c.DataSourceKibanaMultidomainEnabled); err == nil {
 		return value
 	}
 	return false
 }
+
+func (c *CommandConfig) GetIndexPatternsKibanaMultitenancy() bool {
+	if c.IndexPatternsKibanaMultitenancy == "" {
+		return false
+	}
+	if value, err := strconv.ParseBool(c.IndexPatternsKibanaMultitenancy); err == nil {
+		return value
+	}
+	return false
+}
+
+func (c *CommandConfig) GetIndexPatternsRecovererEnabled() bool {
+	if c.IndexPatternsRecovererEnabled == "" {
+		return false
+	}
+	if value, err := strconv.ParseBool(c.IndexPatternsRecovererEnabled); err == nil {
+		return value
+	}
+	return false
+}
+
+// Removed: GetRecovererEnabled — use GetIndexPatternsRecovererEnabled
 
 func (c *Config) GetSnapshotManualSystem() bool {
 	if c.SnapshotManualSystem == "" {
@@ -681,10 +700,10 @@ var CommandFlags = map[string][]FlagDefinition{
 		{"kibana-pass", "string", "", "Kibana API password", []string{}},
 		{"datasource-name", "string", "recoverer", "Data source title", []string{}},
 		{"kube-namespace", "string", "default", "Kubernetes namespace for secrets", []string{}},
-		{"kibana-multidomain-enabled", "bool", false, "Enable Kibana multidomain cert management", []string{}},
-		{"remote-crt", "string", "", "Concatenated base64 certs separated by | for multidomain", []string{}},
-		{"kibana-multitenancy", "bool", false, "Enable multitenancy mode (uses kibana-tenants-config)", []string{}},
-		{"kibana-tenants-config", "string", "osctltenants.yaml", "Path to YAML tenants and patterns", []string{}},
+		{"datasource-kibana-multidomain-enabled", "bool", false, "Enable Kibana multidomain cert management", []string{}},
+		{"datasource-remote-crt", "string", "", "Concatenated base64 certs separated by | for multidomain", []string{}},
+		{"datasource-kibana-multitenancy", "bool", false, "Enable multitenancy mode (uses datasource-kibana-tenants-config)", []string{}},
+		{"datasource-kibana-tenants-config", "string", "osctltenants.yaml", "Path to YAML tenants and patterns", []string{}},
 		{"dry-run", "bool", false, "Show what would be created/updated without changing Kibana/K8s", []string{}},
 	},
 	"extracteddelete": {
@@ -705,9 +724,9 @@ var CommandFlags = map[string][]FlagDefinition{
 	},
 	"indexpatterns": {
 		{"kibana-index-regex", "string", "^(.*?)-\\d{4}\\.\\d{2}\\.\\d{2}.*$", "Regex to extract pattern from today's indices", []string{}},
-		{"kibana-multitenancy", "bool", false, "Enable multitenancy mode", []string{}},
-		{"kibana-tenants-config", "string", "osctltenants.yaml", "Path to YAML tenants and patterns", []string{}},
-		{"recoverer-enabled", "bool", false, "Enable recoverer extracted_* pattern creation", []string{}},
+		{"indexpatterns-kibana-multitenancy", "bool", false, "Enable multitenancy mode", []string{}},
+		{"indexpatterns-kibana-tenants-config", "string", "osctltenants.yaml", "Path to YAML tenants and patterns", []string{}},
+		{"indexpatterns-recoverer-enabled", "bool", false, "Enable recoverer extracted_* pattern creation", []string{}},
 		{"dry-run", "bool", false, "Show what index patterns would be created without creating", []string{}},
 	},
 	"snapshotsdelete": {
@@ -769,74 +788,80 @@ func LogConfigSource(cmd *cobra.Command, commandName string) {
 }
 
 type CommandConfig struct {
-	OpenSearchURL            string
-	OpenSearchRecovererURL   string
-	CertFile                 string
-	KeyFile                  string
-	CAFile                   string
-	Timeout                  string
-	RetryAttempts            string
-	DateFormat               string
-	RecovererDateFormat      string
-	MadisonURL               string
-	OSDURL                   string
-	MadisonKey               string
-	SnapshotRepo             string
-	RetentionThreshold       string
-	DereplicatorDaysCount    string
-	DereplicatorUseSnapshot  string
-	DataSourceName           string
-	KibanaUser               string
-	KibanaPass               string
-	HotCount                 string
-	ColdAttribute            string
-	ExtractedPattern         string
-	ExtractedDays            string
-	DryRun                   string
-	ShardingTargetSizeGiB    string
-	ShardingExcludeRegex     string
-	KibanaIndexRegex         string
-	KibanaMultitenancy       string
-	RecovererEnabled         string
-	KubeNamespace            string
-	KibanaMultidomainEnabled string
-	RemoteCRT                string
+	OpenSearchURL                      string
+	OpenSearchRecovererURL             string
+	CertFile                           string
+	KeyFile                            string
+	CAFile                             string
+	Timeout                            string
+	RetryAttempts                      string
+	DateFormat                         string
+	RecovererDateFormat                string
+	MadisonURL                         string
+	OSDURL                             string
+	MadisonKey                         string
+	SnapshotRepo                       string
+	RetentionThreshold                 string
+	DereplicatorDaysCount              string
+	DereplicatorUseSnapshot            string
+	DataSourceName                     string
+	KibanaUser                         string
+	KibanaPass                         string
+	HotCount                           string
+	ColdAttribute                      string
+	ExtractedPattern                   string
+	ExtractedDays                      string
+	DryRun                             string
+	ShardingTargetSizeGiB              string
+	ShardingExcludeRegex               string
+	KibanaIndexRegex                   string
+	KubeNamespace                      string
+	KibanaMultidomainEnabled           string
+	DataSourceKibanaMultitenancy       string
+	DataSourceKibanaMultidomainEnabled string
+	DataSourceRemoteCRT                string
+	IndexPatternsKibanaMultitenancy    string
+	IndexPatternsRecovererEnabled      string
 }
 
 func GetCommandConfig(cmd *cobra.Command) *CommandConfig {
 	cfg := GetConfig()
 	return &CommandConfig{
-		OpenSearchURL:            cfg.OpenSearchURL,
-		OpenSearchRecovererURL:   cfg.OpenSearchRecovererURL,
-		CertFile:                 cfg.CertFile,
-		KeyFile:                  cfg.KeyFile,
-		CAFile:                   cfg.CAFile,
-		Timeout:                  cfg.Timeout,
-		RetryAttempts:            cfg.RetryAttempts,
-		DateFormat:               cfg.DateFormat,
-		RecovererDateFormat:      cfg.RecovererDateFormat,
-		MadisonURL:               cfg.MadisonURL,
-		OSDURL:                   cfg.OSDURL,
-		MadisonKey:               cfg.MadisonKey,
-		SnapshotRepo:             cfg.SnapshotRepo,
-		RetentionThreshold:       cfg.RetentionThreshold,
-		DereplicatorDaysCount:    cfg.DereplicatorDaysCount,
-		DereplicatorUseSnapshot:  cfg.DereplicatorUseSnapshot,
-		DataSourceName:           cfg.DataSourceName,
-		KibanaUser:               cfg.KibanaUser,
-		KibanaPass:               cfg.KibanaPass,
-		HotCount:                 cfg.HotCount,
-		ColdAttribute:            cfg.ColdAttribute,
-		ExtractedPattern:         cfg.ExtractedPattern,
-		ExtractedDays:            cfg.ExtractedDays,
-		DryRun:                   cfg.DryRun,
-		ShardingTargetSizeGiB:    cfg.ShardingTargetSizeGiB,
-		ShardingExcludeRegex:     cfg.ShardingExcludeRegex,
-		KibanaIndexRegex:         cfg.KibanaIndexRegex,
-		KibanaMultitenancy:       cfg.KibanaMultitenancy,
-		RecovererEnabled:         cfg.RecovererEnabled,
+		OpenSearchURL:           cfg.OpenSearchURL,
+		OpenSearchRecovererURL:  cfg.OpenSearchRecovererURL,
+		CertFile:                cfg.CertFile,
+		KeyFile:                 cfg.KeyFile,
+		CAFile:                  cfg.CAFile,
+		Timeout:                 cfg.Timeout,
+		RetryAttempts:           cfg.RetryAttempts,
+		DateFormat:              cfg.DateFormat,
+		RecovererDateFormat:     cfg.RecovererDateFormat,
+		MadisonURL:              cfg.MadisonURL,
+		OSDURL:                  cfg.OSDURL,
+		MadisonKey:              cfg.MadisonKey,
+		SnapshotRepo:            cfg.SnapshotRepo,
+		RetentionThreshold:      cfg.RetentionThreshold,
+		DereplicatorDaysCount:   cfg.DereplicatorDaysCount,
+		DereplicatorUseSnapshot: cfg.DereplicatorUseSnapshot,
+		DataSourceName:          cfg.DataSourceName,
+		KibanaUser:              cfg.KibanaUser,
+		KibanaPass:              cfg.KibanaPass,
+		HotCount:                cfg.HotCount,
+		ColdAttribute:           cfg.ColdAttribute,
+		ExtractedPattern:        cfg.ExtractedPattern,
+		ExtractedDays:           cfg.ExtractedDays,
+		DryRun:                  cfg.DryRun,
+		ShardingTargetSizeGiB:   cfg.ShardingTargetSizeGiB,
+		ShardingExcludeRegex:    cfg.ShardingExcludeRegex,
+		KibanaIndexRegex:        cfg.KibanaIndexRegex,
+
 		KubeNamespace:            cfg.KubeNamespace,
 		KibanaMultidomainEnabled: cfg.KibanaMultidomainEnabled,
-		RemoteCRT:                cfg.RemoteCRT,
+
+		DataSourceKibanaMultitenancy:       cfg.DataSourceKibanaMultitenancy,
+		DataSourceKibanaMultidomainEnabled: cfg.DataSourceKibanaMultidomainEnabled,
+		DataSourceRemoteCRT:                cfg.DataSourceRemoteCRT,
+		IndexPatternsKibanaMultitenancy:    cfg.IndexPatternsKibanaMultitenancy,
+		IndexPatternsRecovererEnabled:      cfg.IndexPatternsRecovererEnabled,
 	}
 }

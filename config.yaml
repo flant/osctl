@@ -1,7 +1,7 @@
 # Configuration File for osctl
 
 # Action to execute (optional) - if set, osctl will automatically run this command
-# Available actions: snapshots, snapshotmanual, snapshotsdelete, snapshotschecker, 
+# Available actions: snapshots, snapshot-manual, snapshotsdelete, snapshotschecker, 
 #                   indicesdelete, retention, dereplicator, coldstorage, 
 #                   extracteddelete, danglingchecker
 action: ""
@@ -31,11 +31,15 @@ hot_count: 4
 # danglingchecker
 
 # datasource
-data_source_name: "recoverer"
+datasource_name: "recoverer"
 kube_namespace: "infra-elklogs"
-recoverer_enabled: true
 kibana_user: ""
 kibana_pass: ""
+# per-command flags (datasource)
+datasource_kibana_multitenancy: false
+datasource_kibana_tenants_config: "osctltenants.yaml"
+datasource_kibana_multidomain_enabled: false
+datasource_remote_crt: ""
 
 # dereplicator:
 dereplicator_days_count: 2
@@ -50,8 +54,9 @@ recoverer_date_format: "%d-%m-%Y"
 
 # indexpatterns:
 kibana_index_regex: "^([\\w-]+)-([\\w-]*)(\\d{4}[\\.-]\\d{2}[\\.-]\\d{2}(?:[\\.-]\\d{2})*)$"
-kibana_multitenancy: false
-
+indexpatterns_kibana_multitenancy: false
+indexpatterns_kibana_tenants_config: "osctltenants.yaml"
+indexpatterns_recoverer_enabled: true
 # indicesdelete:
 # Uses osctl-indices-config for detailed configuration
 

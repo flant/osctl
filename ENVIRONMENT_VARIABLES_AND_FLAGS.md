@@ -169,9 +169,9 @@ osctl --action=snapshot
 | Флаг | Переменная окружения | Описание | Значение по умолчанию |
 |------|---------------------|----------|--------------|
 | `--kibana-index-regex` | `KIBANA_INDEX_REGEX` | Регекс для построения паттернов | `^([\\w-]+)-([\\w-]*)(\\d{4}[\\.-]\\d{2}[\\.-]\\d{2}(?:[\\.-]\\d{2})*)$` |
-| `--kibana-multitenancy` | `KIBANA_MULTITENANCY` | Режим multitenancy | `false` |
-| `--kibana-tenants-config` | `KIBANA_TENANTS_CONFIG` | Путь к YAML с тенантами и index patterns | `osctltenants.yaml` |
-| `--recoverer-enabled` | `RECOVERER_ENABLED` | Создавать `extracted_*` с ссылкой на data-source | `false` |
+| `--indexpatterns-kibana-multitenancy` | `KIBANA_MULTITENANCY` | Режим multitenancy | `false` |
+| `--indexpatterns-kibana-tenants-config` | `KIBANA_TENANTS_CONFIG` | Путь к YAML с тенантами и index patterns | `osctltenants.yaml` |
+| `--indexpatterns-recoverer-enabled` | `RECOVERER_ENABLED` | Создавать `extracted_*` с ссылкой на data-source | `false` |
 | `--dry-run` | `DRY_RUN` | Показать создаваемые index patterns без создания | `false` |
 
 Примечание: Список тенантов всегда берётся из `--kibana-tenants-config`.
@@ -191,10 +191,10 @@ osctl --action=snapshot
 | `--kibana-pass` | `KIBANA_API_PASS` | Пароль API Kibana | (пусто) |
 | `--datasource-name` | `DATA_SOURCE_NAME` | Название data-source | `recoverer` |
 | `--kube-namespace` | `KUBE_NAMESPACE` | Namespace для секретов | `infra-elklogs` |
-| `--kibana-multidomain-enabled` | `KIBANA_MULTIDOMAIN_ENABLED` | Управление секретом `multi-certs` и перезапуск Kibana если было обновление сертификатов | `false` |
-| `--remote-crt` | `REMOTE_CRT` | base64 сертификаты, разделённые \\| (используется при multidomain, будут объединены с `recoverer-certs/ca.crt` ) | (пусто) |
-| `--kibana-multitenancy` | `KIBANA_MULTITENANCY` | Режим multitenancy | `false` |
-| `--kibana-tenants-config` | `KIBANA_TENANTS_CONFIG` | Путь к YAML с тенантами и index patterns | `osctltenants.yaml` |
+| `--datasource-kibana-multidomain-enabled` | `KIBANA_MULTIDOMAIN_ENABLED` | Управление секретом `multi-certs` и перезапуск Kibana если было обновление сертификатов | `false` |
+| `--datasource-remote-crt` | `REMOTE_CRT` | base64 сертификаты, разделённые \\| (используется при multidomain, будут объединены с `recoverer-certs/ca.crt` ) | (пусто) |
+| `--datasource-kibana-multitenancy` | `KIBANA_MULTITENANCY` | Режим multitenancy | `false` |
+| `--datasource-kibana-tenants-config` | `KIBANA_TENANTS_CONFIG` | Путь к YAML с тенантами и index patterns | `osctltenants.yaml` |
 | `--dry-run` | `DRY_RUN` | Показать создание/обновление без изменений в Kibana/K8s | `false` |
 
 ### `snapshotschecker`
