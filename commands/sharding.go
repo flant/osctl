@@ -46,11 +46,11 @@ func runSharding(cmd *cobra.Command, args []string) error {
 	targetBytes := int64(targetGiB) * 1024 * 1024 * 1024
 
 	today := utils.FormatDate(time.Now(), cfg.DateFormat)
-	indicesAll, err := client.GetIndicesWithFields("*", "index,pss")
+	indicesAll, err := client.GetIndicesWithFields("*", "index,pri.store.size")
 	if err != nil {
 		return err
 	}
-	indicesToday, err := client.GetIndicesWithFields(fmt.Sprintf("*-%s*,-.*", today), "index,pss", "pss")
+	indicesToday, err := client.GetIndicesWithFields(fmt.Sprintf("*-%s*,-.*", today), "index,pri.store.size", "pri.store.size")
 	if err != nil {
 		return err
 	}
