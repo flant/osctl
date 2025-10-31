@@ -39,6 +39,10 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 	dataSourceName := cfg.DataSourceName
 	osdURL := cfg.OSDURL
 
+	if osdURL != "" && !strings.HasPrefix(osdURL, "http://") && !strings.HasPrefix(osdURL, "https://") {
+		osdURL = "https://" + osdURL
+	}
+
 	if dataSourceName == "" || cfg.OpenSearchURL == "" || osdURL == "" {
 		return fmt.Errorf("dataSourceName, os-url and osd-url parameters are required")
 	}

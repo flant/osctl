@@ -35,9 +35,7 @@ datasource_name: "recoverer"
 kube_namespace: "infra-elklogs"
 kibana_user: ""
 kibana_pass: ""
-# per-command flags (datasource)
 datasource_kibana_multitenancy: false
-datasource_kibana_tenants_config: "osctltenants.yaml"
 datasource_kibana_multidomain_enabled: false
 datasource_remote_crt: ""
 
@@ -55,7 +53,6 @@ recoverer_date_format: "%d-%m-%Y"
 # indexpatterns:
 kibana_index_regex: "^([\\w-]+)-([\\w-]*)(\\d{4}[\\.-]\\d{2}[\\.-]\\d{2}(?:[\\.-]\\d{2})*)$"
 indexpatterns_kibana_multitenancy: false
-indexpatterns_kibana_tenants_config: "osctltenants.yaml"
 indexpatterns_recoverer_enabled: true
 # indicesdelete:
 # Uses osctl-indices-config for detailed configuration

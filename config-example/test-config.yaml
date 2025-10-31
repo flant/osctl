@@ -33,9 +33,11 @@ hot_count: 4
 # datasource
 data_source_name: "recoverer"
 kube_namespace: "infra-elklogs"
-recoverer_enabled: true
 kibana_user: ""
 kibana_pass: ""
+datasource_kibana_multitenancy: false
+datasource_kibana_multidomain_enabled: false
+datasource_remote_crt: ""
 
 # dereplicator:
 dereplicator_days_count: 2
@@ -50,8 +52,8 @@ recoverer_date_format: "%d-%m-%Y"
 
 # indexpatterns:
 kibana_index_regex: "^([\\w-]+)-([\\w-]*)(\\d{4}[\\.-]\\d{2}[\\.-]\\d{2}(?:[\\.-]\\d{2})*)$"
-kibana_multitenancy: false
-
+indexpatterns_kibana_multitenancy: false
+indexpatterns_recoverer_enabled: true
 
 # indicesdelete:
 # Uses osctl-indices-config for detailed configuration
