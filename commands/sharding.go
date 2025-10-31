@@ -83,6 +83,15 @@ func runSharding(cmd *cobra.Command, args []string) error {
 	}
 	var changes []templateChange
 
+	type patternInfo struct {
+		base       string
+		pattern    string
+		maxSize    int64
+		maxSizeStr string
+		indices    []string
+	}
+	patterns := make(map[string]*patternInfo)
+
 	for _, it := range indicesToday {
 		name := it.Index
 		if strings.HasPrefix(name, ".") {
@@ -100,13 +109,37 @@ func runSharding(cmd *cobra.Command, args []string) error {
 			logger.Info(fmt.Sprintf("Skip excluded pattern %s", pattern))
 			continue
 		}
+		if pi, ok := patterns[pattern]; ok {
+			pi.indices = append(pi.indices, name)
+			if sz, err := strconv.ParseInt(it.Size, 10, 64); err == nil && sz > pi.maxSize {
+				pi.maxSize = sz
+				pi.maxSizeStr = it.Size
+			}
+		} else {
+			patterns[pattern] = &patternInfo{
+				base:       base,
+				pattern:    pattern,
+				maxSize:    0,
+				maxSizeStr: it.Size,
+				indices:    []string{name},
+			}
+			if sz, err := strconv.ParseInt(it.Size, 10, 64); err == nil {
+				patterns[pattern].maxSize = sz
+			}
+		}
+	}
+
+	for pattern, pi := range patterns {
 		dashCount := strings.Count(pattern, "-")
 		priority := dashCount * 1000
-		templateName := strings.Replace(name, today, "sharding", 1)
+		templateName := pi.base + "-sharding"
 
-		maxSize := computeMaxSizeForPattern(sizes, base, it.Size)
-		shards := computeShardCount(maxSize, targetBytes, dataNodes, name, logger)
-		logger.Info(fmt.Sprintf("Evaluate pattern=%s template=%s maxSize=%dB targetBytes=%dB shards=%d dataNodes=%d priority=%d", pattern, templateName, maxSize, targetBytes, shards, dataNodes, priority))
+		maxSize := computeMaxSizeForPattern(sizes, pi.base, pi.maxSizeStr)
+		if maxSize < pi.maxSize {
+			maxSize = pi.maxSize
+		}
+		shards := computeShardCount(maxSize, targetBytes, dataNodes, pi.indices[0], logger)
+		logger.Info(fmt.Sprintf("Evaluate pattern=%s template=%s indices=%d maxSize=%dB targetBytes=%dB shards=%d dataNodes=%d priority=%d", pattern, templateName, len(pi.indices), maxSize, targetBytes, shards, dataNodes, priority))
 
 		existing, err := client.FindIndexTemplateByPattern(pattern)
 		if err != nil {
