@@ -654,6 +654,7 @@ var CommandFlags = map[string][]FlagDefinition{
 	},
 	"snapshotschecker": {
 		// Uses --osctl-indices-config for configuration
+		{"dry-run", "bool", false, "Show what would be done without sending alerts", []string{}},
 	},
 	"coldstorage": {
 		{"hot-count", "int", 3, "Number of days to keep indices hot", []string{"min:1", "max:30"}},
@@ -667,6 +668,9 @@ var CommandFlags = map[string][]FlagDefinition{
 		{"kube-namespace", "string", "default", "Kubernetes namespace for secrets", []string{}},
 		{"kibana-multidomain-enabled", "bool", false, "Enable Kibana multidomain cert management", []string{}},
 		{"remote-crt", "string", "", "Concatenated base64 certs separated by | for multidomain", []string{}},
+		{"kibana-multitenancy", "bool", false, "Enable multitenancy mode (uses kibana-tenants-config)", []string{}},
+		{"kibana-tenants-config", "string", "osctltenants.yaml", "Path to YAML tenants and patterns", []string{}},
+		{"dry-run", "bool", false, "Show what would be created/updated without changing Kibana/K8s", []string{}},
 	},
 	"extracteddelete": {
 		{"os-recoverer-url", "string", "", "OpenSearch recoverer cluster URL", []string{}},
@@ -677,19 +681,25 @@ var CommandFlags = map[string][]FlagDefinition{
 	},
 	"indicesdelete": {
 		// Uses --osctl-indices-config for configuration
+		{"dry-run", "bool", false, "Show what would be deleted without actually deleting", []string{}},
 	},
 	"sharding": {
 		{"sharding-target-size-gib", "int", 25, "Target max shard size GiB (<=50)", []string{"min:1", "max:50"}},
 		{"exclude-sharding", "string", "", "Regex to exclude patterns from sharding", []string{}},
+		{"dry-run", "bool", false, "Show what templates would be created/updated without applying", []string{}},
 	},
 	"indexpatterns": {
 		{"kibana-index-regex", "string", "^(.*?)-\\d{4}\\.\\d{2}\\.\\d{2}.*$", "Regex to extract pattern from today's indices", []string{}},
 		{"kibana-multitenancy", "bool", false, "Enable multitenancy mode", []string{}},
 		{"kibana-tenants-config", "string", "osctltenants.yaml", "Path to YAML tenants and patterns", []string{}},
 		{"recoverer-enabled", "bool", false, "Enable recoverer extracted_* pattern creation", []string{}},
+		{"dry-run", "bool", false, "Show what index patterns would be created without creating", []string{}},
 	},
 	"snapshotsdelete": {
 		// Uses --osctl-indices-config for configuration
+	},
+	"danglingchecker": {
+		{"dry-run", "bool", false, "Show what alerts would be sent without sending", []string{}},
 	},
 }
 

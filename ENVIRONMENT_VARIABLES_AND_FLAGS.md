@@ -83,7 +83,8 @@ osctl --action=snapshot
 | Флаг | Переменная окружения | Описание | Значение по умолчанию |
 |------|---------------------|----------|--------------|
 | `--cold-attribute` | `COLD_ATTRIBUTE` | Атрибут узлов для cold | (пусто) |
-| `--hot-count` | `HOT_COUNT` | Количество дней, которые нужно держать индексы в hot | `3` |
+| `--hot-count` | `HOT_COUNT` | Количество дней, которые нужно держать индексы в hot | `4` |
+| `--dry-run` | `DRY_RUN` | Показать изменения без их применения | `false` |
 
 **Ключи в конфиг файле:**
 - `cold_attribute`
@@ -96,6 +97,7 @@ osctl --action=snapshot
 | Флаг | Переменная окружения | Описание | Значение по умолчанию |
 |------|---------------------|----------|--------------|
 | `--retention-threshold` | `RETENTION_THRESHOLD` | Порог использования диска в процентах | `75` |
+| `--dry-run` | `DRY_RUN` | Показать, какие индексы будут удалены, без удаления | `false` |
 
 **Ключи в конфиг файле:**
 - `retention-threshold`
@@ -108,6 +110,7 @@ osctl --action=snapshot
 |------|---------------------|----------|--------------|
 | `--dereplicator-days-count` | `DEREPLICATOR_DAYS` | Какое количество дней держать индексы с репликами | `2` |
 | `--dereplicator-use-snapshot` | `DEREPLICATOR_USE_SNAPSHOT` | Проверять снапшоты перед уменьшением реплик | `false` |
+| `--dry-run` | `DRY_RUN` | Показать изменения числа реплик без применения | `false` |
 
 **Ключи в конфиг файле:**
 - `dereplicator_days_count`
@@ -123,6 +126,7 @@ osctl --action=snapshot
 | `--extracted-pattern` | `EXTRACTED_PATTERN` | Префикс для extracted индексов | `extracted_` |
 | `--opensearch_recoverer_url` | `OPENSEARCH_RECOVERER_URL` | Url рековерера | `https://opendistro-recoverer:9200` |
 | `--recoverer_date_format` | `RECOVERER_DATE_FORMAT` | Формат даты у extracted индексов | `%d-%m-%Y` |
+| `--dry-run` | `DRY_RUN` | Показать удаляемые extracted индексы без удаления | `false` |
 
 **Ключи в конфиг файле:**
 - `opensearch_recoverer_url`
@@ -142,6 +146,7 @@ osctl --action=snapshot
 | `--snapshot-manual-name` | `SNAPSHOT_NAME` | Имя снапшота (обязательно для regex) | (пусто) |
 | `--snapshot-manual-system` | `SNAPSHOT_SYSTEM` | Флаг системного индекса (получает индексы с точкой, независимо от даты) | `false` |
 | `--snapshot-manual-repo` | `SNAPSHOT_MANUAL_REPO` | Переопределить репозиторий для manual снапшота | (пусто) |
+| `--dry-run` (только для `snapshots`) | `DRY_RUN` | Показать создаваемые снапшоты без выполнения | `false` |
 
 ### `sharding`
 
@@ -151,6 +156,7 @@ osctl --action=snapshot
 |------|---------------------|----------|--------------|
 | `--sharding-target-size-gib` | `SHARDING_TARGET_SIZE_GIB` | Целевой размер шарда (GiB, максимум 50) | `25` |
 | `--exclude-sharding` | `EXCLUDE_SHARDING` | Регекс для исключения паттернов | (пусто) |
+| `--dry-run` | `DRY_RUN` | Показать создаваемые/обновляемые шаблоны без применения | `false` |
 
 **Ключи в конфиг файле:**
 - `sharding_target_size_gib`
@@ -166,6 +172,7 @@ osctl --action=snapshot
 | `--kibana-multitenancy` | `KIBANA_MULTITENANCY` | Режим multitenancy | `false` |
 | `--kibana-tenants-config` | `KIBANA_TENANTS_CONFIG` | Путь к YAML с тенантами и index patterns | `osctltenants.yaml` |
 | `--recoverer-enabled` | `RECOVERER_ENABLED` | Создавать `extracted_*` с ссылкой на data-source | `false` |
+| `--dry-run` | `DRY_RUN` | Показать создаваемые index patterns без создания | `false` |
 
 Примечание: Список тенантов всегда берётся из `--kibana-tenants-config`.
 
@@ -186,6 +193,33 @@ osctl --action=snapshot
 | `--kube-namespace` | `KUBE_NAMESPACE` | Namespace для секретов | `infra-elklogs` |
 | `--kibana-multidomain-enabled` | `KIBANA_MULTIDOMAIN_ENABLED` | Управление секретом `multi-certs` и перезапуск Kibana если было обновление сертификатов | `false` |
 | `--remote-crt` | `REMOTE_CRT` | base64 сертификаты, разделённые \\| (используется при multidomain, будут объединены с `recoverer-certs/ca.crt` ) | (пусто) |
+| `--kibana-multitenancy` | `KIBANA_MULTITENANCY` | Режим multitenancy | `false` |
+| `--kibana-tenants-config` | `KIBANA_TENANTS_CONFIG` | Путь к YAML с тенантами и index patterns | `osctltenants.yaml` |
+| `--dry-run` | `DRY_RUN` | Показать создание/обновление без изменений в Kibana/K8s | `false` |
+
+### `snapshotschecker`
+
+Проверяет наличие снапшотов и отправляет алерт при отсутствии.
+
+| Флаг | Переменная окружения | Описание | Значение по умолчанию |
+|------|---------------------|----------|--------------|
+| `--dry-run` | `DRY_RUN` | Только логирование; алерты не отправляются | `false` |
+
+### `danglingchecker`
+
+Проверяет «висячие» индексы и отправляет алерт.
+
+| Флаг | Переменная окружения | Описание | Значение по умолчанию |
+|------|---------------------|----------|--------------|
+| `--dry-run` | `DRY_RUN` | Только логирование; алерты не отправляются | `false` |
+
+### `indicesdelete`
+
+Удаляет индексы в соответствии с правилами `osctl-indices-config`.
+
+| Флаг | Переменная окружения | Описание | Значение по умолчанию |
+|------|---------------------|----------|--------------|
+| `--dry-run` | `DRY_RUN` | Показать удаляемые индексы без удаления | `false` |
 
 В режиме multitenancy список тенантов берется из `--kibana-tenants-config` (`KIBANA_TENANTS_CONFIG`), файл обязателен.
 

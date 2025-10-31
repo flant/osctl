@@ -26,7 +26,7 @@ osd_url: ""
 
 # coldstorage
 cold_attribute: "cold"
-hot_count: 3
+hot_count: 4
 
 # danglingchecker
 
