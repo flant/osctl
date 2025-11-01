@@ -69,6 +69,10 @@ var (
 )
 
 func LoadConfig(cmd *cobra.Command, commandName string) error {
+	if commandName == "completion" || commandName == "help" {
+		return nil
+	}
+
 	viper.Reset()
 	viper.SetConfigType("yaml")
 
