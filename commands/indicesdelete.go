@@ -5,7 +5,6 @@ import (
 	"osctl/pkg/config"
 	"osctl/pkg/logging"
 	"osctl/pkg/utils"
-	"strconv"
 	"strings"
 	"time"
 
@@ -69,19 +68,9 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 
 		if indexConfig == nil {
 			if hasDateInName {
-				if unknownConfig.DaysCount > 0 && utils.IsOlderThanCutoff(indexName, utils.FormatDate(time.Now().AddDate(0, 0, -unknownConfig.DaysCount), cfg.DateFormat), cfg.DateFormat) {
-					indicesToDelete = append(indicesToDelete, indexName)
-				}
-			} else if unknownConfig.DaysCount > 0 && idx.CreationDate != "" {
-				if ms, err := strconv.ParseInt(idx.CreationDate, 10, 64); err == nil {
-					created := time.Unix(0, ms*int64(time.Millisecond))
-					cutoff := time.Now().AddDate(0, 0, -unknownConfig.DaysCount)
-					if created.Before(cutoff) || created.Equal(cutoff) {
-						indicesWithoutDateForLog = append(indicesWithoutDateForLog, indexName)
-					}
-				}
-			} else {
 				unknownIndices = append(unknownIndices, indexName)
+			} else {
+				indicesWithoutDateForLog = append(indicesWithoutDateForLog, indexName)
 			}
 		} else {
 			if hasDateInName {
@@ -97,12 +86,8 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 	unknownIndices = utils.FilterUnknownIndices(unknownIndices)
 	if unknownConfig.DaysCount > 0 {
 		for _, indexName := range unknownIndices {
-			if utils.HasDateInName(indexName, cfg.DateFormat) {
-				if utils.IsOlderThanCutoff(indexName, utils.FormatDate(time.Now().AddDate(0, 0, -unknownConfig.DaysCount), cfg.DateFormat), cfg.DateFormat) {
-					indicesToDelete = append(indicesToDelete, indexName)
-				}
-			} else {
-				indicesWithoutDateForLog = append(indicesWithoutDateForLog, indexName)
+			if utils.IsOlderThanCutoff(indexName, utils.FormatDate(time.Now().AddDate(0, 0, -unknownConfig.DaysCount), cfg.DateFormat), cfg.DateFormat) {
+				indicesToDelete = append(indicesToDelete, indexName)
 			}
 		}
 	}

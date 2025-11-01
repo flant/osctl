@@ -16,7 +16,7 @@ import (
 var snapshotManualCmd = &cobra.Command{
 	Use:   "snapshot-manual",
 	Short: "Create manual snapshots for specific indices",
-	Long:  `Create snapshots for indices with manual_snapshot flag enabled`,
+	Long:  `Create snapshots for indices with specified pattern`,
 	RunE:  runSnapshotManual,
 }
 

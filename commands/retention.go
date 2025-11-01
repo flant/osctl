@@ -123,7 +123,7 @@ func runRetention(cmd *cobra.Command, args []string) error {
 
 		logger.Info(fmt.Sprintf("Deleted index index=%s", idx.Index))
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(15 * time.Second)
 
 		avgUtil, err = getAverageUtilization(client)
 		if err != nil {

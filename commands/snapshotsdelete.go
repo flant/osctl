@@ -123,8 +123,16 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 		for _, s := range rsnaps {
 			name := s.Snapshot
 			ic := utils.FindMatchingSnapshotConfig(name, indicesConfig)
-			if ic == nil || ic.Repository != repo || !ic.Snapshot {
-				logger.Info(fmt.Sprintf("Dangling snapshot (repo=%s) snapshot=%s", repo, name))
+			if ic == nil {
+				logger.Info(fmt.Sprintf("Dangling snapshot (repo=%s) snapshot=%s (no matching config)", repo, name))
+				continue
+			}
+			if ic.Repository != repo {
+				logger.Info(fmt.Sprintf("Dangling snapshot (repo=%s) snapshot=%s (belongs to repo=%s)", repo, name, ic.Repository))
+				continue
+			}
+			if !ic.Snapshot {
+				logger.Info(fmt.Sprintf("Dangling snapshot (repo=%s) snapshot=%s (snapshot disabled in config)", repo, name))
 				continue
 			}
 			if !utils.HasDateInName(name, cfg.DateFormat) {

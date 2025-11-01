@@ -156,11 +156,13 @@ osctl --action=snapshot
 |------|---------------------|----------|--------------|
 | `--sharding-target-size-gib` | `SHARDING_TARGET_SIZE_GIB` | Целевой размер шарда (GiB, максимум 50) | `25` |
 | `--exclude-sharding` | `EXCLUDE_SHARDING` | Регекс для исключения паттернов | (пусто) |
+| `--sharding-routing-allocation-temp` | `SHARDING_ROUTING_ALLOCATION_TEMP` | Значение для `routing.allocation.require.temp` (например, `hot`) | (пусто) |
 | `--dry-run` | `DRY_RUN` | Показать создаваемые/обновляемые шаблоны без применения | `false` |
 
 **Ключи в конфиг файле:**
 - `sharding_target_size_gib`
 - `exclude_sharding`
+- `sharding_routing_allocation_temp`
 
 ### `indexpatterns`
 
@@ -169,17 +171,18 @@ osctl --action=snapshot
 | Флаг | Переменная окружения | Описание | Значение по умолчанию |
 |------|---------------------|----------|--------------|
 | `--kibana-index-regex` | `KIBANA_INDEX_REGEX` | Регекс для построения паттернов | `^([\\w-]+)-([\\w-]*)(\\d{4}[\\.-]\\d{2}[\\.-]\\d{2}(?:[\\.-]\\d{2})*)$` |
-| `--indexpatterns-kibana-multitenancy` | `KIBANA_MULTITENANCY` | Режим multitenancy | `false` |
-| `--indexpatterns-kibana-tenants-config` | `KIBANA_TENANTS_CONFIG` | Путь к YAML с тенантами и index patterns | `osctltenants.yaml` |
-| `--indexpatterns-recoverer-enabled` | `RECOVERER_ENABLED` | Создавать `extracted_*` с ссылкой на data-source | `false` |
+| `--indexpatterns-kibana-multitenancy` | `INDEXPATTERNS_KIBANA_MULTITENANCY` | Режим multitenancy | `false` |
+| `--indexpatterns-kibana-tenants-config` | `INDEXPATTERNS_KIBANA_TENANTS_CONFIG` | Путь к YAML с тенантами и index patterns | `osctltenants.yaml` |
+| `--indexpatterns-recoverer-enabled` | `INDEXPATTERNS_RECOVERER_ENABLED` | Создавать `extracted_*` с ссылкой на data-source | `false` |
 | `--dry-run` | `DRY_RUN` | Показать создаваемые index patterns без создания | `false` |
 
-Примечание: Список тенантов всегда берётся из `--kibana-tenants-config`.
+Примечание: Список тенантов берётся из `--indexpatterns-kibana-tenants-config` (`INDEXPATTERNS_KIBANA_TENANTS_CONFIG`).
 
 **Ключи в конфиг файле:**
 - `kibana_index_regex`
-- `kibana_multitenancy`
-- `recoverer_enabled`
+- `indexpatterns_kibana_multitenancy`
+- `indexpatterns_kibana_tenants_config`
+- `indexpatterns_recoverer_enabled`
 
 ### `datasource`
 
@@ -191,11 +194,23 @@ osctl --action=snapshot
 | `--kibana-pass` | `KIBANA_API_PASS` | Пароль API Kibana | (пусто) |
 | `--datasource-name` | `DATA_SOURCE_NAME` | Название data-source | `recoverer` |
 | `--kube-namespace` | `KUBE_NAMESPACE` | Namespace для секретов | `infra-elklogs` |
-| `--datasource-kibana-multidomain-enabled` | `KIBANA_MULTIDOMAIN_ENABLED` | Управление секретом `multi-certs` и перезапуск Kibana если было обновление сертификатов | `false` |
-| `--datasource-remote-crt` | `REMOTE_CRT` | base64 сертификаты, разделённые \\| (используется при multidomain, будут объединены с `recoverer-certs/ca.crt` ) | (пусто) |
-| `--datasource-kibana-multitenancy` | `KIBANA_MULTITENANCY` | Режим multitenancy | `false` |
-| `--datasource-kibana-tenants-config` | `KIBANA_TENANTS_CONFIG` | Путь к YAML с тенантами и index patterns | `osctltenants.yaml` |
+| `--datasource-kibana-multidomain-enabled` | `DATASOURCE_KIBANA_MULTIDOMAIN_ENABLED` | Управление секретом `multi-certs` и перезапуск Kibana если было обновление сертификатов | `false` |
+| `--datasource-remote-crt` | `DATASOURCE_REMOTE_CRT` | base64 сертификаты, разделённые \\| (используется при multidomain, будут объединены с `recoverer-certs/ca.crt` ) | (пусто) |
+| `--datasource-kibana-multitenancy` | `DATASOURCE_KIBANA_MULTITENANCY` | Режим multitenancy | `false` |
+| `--datasource-kibana-tenants-config` | `DATASOURCE_KIBANA_TENANTS_CONFIG` | Путь к YAML с тенантами и index patterns | `osctltenants.yaml` |
 | `--dry-run` | `DRY_RUN` | Показать создание/обновление без изменений в Kibana/K8s | `false` |
+
+Примечание: Список тенантов берётся из общего флага `--kibana-tenants-config` (`KIBANA_TENANTS_CONFIG`), а не из `--datasource-kibana-tenants-config`.
+
+**Ключи в конфиг файле:**
+- `datasource_name`
+- `kube_namespace`
+- `kibana_user`
+- `kibana_pass`
+- `datasource_kibana_multitenancy`
+- `datasource_kibana_multidomain_enabled`
+- `datasource_remote_crt`
+- `datasource_kibana_tenants_config`
 
 ### `snapshotschecker`
 
