@@ -61,7 +61,7 @@ func runRetention(cmd *cobra.Command, args []string) error {
 	yesterday := utils.FormatDate(time.Now().AddDate(0, 0, -1), dateFormat)
 
 	pattern := fmt.Sprintf("*,-.*,-*%s,-*%s,-extracted_*", today, yesterday)
-	indices, err := client.GetIndicesWithFields(pattern, "i,ss", "ss:desc")
+	indices, err := client.GetIndicesWithFields(pattern, "index,ss", "ss:desc")
 	if err != nil {
 		return fmt.Errorf("failed to get indices: %v", err)
 	}

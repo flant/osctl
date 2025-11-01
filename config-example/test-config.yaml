@@ -4,7 +4,7 @@
 # Available actions: snapshots, snapshotmanual, snapshotsdelete, snapshotschecker,
 #                   indicesdelete, retention, dereplicator, coldstorage,
 #                   extracteddelete, danglingchecker
-action: "coldstorage"
+action: ""
 
 # Common settings shared across all commands
 opensearch_url: "https://opendistro:9200"
@@ -19,14 +19,14 @@ snapshot_repo: "s3-backup-new"
 
 # madison alerts settings
 madison_url: "https://madison.flant.com/api/events/custom/"
-madison_key: "caee682ce0ed1fe9acdf067b06bdfea6424eb21970d42e3d199127bd2e9bba92"
-osd_url: "kibana-yc-elk-kong.apim.lmru.tech"
+madison_key: "fb7ed2a4f4b4b556706cfe22c560c74ca80b00a158ad4eafb48e77af7d6a7a38"
+osd_url: "kibana-shared.apps.lmru.tech"
 
 # Command-specific configurations
 
 # coldstorage
-cold_attribute: "cold"
-hot_count: 4
+cold_attribute: ""
+hot_count: ""
 
 # danglingchecker
 
