@@ -70,4 +70,5 @@ osctl snapshots --config=custom_config.yaml --osctl-indices-config=custom_osctl_
 
 - **[ENVIRONMENT_VARIABLES_AND_FLAGS.md](ENVIRONMENT_VARIABLES_AND_FLAGS.md)** - Полный справочник по всем флагам и переменным окружения
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Подробные алгоритмы и архитектура системы
+- **[DEVELOPMENT.md](DEVELOPMENT.md)** - Как вносить изменения и вариант тестирования
 - **Встроенная справка**: `osctl [команда] --help`
