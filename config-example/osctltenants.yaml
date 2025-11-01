@@ -1,0 +1,10 @@
+tenants:
+  - name: flant
+    patterns:
+      - "filebeat-*"
+      - "infra-*"
+      - "d8-*"
+  - name: itop-nginx
+    patterns:
+      - "common-access-*"
+      - "common-error-*"
