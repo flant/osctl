@@ -3,8 +3,13 @@ package commands
 import (
 	"fmt"
 	"osctl/pkg/config"
+	"osctl/pkg/logging"
 
 	"github.com/spf13/cobra"
+)
+
+var (
+	appVersion = ""
 )
 
 var rootCmd = &cobra.Command{
@@ -12,7 +17,6 @@ var rootCmd = &cobra.Command{
 	Short: "OpenSearch indices lifecycle management tool",
 	Long:  `osctl is a tool for managing OpenSearch cluster indices lifecycle.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-
 		actionFlag, _ := cmd.Flags().GetString("action")
 		if actionFlag != "" {
 			if err := config.ValidateAction(actionFlag); err != nil {
@@ -44,7 +48,16 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-func Execute() error {
+func Execute(version string) error {
+	appVersion = version
+	if appVersion == "" {
+		appVersion = "dev"
+	}
+	rootCmd.Version = appVersion
+
+	logger := logging.NewLogger()
+	logger.Info(fmt.Sprintf("osctl version=%s", appVersion))
+
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		commandName := cmd.Name()
 		if commandName == "osctl" {
@@ -106,6 +119,8 @@ func executeActionCommand(action string, args []string) error {
 func init() {
 	addFlags(rootCmd)
 	rootCmd.SilenceUsage = true
+	rootCmd.Flags().BoolP("version", "v", false, "Print version information")
+	rootCmd.SetVersionTemplate("{{.Version}}\n")
 	commands := []*cobra.Command{
 		snapshotCmd,
 		snapshotManualCmd,

@@ -42,6 +42,7 @@ RUN chmod +x /app/osctl
 
 ENV PATH="/app:${PATH}"
 
+RUN mkdir -p /etc/bash_completion.d
 RUN /app/osctl completion bash > /etc/bash_completion.d/osctl
 
 RUN echo '[ -f /etc/bash_completion ] && . /etc/bash_completion' >> /etc/bash.bashrc
