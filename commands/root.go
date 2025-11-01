@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"osctl/pkg/config"
 	"osctl/pkg/logging"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -60,6 +61,11 @@ func Execute(version string) error {
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		commandName := cmd.Name()
+		commandPath := cmd.CommandPath()
+		if commandName == "completion" || commandName == "help" ||
+			commandPath == "osctl completion" || strings.HasPrefix(commandPath, "osctl completion") {
+			return nil
+		}
 		if commandName == "osctl" {
 			if action, _ := cmd.Flags().GetString("action"); action != "" {
 				return nil
