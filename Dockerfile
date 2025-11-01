@@ -1,8 +1,10 @@
-FROM golang:1.25-bookworm as builder
+FROM golang:1.25-bookworm AS builder
 
 ARG versionflags
 
 WORKDIR /app
+
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -17,7 +19,7 @@ WORKDIR /app
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
         wget \
@@ -33,8 +35,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         traceroute \
         mtr-tiny \
         && rm -rf /var/lib/apt/lists/*
-
-RUN mkdir -p /app/osctl
 
 COPY --from=builder /app/osctl /app/osctl
 
