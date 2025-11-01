@@ -20,7 +20,7 @@ jobs:
 
     - name: Build
       run: |
-        versionflags="-X 'github.com/flant/osctl/pkg/util.Version=$GITHUB_REF_NAME' -X 'github.com/flant/osctl/pkg/util.Revision=$GITHUB_SHA' -X 'github.com/flant/osctl/pkg/util.Branch=$GITHUB_REF_NAME' -X 'github.com/flant/osctl/pkg/util.BuildUser=$GITHUB_ACTOR' -X 'github.com/flant/osctl/pkg/util.BuildDate=$(date +%Y%m%d%H%M)'"
+        versionflags="-X 'osctl/cmd/main.appVersion=${{ github.ref_name }}'"
         for GOOS in linux; do
           for GOARCH in amd64 arm64; do
             export GOOS GOARCH
