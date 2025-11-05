@@ -80,10 +80,11 @@ func runDereplicator(cmd *cobra.Command, args []string) error {
 	}
 
 	var problemIndices []string
+	var skippedNoSnapshot []string
 	for _, index := range targetIndices {
 		if useSnapshot && !utils.HasValidSnapshot(index, snapshots) {
 			logger.Warn(fmt.Sprintf("No valid snapshot found index=%s", index))
-			problemIndices = append(problemIndices, index)
+			skippedNoSnapshot = append(skippedNoSnapshot, index)
 			continue
 		}
 
@@ -98,6 +99,10 @@ func runDereplicator(cmd *cobra.Command, args []string) error {
 		} else {
 			logger.Info(fmt.Sprintf("Successfully set replicas to 0 index=%s", index))
 		}
+	}
+
+	if len(skippedNoSnapshot) > 0 {
+		logger.Warn(fmt.Sprintf("Skipped (no valid snapshot) %s", strings.Join(skippedNoSnapshot, ", ")))
 	}
 
 	if len(problemIndices) > 0 {
