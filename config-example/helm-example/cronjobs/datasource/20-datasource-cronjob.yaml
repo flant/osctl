@@ -1,0 +1,47 @@
+{{- if and .Values.opendistro.enabled .Values.kibana.enabled .Values.recoverer.enabled .Values.opendistro.s3_backup.enabled }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: datasource
+  labels:
+    job: datasource
+    service: kibana
+spec:
+  schedule: {{ .Values.datasource.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  jobTemplate:
+    metadata:
+      labels:
+        job: datasource
+        service: kibana
+    spec:
+      ttlSecondsAfterFinished: {{ .Values.osctl.ttlSecondsAfterFinished | default 3600 }}
+      template:
+        metadata:
+          labels:
+            job: datasource
+            service: kibana
+        spec:
+{{- include "toleration_common" . | indent 10 }}
+          affinity:
+{{- include "nodeselector_common" . | indent 10 }}
+{{- if .Values.kibana.multidomain.enabled }}
+          serviceAccountName: osctl-restarter-{{ .Release.Namespace }}
+{{- end }}
+          volumes:
+{{- include "osctl_volumes" . | indent 10 }}
+          containers:
+          - name: app
+            image: {{ printf "%s%s:%s" .Values.osctl.image.repo .Values.osctl.image.name .Values.osctl.image.tag }}
+            imagePullPolicy: {{ .Values.imagePullPolicy }}
+            command:
+            - /app/osctl
+            args:
+            - datasource
+            workingDir: /app
+            volumeMounts:
+{{- include "osctl_volume_mounts" . | indent 12 }}
+          restartPolicy: Never
+{{- end }}
