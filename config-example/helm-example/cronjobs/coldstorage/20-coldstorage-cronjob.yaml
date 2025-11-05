@@ -1,0 +1,48 @@
+{{- if hasKey .Values "coldCluster" }}
+{{- if hasKey .Values.coldCluster "enabled" }}
+{{- if and .Values.opendistro.enabled .Values.curator.enabled .Values.coldCluster.enabled }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cold-storage
+  labels:
+    job: cold-storage
+    service: osctl
+spec:
+  schedule: {{ .Values.coldCluster.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  jobTemplate:
+    metadata:
+      labels:
+        job: cold-storage
+        service: osctl
+    spec:
+      ttlSecondsAfterFinished: {{ .Values.osctl.ttlSecondsAfterFinished | default 3600 }}
+      template:
+        metadata:
+          labels:
+            job: cold-storage
+            service: osctl
+        spec:
+{{- include "toleration_common" . | indent 10 }}
+          affinity:
+{{- include "nodeselector_common" . | indent 10 }}
+          volumes:
+{{- include "osctl_volumes" . | indent 10 }}
+          containers:
+          - name: app
+            image: {{ printf "%s%s:%s" .Values.osctl.image.repo .Values.osctl.image.name .Values.osctl.image.tag }}
+            imagePullPolicy: {{ .Values.imagePullPolicy }}
+            command:
+            - /app/osctl
+            args:
+            - coldstorage
+            workingDir: /app
+            volumeMounts:
+{{- include "osctl_volume_mounts" . | indent 12 }}
+          restartPolicy: Never
+{{- end }}
+{{- end }}
+{{- end }}
