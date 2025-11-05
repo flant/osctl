@@ -26,11 +26,11 @@ func init() {
 }
 
 func runRetention(cmd *cobra.Command, args []string) error {
-	cfg := config.GetCommandConfig(cmd)
+	cfg := config.GetConfig()
 
 	threshold := cfg.GetRetentionThreshold()
-	snapRepo := cfg.SnapshotRepo
-	dateFormat := cfg.DateFormat
+	snapRepo := cfg.GetSnapshotRepo()
+	dateFormat := cfg.GetDateFormat()
 	dryRun := cfg.GetDryRun()
 
 	if snapRepo == "" {

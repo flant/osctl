@@ -29,27 +29,24 @@ func init() {
 }
 
 func runIndexPatterns(cmd *cobra.Command, args []string) error {
-	cfg := config.GetCommandConfig(cmd)
+	cfg := config.GetConfig()
 
-	osdURL := cfg.OSDURL
-	dryRun := cfg.GetDryRun()
-
-	if osdURL == "" {
+	if cfg.GetOSDURL() == "" {
 		return fmt.Errorf("osd-url parameter is required")
 	}
+	dryRun := cfg.GetDryRun()
 
 	logger := logging.NewLogger()
 	osClient, err := utils.NewOSClientFromCommandConfig(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}
-	_ = osdURL
 
 	if cfg.GetIndexPatternsKibanaMultitenancy() {
 		if cfg.GetIndexPatternsRecovererEnabled() {
 			return fmt.Errorf("recoverer_enabled must be false in multitenancy mode")
 		}
-		if cfg.KibanaIndexRegex != "" {
+		if cfg.GetKibanaIndexRegex() != "" {
 			logger.Info("kibana_index_regex is ignored in multitenancy mode")
 		}
 		tf, err := config.GetConfig().GetTenantsConfig()
@@ -123,17 +120,17 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	if cfg.KibanaIndexRegex == "" {
+	if cfg.GetKibanaIndexRegex() == "" {
 		return fmt.Errorf("kibana-index-regex must be provided in single-tenant mode")
 	}
-	if p := config.GetConfig().OSCTLTenantsConfig; p != "" {
+	if p := config.GetConfig().GetOSCTLTenantsConfig(); p != "" {
 		if _, err := os.Stat(p); err == nil {
 			logger.Info("kibana-tenants-config is ignored in single-tenant mode")
 		}
 	}
 
-	re := regexp.MustCompile(cfg.KibanaIndexRegex)
-	today := utils.FormatDate(time.Now(), cfg.DateFormat)
+	re := regexp.MustCompile(cfg.GetKibanaIndexRegex())
+	today := utils.FormatDate(time.Now(), cfg.GetDateFormat())
 	idxToday, err := osClient.GetIndicesWithFields(fmt.Sprintf("*-%s*,-.*", today), "index", "i")
 	if err != nil {
 		return err
@@ -191,14 +188,14 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 			var dsId string
 			for _, h := range frDS.Hits.Hits {
 				if src, ok := h.Source["data-source"].(map[string]any); ok {
-					if t, ok := src["title"].(string); ok && t == config.GetConfig().DataSourceName {
+					if t, ok := src["title"].(string); ok && t == config.GetConfig().GetDataSourceName() {
 						dsId = strings.TrimPrefix(h.ID, "data-source:")
 						break
 					}
 				}
 			}
 			if dsId != "" {
-				logger.Info(fmt.Sprintf("Found data-source reference id=%s for title=%s", dsId, config.GetConfig().DataSourceName))
+				logger.Info(fmt.Sprintf("Found data-source reference id=%s for title=%s", dsId, config.GetConfig().GetDataSourceName()))
 				payload := map[string]any{
 					"type": "index-pattern",
 					"index-pattern": map[string]any{

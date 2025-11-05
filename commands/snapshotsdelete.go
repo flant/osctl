@@ -42,7 +42,7 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	allSnapshots, err := client.GetSnapshots(cfg.SnapshotRepo, "*")
+	allSnapshots, err := client.GetSnapshots(cfg.GetSnapshotRepo(), "*")
 	if err != nil {
 		return fmt.Errorf("failed to get all snapshots: %v", err)
 	}
@@ -72,7 +72,7 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 		}
 
 		if indexConfig == nil {
-			if utils.HasDateInName(snapshotName, cfg.DateFormat) {
+			if utils.HasDateInName(snapshotName, cfg.GetDateFormat()) {
 				unknownSnapshots = append(unknownSnapshots, snapshotName)
 			} else {
 				danglingSnapshots = append(danglingSnapshots, snapshot)
@@ -82,7 +82,7 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 			if indexConfig.SnapshotCountS3 > 0 {
 				daysCount = indexConfig.SnapshotCountS3
 			}
-			if utils.IsOlderThanCutoff(snapshotName, utils.FormatDate(time.Now().AddDate(0, 0, -daysCount), cfg.DateFormat), cfg.DateFormat) {
+			if utils.IsOlderThanCutoff(snapshotName, utils.FormatDate(time.Now().AddDate(0, 0, -daysCount), cfg.GetDateFormat()), cfg.GetDateFormat()) {
 				snapshotsToDelete = append(snapshotsToDelete, snapshotName)
 			}
 		}
@@ -90,7 +90,7 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 
 	if unknownConfig.Snapshot && s3Config.UnitCount.Unknown > 0 {
 		for _, snapshotName := range unknownSnapshots {
-			if utils.IsOlderThanCutoff(snapshotName, utils.FormatDate(time.Now().AddDate(0, 0, -s3Config.UnitCount.Unknown), cfg.DateFormat), cfg.DateFormat) {
+			if utils.IsOlderThanCutoff(snapshotName, utils.FormatDate(time.Now().AddDate(0, 0, -s3Config.UnitCount.Unknown), cfg.GetDateFormat()), cfg.GetDateFormat()) {
 				snapshotsToDelete = append(snapshotsToDelete, snapshotName)
 			}
 		}
@@ -135,7 +135,7 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 				logger.Info(fmt.Sprintf("Dangling snapshot (repo=%s) snapshot=%s (snapshot disabled in config)", repo, name))
 				continue
 			}
-			if !utils.HasDateInName(name, cfg.DateFormat) {
+			if !utils.HasDateInName(name, cfg.GetDateFormat()) {
 				logger.Info(fmt.Sprintf("Skip repo snapshot without date repo=%s snapshot=%s", repo, name))
 				continue
 			}
@@ -143,7 +143,7 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 			if ic.SnapshotCountS3 > 0 {
 				daysCount = ic.SnapshotCountS3
 			}
-			if utils.IsOlderThanCutoff(name, utils.FormatDate(time.Now().AddDate(0, 0, -daysCount), cfg.DateFormat), cfg.DateFormat) {
+			if utils.IsOlderThanCutoff(name, utils.FormatDate(time.Now().AddDate(0, 0, -daysCount), cfg.GetDateFormat()), cfg.GetDateFormat()) {
 				repoToSnapshots[repo] = append(repoToSnapshots[repo], name)
 			}
 		}
@@ -152,7 +152,7 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 	if len(snapshotsToDelete) > 0 {
 		logger.Info(fmt.Sprintf("Snapshots to delete %s", strings.Join(snapshotsToDelete, ", ")))
 		logger.Info(fmt.Sprintf("Deleting snapshots count=%d", len(snapshotsToDelete)))
-		if err := utils.DeleteSnapshotsBatch(client, snapshotsToDelete, cfg.SnapshotRepo, cfg.GetDryRun(), logger); err != nil {
+		if err := utils.BatchDeleteSnapshots(client, snapshotsToDelete, cfg.GetSnapshotRepo(), cfg.GetDryRun(), logger); err != nil {
 			logger.Error(fmt.Sprintf("Failed to delete snapshots error=%v", err))
 		}
 	} else {
@@ -165,7 +165,7 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 				continue
 			}
 			logger.Info(fmt.Sprintf("Snapshots to delete (repo=%s) %s", repo, strings.Join(names, ", ")))
-			_ = utils.DeleteSnapshotsBatch(client, names, repo, cfg.GetDryRun(), logger)
+			_ = utils.BatchDeleteSnapshots(client, names, repo, cfg.GetDryRun(), logger)
 		}
 	} else {
 		logger.Info("No snapshots for deletion in custom repos")

@@ -28,7 +28,7 @@ func init() {
 }
 
 func runSharding(cmd *cobra.Command, args []string) error {
-	cfg := config.GetCommandConfig(cmd)
+	cfg := config.GetConfig()
 
 	logger := logging.NewLogger()
 	dryRun := cfg.GetDryRun()
@@ -36,7 +36,7 @@ func runSharding(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}
-	exclude := cfg.ShardingExcludeRegex
+	exclude := cfg.GetShardingExcludeRegex()
 	var excludeRe *regexp.Regexp
 	if exclude != "" {
 		excludeRe, _ = regexp.Compile(exclude)
@@ -45,7 +45,7 @@ func runSharding(cmd *cobra.Command, args []string) error {
 	logger.Info(fmt.Sprintf("Sharding target size: %d GiB", targetGiB))
 	targetBytes := int64(targetGiB) * 1024 * 1024 * 1024
 
-	today := utils.FormatDate(time.Now(), cfg.DateFormat)
+	today := utils.FormatDate(time.Now(), cfg.GetDateFormat())
 	indicesAll, err := client.GetIndicesWithFields("*", "index,pri.store.size")
 	if err != nil {
 		return err
@@ -185,11 +185,11 @@ func runSharding(cmd *cobra.Command, args []string) error {
 			"mapping.total_fields.limit": 2000,
 			"query.default_field":        []string{"message", "text", "log", "original_message"},
 		}
-		if cfg.ShardingRoutingAllocationTemp != "" {
+		if cfg.GetShardingRoutingAllocationTemp() != "" {
 			indexSettings["routing"] = map[string]any{
 				"allocation": map[string]any{
 					"require": map[string]any{
-						"temp": cfg.ShardingRoutingAllocationTemp,
+						"temp": cfg.GetShardingRoutingAllocationTemp(),
 					},
 				},
 			}

@@ -30,18 +30,19 @@ func LoadTenantsConfig(path string) (*TenantsFile, error) {
 }
 
 func (c *Config) GetTenantsConfig() (*TenantsFile, error) {
-	if c.OSCTLTenantsConfig == "" {
+	configPath := c.GetOSCTLTenantsConfig()
+	if configPath == "" {
 		return nil, fmt.Errorf("kibana-tenants-config must be provided in multitenancy mode")
 	}
-	st, err := os.Stat(c.OSCTLTenantsConfig)
+	st, err := os.Stat(configPath)
 	if err != nil || st.IsDir() {
-		return nil, fmt.Errorf("kibana-tenants-config '%s' not found or is a directory", c.OSCTLTenantsConfig)
+		return nil, fmt.Errorf("kibana-tenants-config '%s' not found or is a directory", configPath)
 	}
-	return LoadTenantsConfig(c.OSCTLTenantsConfig)
+	return LoadTenantsConfig(configPath)
 }
 
-func (c *CommandConfig) GetIndexPatternsTenantsConfig() (*TenantsFile, error) {
-	configPath := c.IndexPatternsKibanaTenantsConfig
+func (c *Config) GetIndexPatternsTenantsConfig() (*TenantsFile, error) {
+	configPath := c.GetIndexPatternsKibanaTenantsConfig()
 	if configPath == "" {
 		configPath = "osctltenants.yaml"
 	}

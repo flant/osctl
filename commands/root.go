@@ -34,15 +34,16 @@ var rootCmd = &cobra.Command{
 			return err
 		}
 		cfg := config.GetConfig()
-		if cfg.Action != "" {
-			if err := config.ValidateAction(cfg.Action); err != nil {
+		action := cfg.GetAction()
+		if action != "" {
+			if err := config.ValidateAction(action); err != nil {
 				return err
 			}
 
-			if err := config.LoadConfig(cmd, cfg.Action); err != nil {
+			if err := config.LoadConfig(cmd, action); err != nil {
 				return err
 			}
-			return executeActionCommand(cfg.Action, args)
+			return executeActionCommand(action, args)
 		}
 
 		return cmd.Help()

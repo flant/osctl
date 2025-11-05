@@ -25,12 +25,12 @@ func init() {
 }
 
 func runDereplicator(cmd *cobra.Command, args []string) error {
-	cfg := config.GetCommandConfig(cmd)
+	cfg := config.GetConfig()
 
 	daysCount := cfg.GetDereplicatorDaysCount()
-	dateFormat := cfg.DateFormat
+	dateFormat := cfg.GetDateFormat()
 	useSnapshot := cfg.GetDereplicatorUseSnapshot()
-	snapRepo := cfg.SnapshotRepo
+	snapRepo := cfg.GetSnapshotRepo()
 	dryRun := cfg.GetDryRun()
 
 	if useSnapshot && snapRepo == "" {

@@ -24,7 +24,6 @@ func init() {
 
 func runIndicesDelete(cmd *cobra.Command, args []string) error {
 	cfg := config.GetConfig()
-	cmdCfg := config.GetCommandConfig(cmd)
 	logger := logging.NewLogger()
 
 	indicesConfig, err := cfg.GetOsctlIndices()
@@ -36,7 +35,7 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 
 	logger.Info(fmt.Sprintf("Starting indices deletion indicesCount=%d unknownDays=%d", len(indicesConfig), unknownConfig.DaysCount))
 
-	client, err := utils.NewOSClientFromCommandConfig(cmdCfg)
+	client, err := utils.NewOSClientFromCommandConfig(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}
@@ -59,12 +58,12 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 	for _, idx := range allIndices {
 		indexName := idx.Index
 
-		if strings.HasPrefix(indexName, ".") || (cfg.ExtractedPattern != "" && strings.HasPrefix(indexName, cfg.ExtractedPattern)) {
+		if strings.HasPrefix(indexName, ".") || (cfg.GetExtractedPattern() != "" && strings.HasPrefix(indexName, cfg.GetExtractedPattern())) {
 			continue
 		}
 
 		indexConfig := utils.FindMatchingIndexConfig(indexName, indicesConfig)
-		hasDateInName := utils.HasDateInName(indexName, cfg.DateFormat)
+		hasDateInName := utils.HasDateInName(indexName, cfg.GetDateFormat())
 
 		if indexConfig == nil {
 			if hasDateInName {
@@ -74,7 +73,7 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 			}
 		} else {
 			if hasDateInName {
-				if utils.IsOlderThanCutoff(indexName, utils.FormatDate(time.Now().AddDate(0, 0, -indexConfig.DaysCount), cfg.DateFormat), cfg.DateFormat) {
+				if utils.IsOlderThanCutoff(indexName, utils.FormatDate(time.Now().AddDate(0, 0, -indexConfig.DaysCount), cfg.GetDateFormat()), cfg.GetDateFormat()) {
 					indicesToDelete = append(indicesToDelete, indexName)
 				}
 			} else {
@@ -86,7 +85,7 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 	unknownIndices = utils.FilterUnknownIndices(unknownIndices)
 	if unknownConfig.DaysCount > 0 {
 		for _, indexName := range unknownIndices {
-			if utils.IsOlderThanCutoff(indexName, utils.FormatDate(time.Now().AddDate(0, 0, -unknownConfig.DaysCount), cfg.DateFormat), cfg.DateFormat) {
+			if utils.IsOlderThanCutoff(indexName, utils.FormatDate(time.Now().AddDate(0, 0, -unknownConfig.DaysCount), cfg.GetDateFormat()), cfg.GetDateFormat()) {
 				indicesToDelete = append(indicesToDelete, indexName)
 			}
 		}
@@ -99,7 +98,7 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 	if len(indicesToDelete) > 0 {
 		logger.Info(fmt.Sprintf("Indices to delete %s", strings.Join(indicesToDelete, ", ")))
 		logger.Info(fmt.Sprintf("Deleting indices count=%d", len(indicesToDelete)))
-		err := utils.DeleteIndicesBatch(client, indicesToDelete, cfg.GetDryRun(), logger)
+		err := utils.BatchDeleteIndices(client, indicesToDelete, cfg.GetDryRun(), logger)
 		if err != nil {
 			logger.Error(fmt.Sprintf("Failed to delete indices error=%v", err))
 		}

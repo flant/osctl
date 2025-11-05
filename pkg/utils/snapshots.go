@@ -49,8 +49,8 @@ func CheckAndCleanSnapshot(snapshotName string, indexName string, snapshots []op
 				return true, nil
 			}
 			if snapshot.State == "PARTIAL" || snapshot.State == "FAILED" {
-				logger.Info(fmt.Sprintf("Deleting PARTIAL/FAILED snapshot snapshot=%s state=%s", snapshotName, snapshot.State))
-				err := client.DeleteSnapshotsBatch(snapRepo, []string{snapshotName})
+				logger.Info(fmt.Sprintf("Deleting FAILED snapshot snapshot=%s state=%s", snapshotName, snapshot.State))
+				err := client.DeleteSnapshots(snapRepo, []string{snapshotName})
 				if err != nil {
 					logger.Error(fmt.Sprintf("Failed to delete PARTIAL/FAILED snapshot snapshot=%s error=%v", snapshotName, err))
 					return false, err
@@ -268,7 +268,7 @@ func CreateSnapshotWithRetry(client *opensearch.Client, snapshotName, indexName,
 				return nil
 			case "PARTIAL", "FAILED":
 				logger.Warn(fmt.Sprintf("Snapshot is PARTIAL/FAILED, deleting and retrying snapshot=%s state=%s", snapshotName, snapshot.State))
-				err := client.DeleteSnapshotsBatch(snapRepo, []string{snapshotName})
+				err := client.DeleteSnapshots(snapRepo, []string{snapshotName})
 				if err != nil {
 					logger.Error(fmt.Sprintf("Failed to delete PARTIAL/FAILED snapshot snapshot=%s error=%v", snapshotName, err))
 				}
@@ -324,7 +324,7 @@ func FindMatchingSnapshotConfig(snapshotName string, indicesConfig []config.Inde
 	return nil
 }
 
-func DeleteSnapshotsBatch(client *opensearch.Client, snapshots []string, snapRepo string, dryRun bool, logger *logging.Logger) error {
+func BatchDeleteSnapshots(client *opensearch.Client, snapshots []string, snapRepo string, dryRun bool, logger *logging.Logger) error {
 	const batchSize = 10
 
 	if dryRun {
@@ -341,7 +341,7 @@ func DeleteSnapshotsBatch(client *opensearch.Client, snapshots []string, snapRep
 		batch := snapshots[i:end]
 		logger.Info(fmt.Sprintf("Deleting snapshots batch batch=%d snapshots=%v", i/batchSize+1, batch))
 
-		err := client.DeleteSnapshotsBatch(snapRepo, batch)
+		err := client.DeleteSnapshots(snapRepo, batch)
 		if err != nil {
 			logger.Error(fmt.Sprintf("Failed to delete snapshots batch snapshots=%v error=%v", batch, err))
 			continue

@@ -77,7 +77,7 @@ func MatchesSnapshot(snapshotName string, indexConfig config.IndexConfig) bool {
 	return MatchesIndex(indexName, indexConfig)
 }
 
-func DeleteIndicesBatch(client *opensearch.Client, indices []string, dryRun bool, logger *logging.Logger) error {
+func BatchDeleteIndices(client *opensearch.Client, indices []string, dryRun bool, logger *logging.Logger) error {
 	const batchSize = 10
 
 	if dryRun {
@@ -94,7 +94,7 @@ func DeleteIndicesBatch(client *opensearch.Client, indices []string, dryRun bool
 		batch := indices[i:end]
 		logger.Info(fmt.Sprintf("Deleting indices batch batch=%d indices=%v", i/batchSize+1, batch))
 
-		err := client.DeleteIndicesBatch(batch)
+		err := client.DeleteIndices(batch)
 		if err != nil {
 			logger.Error(fmt.Sprintf("Failed to delete indices batch indices=%v error=%v", batch, err))
 			continue

@@ -28,9 +28,9 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 	cfg := config.GetConfig()
 	logger := logging.NewLogger()
 
-	kind := cfg.SnapshotManualKind
-	value := cfg.SnapshotManualValue
-	name := cfg.SnapshotManualName
+	kind := cfg.GetSnapshotManualKind()
+	value := cfg.GetSnapshotManualValue()
+	name := cfg.GetSnapshotManualName()
 	system := cfg.GetSnapshotManualSystem()
 
 	if value == "" {
@@ -49,12 +49,12 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 	}
 
 	var madisonClient *alerts.Client
-	if cfg.MadisonKey != "" && cfg.OSDURL != "" && cfg.MadisonURL != "" {
-		madisonClient = alerts.NewMadisonClient(cfg.MadisonKey, cfg.OSDURL, cfg.MadisonURL)
+	if cfg.GetMadisonKey() != "" && cfg.GetOSDURL() != "" && cfg.GetMadisonURL() != "" {
+		madisonClient = alerts.NewMadisonClient(cfg.GetMadisonKey(), cfg.GetOSDURL(), cfg.GetMadisonURL())
 	}
 
-	yesterday := utils.FormatDate(time.Now().AddDate(0, 0, -1), cfg.DateFormat)
-	today := utils.FormatDate(time.Now(), cfg.DateFormat)
+	yesterday := utils.FormatDate(time.Now().AddDate(0, 0, -1), cfg.GetDateFormat())
+	today := utils.FormatDate(time.Now(), cfg.GetDateFormat())
 
 	var allIndices []opensearch.IndexInfo
 
@@ -96,9 +96,9 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 
 	snapshotName := utils.BuildSnapshotName(kind, name, value, today)
 
-	repoToUse := cfg.SnapshotRepo
-	if cfg.SnapshotManualRepo != "" {
-		repoToUse = cfg.SnapshotManualRepo
+	repoToUse := cfg.GetSnapshotRepo()
+	if cfg.GetSnapshotManualRepo() != "" {
+		repoToUse = cfg.GetSnapshotManualRepo()
 	}
 
 	if cfg.GetDryRun() {

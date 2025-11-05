@@ -34,7 +34,7 @@ git checkout -b flant/TASKID-your-feature-name
    - При необходимости добавьте валидацию
 
 4. **Использование флага** в команде:
-   - Получайте значение через `config.GetCommandConfig(cmd)` или `config.GetConfig()`
+   - Получайте значение через `config.GetConfig()`
    - Используйте соответствующие методы get* если они доступны
 
 #### 2.2. Описание логики в ARCHITECTURE.md

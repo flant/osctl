@@ -24,13 +24,13 @@ func init() {
 }
 
 func runDanglingChecker(cmd *cobra.Command, args []string) error {
-	cfg := config.GetCommandConfig(cmd)
+	cfg := config.GetConfig()
 	dryRun := cfg.GetDryRun()
 
-	madisonKey := cfg.MadisonKey
-	osdURL := cfg.OSDURL
+	madisonKey := cfg.GetMadisonKey()
+	osdURL := cfg.GetOSDURL()
 
-	if madisonKey == "" || osdURL == "" || cfg.MadisonURL == "" {
+	if madisonKey == "" || osdURL == "" || cfg.GetMadisonURL() == "" {
 		return fmt.Errorf("madison-key, osd-url and madison-url parameters are required")
 	}
 
@@ -59,7 +59,7 @@ func runDanglingChecker(cmd *cobra.Command, args []string) error {
 	if dryRun {
 		logger.Info(fmt.Sprintf("DRY RUN: Would send Madison alert for dangling indices count=%d", len(danglingIndices)))
 	} else {
-		madisonClient := alerts.NewMadisonClient(madisonKey, osdURL, cfg.MadisonURL)
+		madisonClient := alerts.NewMadisonClient(madisonKey, osdURL, cfg.GetMadisonURL())
 		response, err := madisonClient.SendMadisonDanglingIndicesAlert(indexNames)
 		if err != nil {
 			return fmt.Errorf("failed to send Madison alert: %v", err)

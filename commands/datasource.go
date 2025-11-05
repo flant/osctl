@@ -34,14 +34,14 @@ func init() {
 }
 
 func runDataSource(cmd *cobra.Command, args []string) error {
-	cfg := config.GetCommandConfig(cmd)
+	cfg := config.GetConfig()
 
-	dataSourceName := cfg.DataSourceName
-	osdURL := cfg.OSDURL
+	dataSourceName := cfg.GetDataSourceName()
+	osdURL := cfg.GetOSDURL()
 
 	osdURL = utils.NormalizeURL(osdURL)
 
-	if dataSourceName == "" || cfg.OpenSearchURL == "" || osdURL == "" {
+	if dataSourceName == "" || cfg.GetOpenSearchURL() == "" || osdURL == "" {
 		return fmt.Errorf("dataSourceName, os-url and osd-url parameters are required")
 	}
 
@@ -51,8 +51,8 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}
-	user := cfg.KibanaUser
-	pass := cfg.KibanaPass
+	user := cfg.GetKibanaUser()
+	pass := cfg.GetKibanaPass()
 	kb := kibana.NewClient(osdURL, user, pass, cfg.GetTimeout())
 
 	tenants := []string{"global"}
@@ -80,7 +80,7 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 			if dryRun {
 				logger.Info(fmt.Sprintf("DRY RUN: Would create data source '%s' in tenant %s", dataSourceName, tenantNameForLog))
 			} else {
-				if err := kb.CreateDataSource(tenant, dataSourceName, cfg.OpenSearchURL, user, pass); err != nil {
+				if err := kb.CreateDataSource(tenant, dataSourceName, cfg.GetOpenSearchURL(), user, pass); err != nil {
 					return err
 				}
 				logger.Info(fmt.Sprintf("Created data source '%s' in tenant %s", dataSourceName, tenantNameForLog))
@@ -91,7 +91,7 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 	}
 
 	if cfg.GetDataSourceKibanaMultidomainEnabled() {
-		remote := cfg.DataSourceRemoteCRT
+		remote := cfg.GetDataSourceRemoteCRT()
 		parts := strings.Split(remote, "|")
 		var concatenated string
 		for _, p := range parts {
@@ -103,7 +103,7 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 				concatenated += string(b)
 			}
 		}
-		ns := cfg.KubeNamespace
+		ns := cfg.GetKubeNamespace()
 
 		rc, err := rest.InClusterConfig()
 		if err != nil {

@@ -25,13 +25,13 @@ func init() {
 
 func runSnapshotsChecker(cmd *cobra.Command, args []string) error {
 	cfg := config.GetConfig()
-	cmdCfg := config.GetCommandConfig(cmd)
+	cmdCfg := cfg
 	logger := logging.NewLogger()
 	dryRun := cmdCfg.GetDryRun()
 
 	logger.Info("Starting snapshot checking")
 
-	client, err := utils.NewOSClientFromCommandConfig(cmdCfg)
+	client, err := utils.NewOSClientFromCommandConfig(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}
@@ -43,7 +43,7 @@ func runSnapshotsChecker(cmd *cobra.Command, args []string) error {
 
 	unknownConfig := cfg.GetOsctlIndicesUnknownConfig()
 
-	dayBeforeYesterday := utils.GetDayBeforeYesterdayFormatted(cfg.DateFormat)
+	dayBeforeYesterday := utils.GetDayBeforeYesterdayFormatted(cfg.GetDateFormat())
 
 	logger.Info(fmt.Sprintf("Getting indices for date date=%s", dayBeforeYesterday))
 	allIndices, err := client.GetIndicesWithFields("*"+dayBeforeYesterday+"*", "index")
@@ -82,7 +82,7 @@ func runSnapshotsChecker(cmd *cobra.Command, args []string) error {
 	}
 
 	logger.Info("Getting all snapshots from repository")
-	allSnapshots, err := client.GetSnapshots(cfg.SnapshotRepo, "*")
+	allSnapshots, err := client.GetSnapshots(cfg.GetSnapshotRepo(), "*")
 	if err != nil {
 		return fmt.Errorf("failed to get snapshots: %v", err)
 	}
@@ -127,7 +127,7 @@ func runSnapshotsChecker(cmd *cobra.Command, args []string) error {
 
 func sendMissingSnapshotsAlert(cfg *config.Config, missingSnapshots []string) error {
 	logger := logging.NewLogger()
-	madisonClient := alerts.NewMadisonClient(cfg.MadisonKey, cfg.OSDURL, cfg.MadisonURL)
+	madisonClient := alerts.NewMadisonClient(cfg.GetMadisonKey(), cfg.GetOSDURL(), cfg.GetMadisonURL())
 	response, err := madisonClient.SendMadisonSnapshotMissingAlert(missingSnapshots)
 	if err != nil {
 		return err

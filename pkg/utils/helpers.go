@@ -8,11 +8,11 @@ import (
 )
 
 func NewOSClientFromCommandConfig(cfg *config.CommandConfig) (*opensearch.Client, error) {
-	return opensearch.NewClient(cfg.OpenSearchURL, cfg.CertFile, cfg.KeyFile, cfg.CAFile, cfg.GetTimeout(), cfg.GetRetryAttempts())
+	return opensearch.NewClient(cfg.GetOpenSearchURL(), cfg.GetCertFile(), cfg.GetKeyFile(), cfg.GetCAFile(), cfg.GetTimeout(), cfg.GetRetryAttempts())
 }
 
 func NewOSClientFromCommandConfigWithError(cfg *config.CommandConfig, url string) (*opensearch.Client, error) {
-	client, err := opensearch.NewClient(url, cfg.CertFile, cfg.KeyFile, cfg.CAFile, cfg.GetTimeout(), cfg.GetRetryAttempts())
+	client, err := opensearch.NewClient(url, cfg.GetCertFile(), cfg.GetKeyFile(), cfg.GetCAFile(), cfg.GetTimeout(), cfg.GetRetryAttempts())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}
@@ -20,7 +20,7 @@ func NewOSClientFromCommandConfigWithError(cfg *config.CommandConfig, url string
 }
 
 func NewOSClientFromConfig(cfg *config.Config) (*opensearch.Client, error) {
-	client, err := opensearch.NewClient(cfg.OpenSearchURL, cfg.CertFile, cfg.KeyFile, cfg.CAFile, cfg.GetTimeout(), cfg.GetRetryAttempts())
+	client, err := opensearch.NewClient(cfg.GetOpenSearchURL(), cfg.GetCertFile(), cfg.GetKeyFile(), cfg.GetCAFile(), cfg.GetTimeout(), cfg.GetRetryAttempts())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}

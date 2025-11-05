@@ -25,8 +25,8 @@ func init() {
 
 func runSnapshot(cmd *cobra.Command, args []string) error {
 	cfg := config.GetConfig()
-	cmdCfg := config.GetCommandConfig(cmd)
 	logger := logging.NewLogger()
+	defaultRepo := cfg.GetSnapshotRepo()
 
 	indicesConfig, err := cfg.GetOsctlIndices()
 	if err != nil {
@@ -37,18 +37,18 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 
 	logger.Info(fmt.Sprintf("Starting snapshot creation indicesCount=%d unknownSnapshot=%t", len(indicesConfig), unknownConfig.Snapshot))
 
-	client, err := utils.NewOSClientFromCommandConfig(cmdCfg)
+	client, err := utils.NewOSClientFromCommandConfig(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}
 
 	var madisonClient *alerts.Client
-	if cfg.MadisonKey != "" && cfg.OSDURL != "" && cfg.MadisonURL != "" {
-		madisonClient = alerts.NewMadisonClient(cfg.MadisonKey, cfg.OSDURL, cfg.MadisonURL)
+	if cfg.GetMadisonKey() != "" && cfg.GetOSDURL() != "" && cfg.GetMadisonURL() != "" {
+		madisonClient = alerts.NewMadisonClient(cfg.GetMadisonKey(), cfg.GetOSDURL(), cfg.GetMadisonURL())
 	}
 
-	yesterday := utils.FormatDate(time.Now().AddDate(0, 0, -1), cfg.DateFormat)
-	today := utils.FormatDate(time.Now(), cfg.DateFormat)
+	yesterday := utils.FormatDate(time.Now().AddDate(0, 0, -1), cfg.GetDateFormat())
+	today := utils.FormatDate(time.Now(), cfg.GetDateFormat())
 
 	var indicesToSnapshot []string
 	repoGroups := map[string]utils.SnapshotGroup{}
@@ -135,7 +135,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 	}
 
 	if cfg.GetDryRun() {
-		existingMain, err := client.GetSnapshots(cfg.SnapshotRepo, "*"+today+"*")
+		existingMain, err := client.GetSnapshots(defaultRepo, "*"+today+"*")
 		if err != nil {
 			existingMain = nil
 		}
@@ -146,7 +146,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 				continue
 			}
 			if state, ok := utils.GetSnapshotStateByName(g.SnapshotName, existingMain); ok && state == "IN_PROGRESS" {
-				inProgressMain = append(inProgressMain, fmt.Sprintf("repo=%s snapshot=%s", cfg.SnapshotRepo, g.SnapshotName))
+				inProgressMain = append(inProgressMain, fmt.Sprintf("repo=%s snapshot=%s", defaultRepo, g.SnapshotName))
 				continue
 			}
 			filteredMain = append(filteredMain, g)
@@ -192,7 +192,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 		}
 
 		for i, group := range filteredMain {
-			fmt.Printf("\nSnapshot %d (repo %s): %s\n", i+1, cfg.SnapshotRepo, group.SnapshotName)
+			fmt.Printf("\nSnapshot %d (repo %s): %s\n", i+1, defaultRepo, group.SnapshotName)
 			fmt.Printf("Pattern: %s (%s)\n", group.Pattern, group.Kind)
 			fmt.Printf("Indices (%d):\n", len(group.Indices))
 			for _, index := range group.Indices {
@@ -224,7 +224,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 	}
 
 	if !cfg.GetDryRun() {
-		allSnapshots, err := utils.GetSnapshotsIgnore404(client, cfg.SnapshotRepo, "*"+today+"*")
+		allSnapshots, err := utils.GetSnapshotsIgnore404(client, defaultRepo, "*"+today+"*")
 		if err != nil {
 			return fmt.Errorf("failed to get snapshots: %v", err)
 		}
@@ -236,18 +236,18 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 		}
 
 		for _, group := range snapshotGroups {
-			if state, ok, err := utils.CheckSnapshotStateInRepo(client, cfg.SnapshotRepo, group.SnapshotName); err == nil && ok {
+			if state, ok, err := utils.CheckSnapshotStateInRepo(client, defaultRepo, group.SnapshotName); err == nil && ok {
 				if state == "SUCCESS" {
 					logger.Info(fmt.Sprintf("Valid snapshot already exists snapshot=%s", group.SnapshotName))
 					continue
 				}
 				if state == "IN_PROGRESS" {
-					logger.Info(fmt.Sprintf("Snapshot is currently IN_PROGRESS snapshot=%s repo=%s", group.SnapshotName, cfg.SnapshotRepo))
+					logger.Info(fmt.Sprintf("Snapshot is currently IN_PROGRESS snapshot=%s repo=%s", group.SnapshotName, defaultRepo))
 					continue
 				}
 			}
 
-			exists, err := utils.CheckAndCleanSnapshot(group.SnapshotName, strings.Join(group.Indices, ","), allSnapshots, client, cfg.SnapshotRepo, logger)
+			exists, err := utils.CheckAndCleanSnapshot(group.SnapshotName, strings.Join(group.Indices, ","), allSnapshots, client, defaultRepo, logger)
 			if err != nil {
 				logger.Error(fmt.Sprintf("Failed to check/clean snapshot snapshot=%s error=%v", group.SnapshotName, err))
 				continue
@@ -261,7 +261,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 			indicesStr := strings.Join(group.Indices, ",")
 			logger.Info(fmt.Sprintf("Creating snapshot %s", group.SnapshotName))
 			logger.Info(fmt.Sprintf("Snapshot indices %s", indicesStr))
-			err = utils.CreateSnapshotWithRetry(client, group.SnapshotName, indicesStr, cfg.SnapshotRepo, madisonClient, logger)
+			err = utils.CreateSnapshotWithRetry(client, group.SnapshotName, indicesStr, defaultRepo, madisonClient, logger)
 			if err != nil {
 				logger.Error(fmt.Sprintf("Failed to create snapshot after retries snapshot=%s error=%v", group.SnapshotName, err))
 				continue

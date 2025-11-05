@@ -27,9 +27,15 @@ osctl/
 │   │   ├── osctlindicesconfig.go # Конфигурация индексов
 │   │   └── tenantsconfig.go     # Конфигурация тенантов
 │   ├── opensearch/              # OpenSearch API клиент
-│   │   └── client.go
+│   │   ├── client.go            # Транспорт и базовые HTTP-хелперы
+│   │   ├── common.go            # Общие структуры (allocation, aliases, nodes)
+│   │   ├── indices.go           # Операции с индексами и настройками
+│   │   ├── snapshots.go         # Работа со снапшотами
+│   │   ├── templates.go         # Работа с index templates
+│   │   └── tasks.go             # Работа с _tasks API
 │   ├── kibana/                  # Kibana API клиент
-│   │   └── client.go
+│   │   ├── client.go            # HTTP-клиент
+│   │   └── service.go           # Высокоуровневые операции (saved objects, data-source)
 │   ├── alerts/                  # Madison алерты
 │   │   └── to_madison.go
 │   ├── logging/                 # Логирование

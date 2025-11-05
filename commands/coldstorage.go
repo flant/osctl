@@ -24,11 +24,11 @@ func init() {
 }
 
 func runColdStorage(cmd *cobra.Command, args []string) error {
-	cfg := config.GetCommandConfig(cmd)
+	cfg := config.GetConfig()
 
 	hotCount := cfg.GetHotCount()
-	coldAttribute := cfg.ColdAttribute
-	dateFormat := cfg.DateFormat
+	coldAttribute := cfg.GetColdAttribute()
+	dateFormat := cfg.GetDateFormat()
 	dryRun := cfg.GetDryRun()
 
 	logger := logging.NewLogger()

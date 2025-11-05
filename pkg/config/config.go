@@ -2,9 +2,7 @@ package config
 
 import (
 	"fmt"
-	"net/url"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -63,6 +61,8 @@ type Config struct {
 	IndexPatternsKibanaTenantsConfig   string
 	IndexPatternsRecovererEnabled      string
 }
+
+type CommandConfig = Config
 
 var (
 	configInstance *Config
@@ -186,10 +186,6 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		}
 	}
 
-	if commandName == "sharding" {
-		NewValidator("sharding_target_size_gib", configInstance.ShardingTargetSizeGiB).IntStringBetween(1, 50)
-	}
-
 	return nil
 }
 
@@ -270,126 +266,6 @@ func ValidateAction(action string) error {
 	return fmt.Errorf("invalid action '%s'. Available actions: %s", action, strings.Join(availableActions, ", "))
 }
 
-type ValidationError struct {
-	Field   string
-	Message string
-}
-
-type Validator struct {
-	field string
-	value interface{}
-}
-
-func (e ValidationError) Error() string {
-	return fmt.Sprintf("validation error in field '%s': %s", e.Field, e.Message)
-}
-
-func NewValidator(field string, value interface{}) *Validator {
-	return &Validator{field: field, value: value}
-}
-
-func (v *Validator) Required() *Validator {
-	if v.value == nil || v.value == "" {
-		panic(ValidationError{Field: v.field, Message: "is required"})
-	}
-	return v
-}
-
-func (v *Validator) URL() *Validator {
-	if str, ok := v.value.(string); ok && str != "" {
-		if _, err := url.Parse(str); err != nil {
-			panic(ValidationError{Field: v.field, Message: "must be a valid URL"})
-		}
-	}
-	return v
-}
-
-func (v *Validator) OneOf(options ...string) *Validator {
-	if str, ok := v.value.(string); ok && str != "" {
-		for _, option := range options {
-			if str == option {
-				return v
-			}
-		}
-		panic(ValidationError{Field: v.field, Message: fmt.Sprintf("must be one of: %s", strings.Join(options, ", "))})
-	}
-	return v
-}
-
-func (v *Validator) Min(min int) *Validator {
-	if num, ok := v.value.(int); ok {
-		if num < min {
-			panic(ValidationError{Field: v.field, Message: fmt.Sprintf("must be at least %d", min)})
-		}
-	}
-	return v
-}
-
-func (v *Validator) Max(max int) *Validator {
-	if num, ok := v.value.(int); ok {
-		if num > max {
-			panic(ValidationError{Field: v.field, Message: fmt.Sprintf("must be at most %d", max)})
-		}
-	}
-	return v
-}
-
-func (v *Validator) IntStringBetween(min, max int) *Validator {
-	if str, ok := v.value.(string); ok && str != "" {
-		n, err := strconv.Atoi(str)
-		if err != nil {
-			panic(ValidationError{Field: v.field, Message: "must be an integer"})
-		}
-		if n < min || n > max {
-			panic(ValidationError{Field: v.field, Message: fmt.Sprintf("must be between %d and %d", min, max)})
-		}
-	}
-	return v
-}
-
-func (v *Validator) DateFormat() *Validator {
-	if str, ok := v.value.(string); ok && str != "" {
-		validFormats := []string{
-			"%Y.%m.%d", "%d-%m-%Y", "%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y",
-			"%Y.%m.%d.%H", "%Y-%m-%d %H:%M:%S", "%Y%m%d",
-		}
-		for _, format := range validFormats {
-			if str == format {
-				return v
-			}
-		}
-		panic(ValidationError{Field: v.field, Message: fmt.Sprintf("must be a valid date format, supported: %s", strings.Join(validFormats, ", "))})
-	}
-	return v
-}
-
-func (v *Validator) FileExists() *Validator {
-	if str, ok := v.value.(string); ok && str != "" {
-		if _, err := os.Stat(str); os.IsNotExist(err) {
-			panic(ValidationError{Field: v.field, Message: "file does not exist"})
-		}
-	}
-	return v
-}
-
-func (v *Validator) FileExistsOptional() *Validator {
-	if str, ok := v.value.(string); ok && str != "" {
-		if _, err := os.Stat(str); os.IsNotExist(err) {
-			panic(ValidationError{Field: v.field, Message: "file does not exist"})
-		}
-	}
-	return v
-}
-
-func (v *Validator) Regex(pattern string) *Validator {
-	if str, ok := v.value.(string); ok && str != "" {
-		if matched, _ := regexp.MatchString(pattern, str); !matched {
-			panic(ValidationError{Field: v.field, Message: fmt.Sprintf("must match pattern: %s", pattern)})
-		}
-	}
-	return v
-}
-
 func GetConfig() *Config {
 	if configInstance == nil {
 		panic("Config has not been initialized. Call LoadConfig first.")
@@ -407,250 +283,248 @@ func getValue(cmd *cobra.Command, flagName, envVar, configValue string) string {
 	return configValue
 }
 
+func parseDurationWithDefault(value, key string) time.Duration {
+	if value != "" {
+		if duration, err := time.ParseDuration(value); err == nil {
+			return duration
+		}
+	}
+	if d := viper.GetDuration(key); d != 0 {
+		return d
+	}
+	if raw := viper.GetString(key); raw != "" {
+		if duration, err := time.ParseDuration(raw); err == nil {
+			return duration
+		}
+	}
+	return 0
+}
+
+func parseIntWithDefault(value, key string) int {
+	if value != "" {
+		if parsed, err := strconv.Atoi(value); err == nil {
+			return parsed
+		}
+	}
+	return viper.GetInt(key)
+}
+
+func parseFloatWithDefault(value, key string) float64 {
+	if value != "" {
+		if parsed, err := strconv.ParseFloat(value, 64); err == nil {
+			return parsed
+		}
+	}
+	return viper.GetFloat64(key)
+}
+
+func parseBoolWithDefault(value, key string) bool {
+	if value != "" {
+		if parsed, err := strconv.ParseBool(value); err == nil {
+			return parsed
+		}
+	}
+	if raw := strings.TrimSpace(viper.GetString(key)); raw != "" {
+		if parsed, err := strconv.ParseBool(raw); err == nil {
+			return parsed
+		}
+	}
+	return viper.GetBool(key)
+}
+
+func clampInt(value, min, max int) int {
+	if value < min {
+		return min
+	}
+	if value > max {
+		return max
+	}
+	return value
+}
+
 func (c *Config) GetTimeout() time.Duration {
-	if c.Timeout == "" {
-		return 30 * time.Second
-	}
-	if duration, err := time.ParseDuration(c.Timeout); err == nil {
-		return duration
-	}
-	return 30 * time.Second
+	return parseDurationWithDefault(c.Timeout, "timeout")
 }
 
 func (c *Config) GetRetryAttempts() int {
-	if c.RetryAttempts == "" {
-		return 3
-	}
-	if value, err := strconv.Atoi(c.RetryAttempts); err == nil {
-		return value
-	}
-	return 3
+	return parseIntWithDefault(c.RetryAttempts, "retry_attempts")
 }
 
 func (c *Config) GetRetentionThreshold() float64 {
-	if c.RetentionThreshold == "" {
-		return 75.0
-	}
-	if value, err := strconv.ParseFloat(c.RetentionThreshold, 64); err == nil {
-		return value
-	}
-	return 75.0
+	return parseFloatWithDefault(c.RetentionThreshold, "retention_threshold")
 }
 
 func (c *Config) GetDereplicatorDaysCount() int {
-	if c.DereplicatorDaysCount == "" {
-		return 2
-	}
-	if value, err := strconv.Atoi(c.DereplicatorDaysCount); err == nil {
-		return value
-	}
-	return 2
+	return parseIntWithDefault(c.DereplicatorDaysCount, "dereplicator_days_count")
 }
 
 func (c *Config) GetDereplicatorUseSnapshot() bool {
-	if c.DereplicatorUseSnapshot == "" {
-		return false
-	}
-	if value, err := strconv.ParseBool(c.DereplicatorUseSnapshot); err == nil {
-		return value
-	}
-	return false
+	return parseBoolWithDefault(c.DereplicatorUseSnapshot, "dereplicator_use_snapshot")
 }
 
 func (c *Config) GetHotCount() int {
-	if c.HotCount == "" {
-		return 1
-	}
-	if value, err := strconv.Atoi(c.HotCount); err == nil {
-		return value
-	}
-	return 1
+	return parseIntWithDefault(c.HotCount, "hot_count")
 }
 
 func (c *Config) GetExtractedDays() int {
-	if c.ExtractedDays == "" {
-		return 7
-	}
-	if value, err := strconv.Atoi(c.ExtractedDays); err == nil {
-		return value
-	}
-	return 7
+	return parseIntWithDefault(c.ExtractedDays, "extracted_days")
 }
 
 func (c *Config) GetDryRun() bool {
-	if c.DryRun == "" {
-		return false
-	}
-	if value, err := strconv.ParseBool(c.DryRun); err == nil {
-		return value
-	}
-	return false
+	return parseBoolWithDefault(c.DryRun, "dry_run")
 }
 
-func (c *CommandConfig) GetTimeout() time.Duration {
-	if c.Timeout == "" {
-		return 30 * time.Second
-	}
-	if duration, err := time.ParseDuration(c.Timeout); err == nil {
-		return duration
-	}
-	return 30 * time.Second
+func (c *Config) GetDataSourceKibanaMultitenancy() bool {
+	return parseBoolWithDefault(c.DataSourceKibanaMultitenancy, "datasource_kibana_multitenancy")
 }
 
-func (c *CommandConfig) GetRetryAttempts() int {
-	if c.RetryAttempts == "" {
-		return 3
-	}
-	if value, err := strconv.Atoi(c.RetryAttempts); err == nil {
-		return value
-	}
-	return 3
+func (c *Config) GetDataSourceKibanaMultidomainEnabled() bool {
+	return parseBoolWithDefault(c.DataSourceKibanaMultidomainEnabled, "datasource_kibana_multidomain_enabled")
 }
 
-func (c *CommandConfig) GetRetentionThreshold() float64 {
-	if c.RetentionThreshold == "" {
-		return 75.0
-	}
-	if value, err := strconv.ParseFloat(c.RetentionThreshold, 64); err == nil {
-		return value
-	}
-	return 75.0
+func (c *Config) GetIndexPatternsKibanaMultitenancy() bool {
+	return parseBoolWithDefault(c.IndexPatternsKibanaMultitenancy, "indexpatterns_kibana_multitenancy")
 }
 
-func (c *CommandConfig) GetDereplicatorDaysCount() int {
-	if c.DereplicatorDaysCount == "" {
-		return 2
-	}
-	if value, err := strconv.Atoi(c.DereplicatorDaysCount); err == nil {
-		return value
-	}
-	return 2
+func (c *Config) GetIndexPatternsRecovererEnabled() bool {
+	return parseBoolWithDefault(c.IndexPatternsRecovererEnabled, "indexpatterns_recoverer_enabled")
 }
 
-func (c *CommandConfig) GetDereplicatorUseSnapshot() bool {
-	if c.DereplicatorUseSnapshot == "" {
-		return false
+func (c *Config) GetShardingTargetSizeGiB() int {
+	value := parseIntWithDefault(c.ShardingTargetSizeGiB, "sharding_target_size_gib")
+	if value < 1 || value > 50 {
+		fmt.Fprintf(os.Stderr, "invalid sharding_target_size_gib=%d; expected value between 1 and 50\n", value)
+		os.Exit(1)
 	}
-	if value, err := strconv.ParseBool(c.DereplicatorUseSnapshot); err == nil {
-		return value
-	}
-	return false
-}
-
-func (c *CommandConfig) GetHotCount() int {
-	if c.HotCount == "" {
-		return 1
-	}
-	if value, err := strconv.Atoi(c.HotCount); err == nil {
-		return value
-	}
-	return 1
-}
-
-func (c *CommandConfig) GetExtractedDays() int {
-	if c.ExtractedDays == "" {
-		return 7
-	}
-	if value, err := strconv.Atoi(c.ExtractedDays); err == nil {
-		return value
-	}
-	return 7
-}
-
-func (c *CommandConfig) GetDryRun() bool {
-	if c.DryRun == "" {
-		return false
-	}
-	if value, err := strconv.ParseBool(c.DryRun); err == nil {
-		return value
-	}
-	return false
-}
-
-func (c *CommandConfig) GetDataSourceKibanaMultitenancy() bool {
-	if c.DataSourceKibanaMultitenancy == "" {
-		return false
-	}
-	if value, err := strconv.ParseBool(c.DataSourceKibanaMultitenancy); err == nil {
-		return value
-	}
-	return false
-}
-
-func (c *CommandConfig) GetDataSourceKibanaMultidomainEnabled() bool {
-	if c.DataSourceKibanaMultidomainEnabled == "" {
-		return false
-	}
-	if value, err := strconv.ParseBool(c.DataSourceKibanaMultidomainEnabled); err == nil {
-		return value
-	}
-	return false
-}
-
-func (c *CommandConfig) GetIndexPatternsKibanaMultitenancy() bool {
-	if c.IndexPatternsKibanaMultitenancy == "" {
-		return false
-	}
-	if value, err := strconv.ParseBool(c.IndexPatternsKibanaMultitenancy); err == nil {
-		return value
-	}
-	return false
-}
-
-func (c *CommandConfig) GetIndexPatternsRecovererEnabled() bool {
-	if c.IndexPatternsRecovererEnabled == "" {
-		return false
-	}
-	if value, err := strconv.ParseBool(c.IndexPatternsRecovererEnabled); err == nil {
-		return value
-	}
-	return false
+	return value
 }
 
 func (c *Config) GetSnapshotManualSystem() bool {
-	if c.SnapshotManualSystem == "" {
-		return false
-	}
-	if value, err := strconv.ParseBool(c.SnapshotManualSystem); err == nil {
-		return value
-	}
-	return false
+	return parseBoolWithDefault(c.SnapshotManualSystem, "snapshot_manual_system")
 }
 
 func (c *Config) GetKibanaMultidomainEnabled() bool {
-	if c.KibanaMultidomainEnabled == "" {
-		return false
-	}
-	if value, err := strconv.ParseBool(c.KibanaMultidomainEnabled); err == nil {
-		return value
-	}
-	return false
+	return parseBoolWithDefault(c.KibanaMultidomainEnabled, "kibana_multidomain_enabled")
 }
 
-func (c *CommandConfig) GetShardingTargetSizeGiB() int {
-	if c.ShardingTargetSizeGiB == "" {
-		return 25
-	}
-	if n, err := strconv.Atoi(c.ShardingTargetSizeGiB); err == nil {
-		if n > 50 {
-			return 50
-		}
-		if n < 1 {
-			return 1
-		}
-		return n
-	}
-	return 25
+func (c *Config) GetAction() string {
+	return c.Action
 }
 
-func (c *CommandConfig) GetKibanaMultidomainEnabled() bool {
-	if c.KibanaMultidomainEnabled == "" {
-		return false
-	}
-	if value, err := strconv.ParseBool(c.KibanaMultidomainEnabled); err == nil {
-		return value
-	}
-	return false
+func (c *Config) GetOpenSearchURL() string {
+	return c.OpenSearchURL
+}
+
+func (c *Config) GetOpenSearchRecovererURL() string {
+	return c.OpenSearchRecovererURL
+}
+
+func (c *Config) GetCertFile() string {
+	return c.CertFile
+}
+
+func (c *Config) GetKeyFile() string {
+	return c.KeyFile
+}
+
+func (c *Config) GetCAFile() string {
+	return c.CAFile
+}
+
+func (c *Config) GetDateFormat() string {
+	return c.DateFormat
+}
+
+func (c *Config) GetRecovererDateFormat() string {
+	return c.RecovererDateFormat
+}
+
+func (c *Config) GetMadisonURL() string {
+	return c.MadisonURL
+}
+
+func (c *Config) GetOSDURL() string {
+	return c.OSDURL
+}
+
+func (c *Config) GetMadisonKey() string {
+	return c.MadisonKey
+}
+
+func (c *Config) GetSnapshotRepo() string {
+	return c.SnapshotRepo
+}
+
+func (c *Config) GetDataSourceName() string {
+	return c.DataSourceName
+}
+
+func (c *Config) GetKibanaUser() string {
+	return c.KibanaUser
+}
+
+func (c *Config) GetKibanaPass() string {
+	return c.KibanaPass
+}
+
+func (c *Config) GetColdAttribute() string {
+	return c.ColdAttribute
+}
+
+func (c *Config) GetExtractedPattern() string {
+	return c.ExtractedPattern
+}
+
+func (c *Config) GetShardingExcludeRegex() string {
+	return c.ShardingExcludeRegex
+}
+
+func (c *Config) GetShardingRoutingAllocationTemp() string {
+	return c.ShardingRoutingAllocationTemp
+}
+
+func (c *Config) GetKibanaIndexRegex() string {
+	return c.KibanaIndexRegex
+}
+
+func (c *Config) GetKubeNamespace() string {
+	return c.KubeNamespace
+}
+
+func (c *Config) GetSnapshotManualKind() string {
+	return c.SnapshotManualKind
+}
+
+func (c *Config) GetSnapshotManualValue() string {
+	return c.SnapshotManualValue
+}
+
+func (c *Config) GetSnapshotManualName() string {
+	return c.SnapshotManualName
+}
+
+func (c *Config) GetSnapshotManualRepo() string {
+	return c.SnapshotManualRepo
+}
+
+func (c *Config) GetOSCTLConfig() string {
+	return c.OSCTLConfig
+}
+
+func (c *Config) GetOSCTLIndicesConfig() string {
+	return c.OSCTLIndicesConfig
+}
+
+func (c *Config) GetOSCTLTenantsConfig() string {
+	return c.OSCTLTenantsConfig
+}
+
+func (c *Config) GetDataSourceRemoteCRT() string {
+	return c.DataSourceRemoteCRT
+}
+
+func (c *Config) GetIndexPatternsKibanaTenantsConfig() string {
+	return c.IndexPatternsKibanaTenantsConfig
 }
 
 type FlagDefinition struct {
@@ -788,87 +662,4 @@ func LogConfigSource(cmd *cobra.Command, commandName string) {
 	fmt.Printf("  Environment variables: OPENSEARCH_URL, MADISON_URL, SNAPSHOT_REPOSITORY, etc.\n")
 	fmt.Printf("  CLI flags: available for all commands\n")
 	fmt.Printf("  Defaults: built-in values\n")
-}
-
-type CommandConfig struct {
-	OpenSearchURL                      string
-	OpenSearchRecovererURL             string
-	CertFile                           string
-	KeyFile                            string
-	CAFile                             string
-	Timeout                            string
-	RetryAttempts                      string
-	DateFormat                         string
-	RecovererDateFormat                string
-	MadisonURL                         string
-	OSDURL                             string
-	MadisonKey                         string
-	SnapshotRepo                       string
-	RetentionThreshold                 string
-	DereplicatorDaysCount              string
-	DereplicatorUseSnapshot            string
-	DataSourceName                     string
-	KibanaUser                         string
-	KibanaPass                         string
-	HotCount                           string
-	ColdAttribute                      string
-	ExtractedPattern                   string
-	ExtractedDays                      string
-	DryRun                             string
-	ShardingTargetSizeGiB              string
-	ShardingExcludeRegex               string
-	ShardingRoutingAllocationTemp      string
-	KibanaIndexRegex                   string
-	KubeNamespace                      string
-	KibanaMultidomainEnabled           string
-	DataSourceKibanaMultitenancy       string
-	DataSourceKibanaMultidomainEnabled string
-	DataSourceRemoteCRT                string
-	IndexPatternsKibanaMultitenancy    string
-	IndexPatternsKibanaTenantsConfig   string
-	IndexPatternsRecovererEnabled      string
-}
-
-func GetCommandConfig(cmd *cobra.Command) *CommandConfig {
-	cfg := GetConfig()
-	return &CommandConfig{
-		OpenSearchURL:                 cfg.OpenSearchURL,
-		OpenSearchRecovererURL:        cfg.OpenSearchRecovererURL,
-		CertFile:                      cfg.CertFile,
-		KeyFile:                       cfg.KeyFile,
-		CAFile:                        cfg.CAFile,
-		Timeout:                       cfg.Timeout,
-		RetryAttempts:                 cfg.RetryAttempts,
-		DateFormat:                    cfg.DateFormat,
-		RecovererDateFormat:           cfg.RecovererDateFormat,
-		MadisonURL:                    cfg.MadisonURL,
-		OSDURL:                        cfg.OSDURL,
-		MadisonKey:                    cfg.MadisonKey,
-		SnapshotRepo:                  cfg.SnapshotRepo,
-		RetentionThreshold:            cfg.RetentionThreshold,
-		DereplicatorDaysCount:         cfg.DereplicatorDaysCount,
-		DereplicatorUseSnapshot:       cfg.DereplicatorUseSnapshot,
-		DataSourceName:                cfg.DataSourceName,
-		KibanaUser:                    cfg.KibanaUser,
-		KibanaPass:                    cfg.KibanaPass,
-		HotCount:                      cfg.HotCount,
-		ColdAttribute:                 cfg.ColdAttribute,
-		ExtractedPattern:              cfg.ExtractedPattern,
-		ExtractedDays:                 cfg.ExtractedDays,
-		DryRun:                        cfg.DryRun,
-		ShardingTargetSizeGiB:         cfg.ShardingTargetSizeGiB,
-		ShardingExcludeRegex:          cfg.ShardingExcludeRegex,
-		ShardingRoutingAllocationTemp: cfg.ShardingRoutingAllocationTemp,
-		KibanaIndexRegex:              cfg.KibanaIndexRegex,
-
-		KubeNamespace:            cfg.KubeNamespace,
-		KibanaMultidomainEnabled: cfg.KibanaMultidomainEnabled,
-
-		DataSourceKibanaMultitenancy:       cfg.DataSourceKibanaMultitenancy,
-		DataSourceKibanaMultidomainEnabled: cfg.DataSourceKibanaMultidomainEnabled,
-		DataSourceRemoteCRT:                cfg.DataSourceRemoteCRT,
-		IndexPatternsKibanaMultitenancy:    cfg.IndexPatternsKibanaMultitenancy,
-		IndexPatternsKibanaTenantsConfig:   cfg.IndexPatternsKibanaTenantsConfig,
-		IndexPatternsRecovererEnabled:      cfg.IndexPatternsRecovererEnabled,
-	}
 }
