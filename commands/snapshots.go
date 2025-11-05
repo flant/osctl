@@ -236,6 +236,17 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 		}
 
 		for _, group := range snapshotGroups {
+			if state, ok, err := utils.CheckSnapshotStateInRepo(client, cfg.SnapshotRepo, group.SnapshotName); err == nil && ok {
+				if state == "SUCCESS" {
+					logger.Info(fmt.Sprintf("Valid snapshot already exists snapshot=%s", group.SnapshotName))
+					continue
+				}
+				if state == "IN_PROGRESS" {
+					logger.Info(fmt.Sprintf("Snapshot is currently IN_PROGRESS snapshot=%s repo=%s", group.SnapshotName, cfg.SnapshotRepo))
+					continue
+				}
+			}
+
 			exists, err := utils.CheckAndCleanSnapshot(group.SnapshotName, strings.Join(group.Indices, ","), allSnapshots, client, cfg.SnapshotRepo, logger)
 			if err != nil {
 				logger.Error(fmt.Sprintf("Failed to check/clean snapshot snapshot=%s error=%v", group.SnapshotName, err))
@@ -271,6 +282,16 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 					continue
 				}
 				for _, g := range groups {
+					if state, ok, err := utils.CheckSnapshotStateInRepo(client, repo, g.SnapshotName); err == nil && ok {
+						if state == "SUCCESS" {
+							logger.Info(fmt.Sprintf("Valid snapshot already exists repo=%s snapshot=%s", repo, g.SnapshotName))
+							continue
+						}
+						if state == "IN_PROGRESS" {
+							logger.Info(fmt.Sprintf("Snapshot is currently IN_PROGRESS repo=%s snapshot=%s", repo, g.SnapshotName))
+							continue
+						}
+					}
 					exists, err := utils.CheckAndCleanSnapshot(g.SnapshotName, strings.Join(g.Indices, ","), existing, client, repo, logger)
 					if err != nil {
 						logger.Error(fmt.Sprintf("Failed to check/clean snapshot repo=%s snapshot=%s error=%v", repo, g.SnapshotName, err))
