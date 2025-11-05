@@ -90,6 +90,8 @@ func runRetention(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
+		logger.Info(fmt.Sprintf("Valid snapshot found index=%s", idx.Index))
+
 		indicesToDelete = append(indicesToDelete, idx)
 	}
 
@@ -132,6 +134,10 @@ func runRetention(cmd *cobra.Command, args []string) error {
 		}
 
 		logger.Info(fmt.Sprintf("Updated utilization utilization=%d", avgUtil))
+
+		if float64(avgUtil) <= threshold {
+			break
+		}
 	}
 
 	logger.Info(fmt.Sprintf("Retention completed finalUtilization=%d", avgUtil))
