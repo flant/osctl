@@ -26,7 +26,7 @@ osctl/
 │   │   ├── config.go            # Основная конфигурация
 │   │   ├── osctlindicesconfig.go # Конфигурация индексов
 │   │   └── tenantsconfig.go     # Конфигурация тенантов
-│   ├── opensearch/              # OpenSearch API клиент
+│   ├── opensearch/              # OpenSearch API клиент - сюда помещаем все обращения в апи (все что содержит http://opendistro: в запросе)
 │   │   └── client.go
 │   ├── kibana/                  # Kibana API клиент
 │   │   └── client.go
@@ -36,8 +36,8 @@ osctl/
 │   │   └── logger.go
 │   └── utils/                   # Утилиты
 │       ├── date.go              # Действия с датами
-│       ├── indices.go           # Работа с индексами
-│       ├── snapshots.go         # Работа со снапшотами
+│       ├── indices.go           # Работа с индексами  - сюда помещаем все обертки вокруг opensearch/client.go которые могут переиспользоваться
+│       ├── snapshots.go         # Работа со снапшотами  - сюда помещаем все обертки вокруг opensearch/client.go которые могут переиспользоваться
 │       └── helpers.go           # Вспомогательные функции
 ├── config-example/                # Примеры конфигураций, job и деплойментов
 ├── Dockerfile
