@@ -40,7 +40,7 @@ func runDereplicator(cmd *cobra.Command, args []string) error {
 	logger := logging.NewLogger()
 	logger.Info(fmt.Sprintf("Starting dereplication process daysCount=%d useSnapshot=%t snapRepo=%s dryRun=%t", daysCount, useSnapshot, snapRepo, dryRun))
 
-	client, err := utils.NewOSClientFromCommandConfig(cfg)
+	client, err := utils.NewOSClientWithURL(cfg, cfg.GetOpenSearchURL())
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}

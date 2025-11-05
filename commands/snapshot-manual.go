@@ -43,7 +43,7 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 
 	logger.Info(fmt.Sprintf("Starting manual snapshot creation kind=%s value=%s name=%s system=%t", kind, value, name, system))
 
-	client, err := utils.NewOSClientFromConfig(cfg)
+	client, err := utils.NewOSClientWithURL(cfg, cfg.GetOpenSearchURL())
 	if err != nil {
 		return err
 	}

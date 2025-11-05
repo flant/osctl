@@ -30,7 +30,7 @@ func runExtractedDelete(cmd *cobra.Command, args []string) error {
 	dryRun := cfg.GetDryRun()
 
 	logger := logging.NewLogger()
-	client, err := utils.NewOSClientFromCommandConfigWithError(cfg, cfg.GetOpenSearchRecovererURL())
+	client, err := utils.NewOSClientWithURL(cfg, cfg.GetOpenSearchRecovererURL())
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func runExtractedDelete(cmd *cobra.Command, args []string) error {
 
 	var extractedIndices []string
 	for _, index := range allIndices {
-		if shouldDeleteExtractedIndex(index.Index, cutoffDate, dateFormat) {
+		if utils.IsOlderThanCutoff(index.Index, cutoffDate, dateFormat) {
 			extractedIndices = append(extractedIndices, index.Index)
 		}
 	}
@@ -87,8 +87,4 @@ func runExtractedDelete(cmd *cobra.Command, args []string) error {
 
 	logger.Info(fmt.Sprintf("Extracted indices deletion completed processed=%d", len(extractedIndices)))
 	return nil
-}
-
-func shouldDeleteExtractedIndex(index, cutoffDate, dateFormat string) bool {
-	return utils.IsOlderThanCutoff(index, cutoffDate, dateFormat)
 }

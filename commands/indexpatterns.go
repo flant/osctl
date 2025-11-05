@@ -37,7 +37,7 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 	dryRun := cfg.GetDryRun()
 
 	logger := logging.NewLogger()
-	osClient, err := utils.NewOSClientFromCommandConfig(cfg)
+	osClient, err := utils.NewOSClientWithURL(cfg, cfg.GetOpenSearchURL())
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}

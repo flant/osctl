@@ -37,7 +37,7 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 
 	logger.Info(fmt.Sprintf("Starting snapshot deletion indicesCount=%d allDays=%d unknownDays=%d", len(indicesConfig), s3Config.UnitCount.All, s3Config.UnitCount.Unknown))
 
-	client, err := utils.NewOSClientFromConfig(cfg)
+	client, err := utils.NewOSClientWithURL(cfg, cfg.GetOpenSearchURL())
 	if err != nil {
 		return err
 	}

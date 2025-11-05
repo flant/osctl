@@ -32,7 +32,7 @@ func runSharding(cmd *cobra.Command, args []string) error {
 
 	logger := logging.NewLogger()
 	dryRun := cfg.GetDryRun()
-	client, err := utils.NewOSClientFromCommandConfig(cfg)
+	client, err := utils.NewOSClientWithURL(cfg, cfg.GetOpenSearchURL())
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}

@@ -37,7 +37,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 
 	logger.Info(fmt.Sprintf("Starting snapshot creation indicesCount=%d unknownSnapshot=%t", len(indicesConfig), unknownConfig.Snapshot))
 
-	client, err := utils.NewOSClientFromCommandConfig(cfg)
+	client, err := utils.NewOSClientWithURL(cfg, cfg.GetOpenSearchURL())
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}

@@ -34,7 +34,7 @@ func runColdStorage(cmd *cobra.Command, args []string) error {
 	logger := logging.NewLogger()
 	logger.Info(fmt.Sprintf("Starting cold storage migration hotCount=%d coldAttribute=%s dryRun=%t", hotCount, coldAttribute, dryRun))
 
-	client, err := utils.NewOSClientFromCommandConfig(cfg)
+	client, err := utils.NewOSClientWithURL(cfg, cfg.GetOpenSearchURL())
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}
@@ -55,7 +55,7 @@ func runColdStorage(cmd *cobra.Command, args []string) error {
 
 	var candidates []string
 	for _, index := range allIndices {
-		if shouldMoveToColdStorage(index.Index, cutoffDate, dateFormat) {
+		if utils.IsOlderThanCutoff(index.Index, cutoffDate, dateFormat) {
 			candidates = append(candidates, index.Index)
 		}
 	}
@@ -111,8 +111,4 @@ func runColdStorage(cmd *cobra.Command, args []string) error {
 
 	logger.Info(fmt.Sprintf("Cold storage migration completed processed=%d skipped_already_cold=%d", len(coldIndices), len(alreadyCold)))
 	return nil
-}
-
-func shouldMoveToColdStorage(index, cutoffDate, dateFormat string) bool {
-	return utils.IsOlderThanCutoff(index, cutoffDate, dateFormat)
 }
