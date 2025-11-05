@@ -108,6 +108,12 @@ func (c *Client) executeRequest(req *http.Request) (*http.Response, error) {
 			return nil, err
 		}
 
+		if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+			snippet := readErrorSnippet(resp)
+			resp.Body.Close()
+			return nil, fmt.Errorf("client error: %d — %s", resp.StatusCode, snippet)
+		}
+
 		if resp.StatusCode >= 500 {
 			resp.Body.Close()
 			lastErr = fmt.Errorf("server error: %d", resp.StatusCode)
