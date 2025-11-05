@@ -66,6 +66,10 @@ func (c *Client) FindSavedObjects(tenant string, objType string, perPage int) (*
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return nil, fmt.Errorf("kibana find saved objects failed: %s — %s", resp.Status, strings.TrimSpace(string(snippet)))
+	}
 	var fr FindResponse
 	if err := json.NewDecoder(resp.Body).Decode(&fr); err != nil {
 		return nil, err

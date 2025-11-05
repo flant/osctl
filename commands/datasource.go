@@ -78,12 +78,12 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 		logger.Info(fmt.Sprintf("Tenant %s existing data-sources (%d): %s", tenantNameForLog, len(existingTitles), strings.Join(existingTitles, ", ")))
 		if !exists {
 			if dryRun {
-				logger.Info(fmt.Sprintf("DRY RUN: Would create data source in tenant %s", tenantNameForLog))
+				logger.Info(fmt.Sprintf("DRY RUN: Would create data source '%s' in tenant %s", dataSourceName, tenantNameForLog))
 			} else {
 				if err := kb.CreateDataSource(tenant, dataSourceName, cfg.OpenSearchURL, user, pass); err != nil {
 					return err
 				}
-				logger.Info(fmt.Sprintf("Created data source in tenant %s", tenantNameForLog))
+				logger.Info(fmt.Sprintf("Created data source '%s' in tenant %s", dataSourceName, tenantNameForLog))
 			}
 		} else {
 			logger.Info(fmt.Sprintf("Data source already exists in tenant %s (title=%s)", tenantNameForLog, dataSourceName))
@@ -134,23 +134,23 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 			}
 			if dryRun {
 				logger.Info("DRY RUN: Would update secret multi-certs with new multi.crt contents")
-			} else {
-				existing.Data = map[string][]byte{"multi.crt": desired}
-				if _, err := cs.CoreV1().Secrets(ns).Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
-					return err
-				}
+				return nil
+			}
+			existing.Data = map[string][]byte{"multi.crt": desired}
+			if _, err := cs.CoreV1().Secrets(ns).Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
+				return err
 			}
 		} else if apierrors.IsNotFound(err) {
 			if dryRun {
 				logger.Info("DRY RUN: Would create secret multi-certs with multi.crt contents")
-			} else {
-				sec := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "multi-certs", Namespace: ns}, Type: corev1.SecretTypeOpaque, Data: map[string][]byte{"multi.crt": desired}}
-				if _, err := cs.CoreV1().Secrets(ns).Create(ctx, sec, metav1.CreateOptions{}); err != nil {
-					return err
-				}
+				return nil
+			}
+			sec := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "multi-certs", Namespace: ns}, Type: corev1.SecretTypeOpaque, Data: map[string][]byte{"multi.crt": desired}}
+			if _, err := cs.CoreV1().Secrets(ns).Create(ctx, sec, metav1.CreateOptions{}); err != nil {
+				return err
 			}
 		} else {
-			return err
+			return fmt.Errorf("failed to check multi-certs secret: %w", err)
 		}
 
 		dep, err := cs.AppsV1().Deployments(ns).Get(ctx, "kibana", metav1.GetOptions{})

@@ -230,13 +230,11 @@ func setDefaults() {
 	viper.SetDefault("sharding_target_size_gib", 25)
 	viper.SetDefault("exclude_sharding", "")
 	viper.SetDefault("kibana_index_regex", "^([\\w-]+)-([\\w-]*)(\\d{4}[\\.-]\\d{2}[\\.-]\\d{2}(?:[\\.-]\\d{2})*)$")
-	// Removed common kibana_multitenancy; use per-command flags
 	viper.SetDefault("recoverer_enabled", false)
 	viper.SetDefault("kube_namespace", "infra-elklogs")
 	viper.SetDefault("kibana_tenants_config", "osctltenants.yaml")
 	viper.SetDefault("kibana_multidomain_enabled", false)
 	viper.SetDefault("datasource_name", "recoverer")
-	// Removed common remote_crt; use datasource_remote_crt
 }
 
 func GetAvailableActions() []string {
@@ -489,8 +487,6 @@ func (c *Config) GetDryRun() bool {
 	return false
 }
 
-// Removed: GetRecovererEnabled — use GetIndexPatternsRecovererEnabled for indexpatterns
-
 func (c *CommandConfig) GetTimeout() time.Duration {
 	if c.Timeout == "" {
 		return 30 * time.Second
@@ -610,8 +606,6 @@ func (c *CommandConfig) GetIndexPatternsRecovererEnabled() bool {
 	}
 	return false
 }
-
-// Removed: GetRecovererEnabled — use GetIndexPatternsRecovererEnabled
 
 func (c *Config) GetSnapshotManualSystem() bool {
 	if c.SnapshotManualSystem == "" {
