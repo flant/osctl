@@ -1,0 +1,30 @@
+{{- if and .Values.opendistro.enabled .Values.kibana.enabled .Values.recoverer.enabled .Values.opendistro.s3_backup.enabled .Values.kibana.multidomain.enabled }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: osctl-restarter-{{ .Release.Namespace }}
+  namespace: {{ .Release.Namespace }}
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: osctl-restarter-role-{{ .Release.Namespace }}
+rules:
+  - apiGroups: ["","apps"]
+    resources: ["statefulsets","pods","deployments","secrets"]
+    verbs: ["get", "patch", "watch", "update", "list", "create", "delete"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: osctl-restarter-rb-{{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: osctl-restarter-{{ .Release.Namespace }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: osctl-restarter-role-{{ .Release.Namespace }}
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}

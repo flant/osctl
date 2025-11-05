@@ -1,0 +1,44 @@
+{{- if and .Values.opendistro.enabled .Values.curator.enabled }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: indicesdelete
+  labels:
+    job: indicesdelete
+    service: osctl
+spec:
+  schedule: {{ .Values.indicesdelete.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  jobTemplate:
+    metadata:
+      labels:
+        job: snaindicesdeletepshot
+        service: osctl
+    spec:
+      ttlSecondsAfterFinished: {{ .Values.osctl.ttlSecondsAfterFinished | default 3600 }}
+      template:
+        metadata:
+          labels:
+            job: indicesdelete
+            service: osctl
+        spec:
+{{- include "toleration_common" . | indent 10 }}
+          affinity:
+{{- include "nodeselector_common" . | indent 10 }}
+          volumes:
+{{- include "osctl_volumes" . | indent 10 }}
+          containers:
+          - name: app
+            image: {{ printf "%s%s:%s" .Values.osctl.image.repo .Values.osctl.image.name .Values.osctl.image.tag }}
+            imagePullPolicy: {{ .Values.imagePullPolicy }}
+            command:
+            - /app/osctl
+            args:
+            - indicesdelete
+            workingDir: /app
+            volumeMounts:
+{{- include "osctl_volume_mounts" . | indent 12 }}
+          restartPolicy: Never
+{{- end }}

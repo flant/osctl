@@ -41,7 +41,7 @@ spec:
             weight: 100
       containers:
       - name: osctl-test
-        image: docker-flant.art.lmru.tech/lmru/devops/opensearch--osctl:0.0.5
+        image: ghcr.io/flant/osctl:0.0.11
         command:
         - sh
         - -c
