@@ -229,6 +229,8 @@ func CreateSnapshotWithRetry(client *opensearch.Client, snapshotName, indexName,
 				time.Sleep(time.Duration(attempt) * time.Second)
 				continue
 			}
+			logger.Error(fmt.Sprintf("Snapshot creation failed after all retries snapshot=%s maxRetries=%d", snapshotName, maxRetries))
+			SendSnapshotFailureAlert(snapshotName, indexName, madisonClient, logger)
 			return err
 		}
 
