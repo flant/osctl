@@ -244,8 +244,9 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 		snapshotGroups := utils.GroupIndicesForSnapshots(indicesToSnapshot, indicesConfig, snapshotDate)
 
 		if unknownConfig.Snapshot && !unknownConfig.ManualSnapshot && len(unknownIndices) > 0 {
+			randomSuffix := utils.GenerateRandomAlphanumericString(6)
 			snapshotGroups = append(snapshotGroups, utils.SnapshotGroup{
-				SnapshotName: "unknown-" + snapshotDate,
+				SnapshotName: "unknown-" + randomSuffix + "-" + snapshotDate,
 				Indices:      unknownIndices,
 				Pattern:      "unknown",
 				Kind:         "unknown",

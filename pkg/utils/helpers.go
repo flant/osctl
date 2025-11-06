@@ -5,6 +5,8 @@ import (
 	"osctl/pkg/config"
 	"osctl/pkg/opensearch"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 func NewOSClientWithURL(cfg *config.Config, url string) (*opensearch.Client, error) {
@@ -20,4 +22,13 @@ func NormalizeURL(url string) string {
 		return "https://" + url
 	}
 	return url
+}
+
+func GenerateRandomAlphanumericString(length int) string {
+	id := uuid.New().String()
+	id = strings.ReplaceAll(id, "-", "")
+	if length > len(id) {
+		length = len(id)
+	}
+	return id[:length]
 }
