@@ -60,6 +60,7 @@ type Config struct {
 	IndexPatternsKibanaMultitenancy    string
 	IndexPatternsKibanaTenantsConfig   string
 	IndexPatternsRecovererEnabled      string
+	SnapshotsBackfillIndicesList       string
 }
 
 type CommandConfig = Config
@@ -95,7 +96,7 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 	osctlIndicesPath := getValue(cmd, "osctl-indices-config", "OSCTL_INDICES_CONFIG", viper.GetString("osctl_indices_config"))
 	tenantsPath := getValue(cmd, "kibana-tenants-config", "KIBANA_TENANTS_CONFIG", viper.GetString("kibana_tenants_config"))
 
-	requireIndicesConfig := commandName == "snapshots" || commandName == "indicesdelete" || commandName == "snapshotsdelete" || commandName == "snapshotschecker"
+	requireIndicesConfig := commandName == "snapshots" || commandName == "indicesdelete" || commandName == "snapshotsdelete" || commandName == "snapshotschecker" || commandName == "snapshotsbackfill"
 
 	if requireIndicesConfig {
 
@@ -169,10 +170,11 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		IndexPatternsKibanaMultitenancy:    getValue(cmd, "indexpatterns-kibana-multitenancy", "INDEXPATTERNS_KIBANA_MULTITENANCY", viper.GetString("indexpatterns_kibana_multitenancy")),
 		IndexPatternsKibanaTenantsConfig:   getValue(cmd, "indexpatterns-kibana-tenants-config", "INDEXPATTERNS_KIBANA_TENANTS_CONFIG", viper.GetString("indexpatterns_kibana_tenants_config")),
 		IndexPatternsRecovererEnabled:      getValue(cmd, "indexpatterns-recoverer-enabled", "INDEXPATTERNS_RECOVERER_ENABLED", viper.GetString("indexpatterns_recoverer_enabled")),
+		SnapshotsBackfillIndicesList:       getValue(cmd, "indices-list", "SNAPSHOTS_BACKFILL_INDICES_LIST", viper.GetString("snapshots_backfill_indices_list")),
 	}
 
 	switch commandName {
-	case "snapshots", "snapshotsdelete":
+	case "snapshots", "snapshotsdelete", "snapshotsbackfill":
 		if configInstance.SnapshotRepo == "" {
 			return fmt.Errorf("snap-repo is required for %s", commandName)
 		}
@@ -239,6 +241,7 @@ func GetAvailableActions() []string {
 		"snapshot-manual",
 		"snapshotsdelete",
 		"snapshotschecker",
+		"snapshotsbackfill",
 		"indicesdelete",
 		"retention",
 		"dereplicator",
@@ -527,6 +530,10 @@ func (c *Config) GetIndexPatternsKibanaTenantsConfig() string {
 	return c.IndexPatternsKibanaTenantsConfig
 }
 
+func (c *Config) GetSnapshotsBackfillIndicesList() string {
+	return c.SnapshotsBackfillIndicesList
+}
+
 type FlagDefinition struct {
 	Name        string
 	Type        string
@@ -565,6 +572,11 @@ var CommandFlags = map[string][]FlagDefinition{
 	"snapshotschecker": {
 		// Uses --osctl-indices-config for configuration
 		{"dry-run", "bool", false, "Show what would be done without sending alerts", []string{}},
+	},
+	"snapshotsbackfill": {
+		// Uses --osctl-indices-config for configuration
+		{"indices-list", "string", "", "Comma-separated list of indices to backfill snapshots for", []string{}},
+		{"dry-run", "bool", false, "Show what would be created without actually creating", []string{}},
 	},
 	"coldstorage": {
 		{"hot-count", "int", 3, "Number of days to keep indices hot", []string{"min:1", "max:30"}},

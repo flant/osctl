@@ -198,7 +198,7 @@ func WaitForSnapshotTasks(client *opensearch.Client, logger *logging.Logger, tar
 	return nil
 }
 
-func CreateSnapshotWithRetry(client *opensearch.Client, snapshotName, indexName, snapRepo string, madisonClient interface{}, logger *logging.Logger) error {
+func CreateSnapshotWithRetry(client *opensearch.Client, snapshotName, indexName, snapRepo string, madisonClient interface{}, logger *logging.Logger, pollInterval time.Duration) error {
 	const maxRetries = 5
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
@@ -242,21 +242,21 @@ func CreateSnapshotWithRetry(client *opensearch.Client, snapshotName, indexName,
 			if err != nil {
 				logger.Error(fmt.Sprintf("Failed to get snapshots snapshot=%s error=%v", snapshotName, err))
 				if attempt < maxRetries {
-					time.Sleep(60 * time.Second)
+					time.Sleep(pollInterval)
 					continue
 				}
 				return err
 			}
 			if len(snapshots) == 0 {
 				logger.Info(fmt.Sprintf("Waiting for snapshot visibility snapshot=%s", snapshotName))
-				time.Sleep(60 * time.Second)
+				time.Sleep(pollInterval)
 				continue
 			}
 
 			snapshot := snapshots[0]
 			if snapshot.State == "IN_PROGRESS" {
 				logger.Info(fmt.Sprintf("Snapshot still in progress snapshot=%s", snapshotName))
-				time.Sleep(60 * time.Second)
+				time.Sleep(pollInterval)
 				continue
 			}
 
