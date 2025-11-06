@@ -168,6 +168,9 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 		logger.Info(fmt.Sprintf("Date group date=%s indicesCount=%d indices=%s", dateKey, len(indicesForDate), strings.Join(indicesForDate, ", ")))
 	}
 
+	var totalSnapshotsToCreate int
+	var allSnapshotsToCreate []utils.SnapshotGroup
+
 	for _, dateKey := range dateKeys {
 		indicesForDate := dateGroups[dateKey]
 		logger.Info(fmt.Sprintf("Processing date group date=%s indicesCount=%d", dateKey, len(indicesForDate)))
@@ -340,6 +343,11 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 			for _, groups := range filteredPerRepo {
 				total += len(groups)
 			}
+			totalSnapshotsToCreate += total
+			allSnapshotsToCreate = append(allSnapshotsToCreate, filteredMain...)
+			for _, groups := range filteredPerRepo {
+				allSnapshotsToCreate = append(allSnapshotsToCreate, groups...)
+			}
 			fmt.Printf("\nDRY RUN: Would create %d snapshots for index date %s (snapshot date %s)\n", total, dateKey, snapshotDate)
 			continue
 		}
@@ -435,6 +443,24 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 				}
 			}
 		}
+	}
+
+	if cfg.GetDryRun() {
+		fmt.Println("\n" + strings.Repeat("=", 60))
+		fmt.Println("DRY RUN SUMMARY")
+		fmt.Println(strings.Repeat("=", 60))
+		if totalSnapshotsToCreate == 0 {
+			fmt.Println("No snapshots would be created")
+		} else {
+			fmt.Printf("Would create %d snapshots total:\n\n", totalSnapshotsToCreate)
+			for i, group := range allSnapshotsToCreate {
+				fmt.Printf("%d. Snapshot: %s\n", i+1, group.SnapshotName)
+				fmt.Printf("   Pattern: %s (%s)\n", group.Pattern, group.Kind)
+				fmt.Printf("   Indices (%d): %s\n", len(group.Indices), strings.Join(group.Indices, ", "))
+				fmt.Println()
+			}
+		}
+		fmt.Println(strings.Repeat("=", 60))
 	}
 
 	logger.Info("Snapshots backfill completed")
