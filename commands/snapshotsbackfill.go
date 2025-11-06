@@ -386,7 +386,7 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 				indicesStr := strings.Join(group.Indices, ",")
 				logger.Info(fmt.Sprintf("Creating snapshot snapshot=%s", group.SnapshotName))
 				logger.Info(fmt.Sprintf("Snapshot indices %s", indicesStr))
-				err = utils.CreateSnapshotWithRetry(client, group.SnapshotName, indicesStr, defaultRepo, madisonClient, logger)
+				err = utils.CreateSnapshotWithRetry(client, group.SnapshotName, indicesStr, defaultRepo, madisonClient, logger, 10*time.Minute)
 				if err != nil {
 					logger.Error(fmt.Sprintf("Failed to create snapshot after retries snapshot=%s error=%v", group.SnapshotName, err))
 					continue
@@ -432,7 +432,7 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 						indicesStr := strings.Join(g.Indices, ",")
 						logger.Info(fmt.Sprintf("Creating snapshot repo=%s snapshot=%s", repo, g.SnapshotName))
 						logger.Info(fmt.Sprintf("Snapshot indices %s", indicesStr))
-						err = utils.CreateSnapshotWithRetry(client, g.SnapshotName, indicesStr, repo, madisonClient, logger)
+						err = utils.CreateSnapshotWithRetry(client, g.SnapshotName, indicesStr, repo, madisonClient, logger, 10*time.Minute)
 						if err != nil {
 							logger.Error(fmt.Sprintf("Failed to create snapshot after retries repo=%s snapshot=%s error=%v", repo, g.SnapshotName, err))
 							continue
