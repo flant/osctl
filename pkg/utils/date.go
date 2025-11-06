@@ -76,3 +76,34 @@ func HasDateInName(name, dateFormat string) bool {
 	extractedDate := ExtractDateFromIndex(name, dateFormat)
 	return extractedDate != ""
 }
+
+func GetLaterCutoffDate(date1, date2, dateFormat string) string {
+	if date2 == "" {
+		return date1
+	}
+
+	goFormat := ConvertDateFormat(dateFormat)
+	parsedDate1, err1 := time.Parse(goFormat, date1)
+	parsedDate2, err2 := time.Parse(goFormat, date2)
+
+	if err1 != nil || err2 != nil {
+		return date1
+	}
+
+	if parsedDate2.After(parsedDate1) {
+		return date2
+	}
+
+	return date1
+}
+
+func GroupIndicesByDate(indices []string, dateFormat string) map[string][]string {
+	groups := make(map[string][]string)
+	for _, indexName := range indices {
+		date := ExtractDateFromIndex(indexName, dateFormat)
+		if date != "" {
+			groups[date] = append(groups[date], indexName)
+		}
+	}
+	return groups
+}

@@ -97,6 +97,8 @@ func executeActionCommand(action string, args []string) error {
 		targetCmd = snapshotsDeleteCmd
 	case "snapshotschecker":
 		targetCmd = snapshotsCheckerCmd
+	case "snapshotsbackfill":
+		targetCmd = snapshotsBackfillCmd
 	case "indicesdelete":
 		targetCmd = indicesDeleteCmd
 	case "retention":
@@ -139,6 +141,7 @@ func init() {
 		dataSourceCmd,
 		dereplicatorCmd,
 		snapshotsCheckerCmd,
+		snapshotsBackfillCmd,
 		danglingCheckerCmd,
 		coldStorageCmd,
 		extractedDeleteCmd,

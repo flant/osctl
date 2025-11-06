@@ -73,6 +73,10 @@ exclude_sharding: ""
 # snapshotsdelete:
 # Uses osctl-indices-config for detailed configuration
 
+# snapshotsbackfill:
+# Uses osctl-indices-config for detailed configuration
+snapshots_backfill_indices_list: ""
+
 # snapshotmanual:
 snapshot_manual_kind: "prefix"
 snapshot_manual_value: ""
