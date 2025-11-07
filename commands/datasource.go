@@ -175,25 +175,27 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	fmt.Println("\n" + strings.Repeat("=", 60))
-	fmt.Println("DATA SOURCE SUMMARY")
-	fmt.Println(strings.Repeat("=", 60))
-	if len(createdDataSources) > 0 {
-		fmt.Printf("Created: %d data sources\n", len(createdDataSources))
-		for _, name := range createdDataSources {
-			fmt.Printf("  ✓ %s\n", name)
+	if !dryRun {
+		fmt.Println("\n" + strings.Repeat("=", 60))
+		fmt.Println("DATA SOURCE SUMMARY")
+		fmt.Println(strings.Repeat("=", 60))
+		if len(createdDataSources) > 0 {
+			fmt.Printf("Created: %d data sources\n", len(createdDataSources))
+			for _, name := range createdDataSources {
+				fmt.Printf("  ✓ %s\n", name)
+			}
 		}
-	}
-	if len(existingDataSources) > 0 {
-		fmt.Printf("\nAlready exists: %d data sources\n", len(existingDataSources))
-		for _, name := range existingDataSources {
-			fmt.Printf("  - %s\n", name)
+		if len(existingDataSources) > 0 {
+			fmt.Printf("\nAlready exists: %d data sources\n", len(existingDataSources))
+			for _, name := range existingDataSources {
+				fmt.Printf("  - %s\n", name)
+			}
 		}
+		if len(createdDataSources) == 0 && len(existingDataSources) == 0 {
+			fmt.Println("No data sources were added")
+		}
+		fmt.Println(strings.Repeat("=", 60))
 	}
-	if len(createdDataSources) == 0 && len(existingDataSources) == 0 {
-		fmt.Println("No data sources were added")
-	}
-	fmt.Println(strings.Repeat("=", 60))
 
 	return nil
 }

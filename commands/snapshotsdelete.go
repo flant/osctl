@@ -191,25 +191,27 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 		logger.Info("No snapshots for deletion in custom repos")
 	}
 
-	fmt.Println("\n" + strings.Repeat("=", 60))
-	fmt.Println("SNAPSHOT DELETION SUMMARY")
-	fmt.Println(strings.Repeat("=", 60))
-	if len(successfulDeletions) > 0 {
-		fmt.Printf("Successfully deleted: %d snapshots\n", len(successfulDeletions))
-		for _, name := range successfulDeletions {
-			fmt.Printf("  ✓ %s\n", name)
+	if !cfg.GetDryRun() {
+		fmt.Println("\n" + strings.Repeat("=", 60))
+		fmt.Println("SNAPSHOT DELETION SUMMARY")
+		fmt.Println(strings.Repeat("=", 60))
+		if len(successfulDeletions) > 0 {
+			fmt.Printf("Successfully deleted: %d snapshots\n", len(successfulDeletions))
+			for _, name := range successfulDeletions {
+				fmt.Printf("  ✓ %s\n", name)
+			}
 		}
-	}
-	if len(failedDeletions) > 0 {
-		fmt.Printf("\nFailed to delete: %d snapshots\n", len(failedDeletions))
-		for _, name := range failedDeletions {
-			fmt.Printf("  ✗ %s\n", name)
+		if len(failedDeletions) > 0 {
+			fmt.Printf("\nFailed to delete: %d snapshots\n", len(failedDeletions))
+			for _, name := range failedDeletions {
+				fmt.Printf("  ✗ %s\n", name)
+			}
 		}
+		if len(successfulDeletions) == 0 && len(failedDeletions) == 0 {
+			fmt.Println("No snapshots were deleted")
+		}
+		fmt.Println(strings.Repeat("=", 60))
 	}
-	if len(successfulDeletions) == 0 && len(failedDeletions) == 0 {
-		fmt.Println("No snapshots were deleted")
-	}
-	fmt.Println(strings.Repeat("=", 60))
 
 	logger.Info("Snapshot deletion completed")
 	return nil

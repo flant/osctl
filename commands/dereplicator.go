@@ -104,31 +104,33 @@ func runDereplicator(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	fmt.Println("\n" + strings.Repeat("=", 60))
-	fmt.Println("DEREPLICATOR SUMMARY")
-	fmt.Println(strings.Repeat("=", 60))
-	if len(successfulDereplications) > 0 {
-		fmt.Printf("Successfully dereplicated: %d indices\n", len(successfulDereplications))
-		for _, name := range successfulDereplications {
-			fmt.Printf("  ✓ %s\n", name)
+	if !dryRun {
+		fmt.Println("\n" + strings.Repeat("=", 60))
+		fmt.Println("DEREPLICATOR SUMMARY")
+		fmt.Println(strings.Repeat("=", 60))
+		if len(successfulDereplications) > 0 {
+			fmt.Printf("Successfully dereplicated: %d indices\n", len(successfulDereplications))
+			for _, name := range successfulDereplications {
+				fmt.Printf("  ✓ %s\n", name)
+			}
 		}
-	}
-	if len(problemIndices) > 0 {
-		fmt.Printf("\nFailed to dereplicate: %d indices\n", len(problemIndices))
-		for _, name := range problemIndices {
-			fmt.Printf("  ✗ %s\n", name)
+		if len(problemIndices) > 0 {
+			fmt.Printf("\nFailed to dereplicate: %d indices\n", len(problemIndices))
+			for _, name := range problemIndices {
+				fmt.Printf("  ✗ %s\n", name)
+			}
 		}
-	}
-	if len(skippedNoSnapshot) > 0 {
-		fmt.Printf("\nSkipped (no valid snapshot): %d indices\n", len(skippedNoSnapshot))
-		for _, name := range skippedNoSnapshot {
-			fmt.Printf("  - %s\n", name)
+		if len(skippedNoSnapshot) > 0 {
+			fmt.Printf("\nSkipped (no valid snapshot): %d indices\n", len(skippedNoSnapshot))
+			for _, name := range skippedNoSnapshot {
+				fmt.Printf("  - %s\n", name)
+			}
 		}
+		if len(successfulDereplications) == 0 && len(problemIndices) == 0 && len(skippedNoSnapshot) == 0 {
+			fmt.Println("No indices were dereplicated")
+		}
+		fmt.Println(strings.Repeat("=", 60))
 	}
-	if len(successfulDereplications) == 0 && len(problemIndices) == 0 && len(skippedNoSnapshot) == 0 {
-		fmt.Println("No indices were dereplicated")
-	}
-	fmt.Println(strings.Repeat("=", 60))
 
 	if len(skippedNoSnapshot) > 0 {
 		logger.Warn(fmt.Sprintf("Skipped (no valid snapshot) %s", strings.Join(skippedNoSnapshot, ", ")))

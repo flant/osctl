@@ -122,18 +122,20 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		fmt.Println("\n" + strings.Repeat("=", 60))
-		fmt.Println("INDEX PATTERNS SUMMARY")
-		fmt.Println(strings.Repeat("=", 60))
-		if len(createdPatterns) > 0 {
-			fmt.Printf("Created: %d index patterns\n", len(createdPatterns))
-			for _, name := range createdPatterns {
-				fmt.Printf("  ✓ %s\n", name)
+		if !dryRun {
+			fmt.Println("\n" + strings.Repeat("=", 60))
+			fmt.Println("INDEX PATTERNS SUMMARY")
+			fmt.Println(strings.Repeat("=", 60))
+			if len(createdPatterns) > 0 {
+				fmt.Printf("Created: %d index patterns\n", len(createdPatterns))
+				for _, name := range createdPatterns {
+					fmt.Printf("  ✓ %s\n", name)
+				}
+			} else {
+				fmt.Println("No index patterns were added")
 			}
-		} else {
-			fmt.Println("No index patterns were added")
+			fmt.Println(strings.Repeat("=", 60))
 		}
-		fmt.Println(strings.Repeat("=", 60))
 		return nil
 	}
 
@@ -238,18 +240,20 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	fmt.Println("\n" + strings.Repeat("=", 60))
-	fmt.Println("INDEX PATTERNS SUMMARY")
-	fmt.Println(strings.Repeat("=", 60))
-	if len(createdPatterns) > 0 {
-		fmt.Printf("Created: %d index patterns\n", len(createdPatterns))
-		for _, name := range createdPatterns {
-			fmt.Printf("  ✓ %s\n", name)
+	if !dryRun {
+		fmt.Println("\n" + strings.Repeat("=", 60))
+		fmt.Println("INDEX PATTERNS SUMMARY")
+		fmt.Println(strings.Repeat("=", 60))
+		if len(createdPatterns) > 0 {
+			fmt.Printf("Created: %d index patterns\n", len(createdPatterns))
+			for _, name := range createdPatterns {
+				fmt.Printf("  ✓ %s\n", name)
+			}
+		} else {
+			fmt.Println("No index patterns were added")
 		}
-	} else {
-		fmt.Println("No index patterns were added")
+		fmt.Println(strings.Repeat("=", 60))
 	}
-	fmt.Println(strings.Repeat("=", 60))
 
 	return nil
 }

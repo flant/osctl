@@ -115,31 +115,33 @@ func runColdStorage(cmd *cobra.Command, args []string) error {
 		successfulMigrations = append(successfulMigrations, index)
 	}
 
-	fmt.Println("\n" + strings.Repeat("=", 60))
-	fmt.Println("COLD STORAGE MIGRATION SUMMARY")
-	fmt.Println(strings.Repeat("=", 60))
-	if len(successfulMigrations) > 0 {
-		fmt.Printf("Successfully migrated to cold: %d indices\n", len(successfulMigrations))
-		for _, name := range successfulMigrations {
-			fmt.Printf("  ✓ %s\n", name)
+	if !dryRun {
+		fmt.Println("\n" + strings.Repeat("=", 60))
+		fmt.Println("COLD STORAGE MIGRATION SUMMARY")
+		fmt.Println(strings.Repeat("=", 60))
+		if len(successfulMigrations) > 0 {
+			fmt.Printf("Successfully migrated to cold: %d indices\n", len(successfulMigrations))
+			for _, name := range successfulMigrations {
+				fmt.Printf("  ✓ %s\n", name)
+			}
 		}
-	}
-	if len(failedMigrations) > 0 {
-		fmt.Printf("\nFailed to migrate: %d indices\n", len(failedMigrations))
-		for _, name := range failedMigrations {
-			fmt.Printf("  ✗ %s\n", name)
+		if len(failedMigrations) > 0 {
+			fmt.Printf("\nFailed to migrate: %d indices\n", len(failedMigrations))
+			for _, name := range failedMigrations {
+				fmt.Printf("  ✗ %s\n", name)
+			}
 		}
-	}
-	if len(alreadyCold) > 0 {
-		fmt.Printf("\nAlready in cold: %d indices\n", len(alreadyCold))
-		for _, name := range alreadyCold {
-			fmt.Printf("  - %s\n", name)
+		if len(alreadyCold) > 0 {
+			fmt.Printf("\nAlready in cold: %d indices\n", len(alreadyCold))
+			for _, name := range alreadyCold {
+				fmt.Printf("  - %s\n", name)
+			}
 		}
+		if len(successfulMigrations) == 0 && len(failedMigrations) == 0 && len(alreadyCold) == 0 {
+			fmt.Println("No indices were migrated to cold storage")
+		}
+		fmt.Println(strings.Repeat("=", 60))
 	}
-	if len(successfulMigrations) == 0 && len(failedMigrations) == 0 && len(alreadyCold) == 0 {
-		fmt.Println("No indices were migrated to cold storage")
-	}
-	fmt.Println(strings.Repeat("=", 60))
 
 	logger.Info(fmt.Sprintf("Cold storage migration completed processed=%d skipped_already_cold=%d", len(coldIndices), len(alreadyCold)))
 	return nil

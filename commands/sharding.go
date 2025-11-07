@@ -350,33 +350,35 @@ func runSharding(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	fmt.Println("\n" + strings.Repeat("=", 60))
-	fmt.Println("SHARDING SUMMARY")
-	fmt.Println(strings.Repeat("=", 60))
-	if len(successfulChanges) > 0 {
-		fmt.Printf("Successfully changed: %d templates\n", len(successfulChanges))
-		for _, ch := range successfulChanges {
-			if ch.action == "create" {
-				fmt.Printf("  ✓ Created: %s (pattern=%s, shards=%d, replicas=%d)\n", ch.template, ch.pattern, ch.shards, ch.replicas)
-			} else {
-				fmt.Printf("  ✓ Updated: %s (pattern=%s, shards %d→%d)\n", ch.template, ch.pattern, ch.oldShards, ch.shards)
+	if !dryRun {
+		fmt.Println("\n" + strings.Repeat("=", 60))
+		fmt.Println("SHARDING SUMMARY")
+		fmt.Println(strings.Repeat("=", 60))
+		if len(successfulChanges) > 0 {
+			fmt.Printf("Successfully changed: %d templates\n", len(successfulChanges))
+			for _, ch := range successfulChanges {
+				if ch.action == "create" {
+					fmt.Printf("  ✓ Created: %s (pattern=%s, shards=%d, replicas=%d)\n", ch.template, ch.pattern, ch.shards, ch.replicas)
+				} else {
+					fmt.Printf("  ✓ Updated: %s (pattern=%s, shards %d→%d)\n", ch.template, ch.pattern, ch.oldShards, ch.shards)
+				}
 			}
 		}
-	}
-	if len(failedChanges) > 0 {
-		fmt.Printf("\nFailed to change: %d templates\n", len(failedChanges))
-		for _, ch := range failedChanges {
-			if ch.action == "create" {
-				fmt.Printf("  ✗ Failed to create: %s (pattern=%s)\n", ch.template, ch.pattern)
-			} else {
-				fmt.Printf("  ✗ Failed to update: %s (pattern=%s)\n", ch.template, ch.pattern)
+		if len(failedChanges) > 0 {
+			fmt.Printf("\nFailed to change: %d templates\n", len(failedChanges))
+			for _, ch := range failedChanges {
+				if ch.action == "create" {
+					fmt.Printf("  ✗ Failed to create: %s (pattern=%s)\n", ch.template, ch.pattern)
+				} else {
+					fmt.Printf("  ✗ Failed to update: %s (pattern=%s)\n", ch.template, ch.pattern)
+				}
 			}
 		}
+		if len(successfulChanges) == 0 && len(failedChanges) == 0 {
+			fmt.Println("No templates were changed")
+		}
+		fmt.Println(strings.Repeat("=", 60))
 	}
-	if len(successfulChanges) == 0 && len(failedChanges) == 0 {
-		fmt.Println("No templates were changed")
-	}
-	fmt.Println(strings.Repeat("=", 60))
 
 	return nil
 }
