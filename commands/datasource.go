@@ -67,6 +67,9 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 			tenantNamesForLog = append(tenantNamesForLog, t.Name)
 		}
 	}
+	var createdDataSources []string
+	var existingDataSources []string
+
 	logger.Info(fmt.Sprintf("Tenants to process (%d): %s", len(tenants), strings.Join(tenantNamesForLog, ", ")))
 	for i, tenant := range tenants {
 		tenantNameForLog := tenantNamesForLog[i]
@@ -79,14 +82,17 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 		if !exists {
 			if dryRun {
 				logger.Info(fmt.Sprintf("DRY RUN: Would create data source '%s' in tenant %s", dataSourceName, tenantNameForLog))
+				createdDataSources = append(createdDataSources, fmt.Sprintf("%s (tenant=%s)", dataSourceName, tenantNameForLog))
 			} else {
 				if err := kb.CreateDataSource(tenant, dataSourceName, cfg.GetOpenSearchURL(), user, pass); err != nil {
 					return err
 				}
 				logger.Info(fmt.Sprintf("Created data source '%s' in tenant %s", dataSourceName, tenantNameForLog))
+				createdDataSources = append(createdDataSources, fmt.Sprintf("%s (tenant=%s)", dataSourceName, tenantNameForLog))
 			}
 		} else {
 			logger.Info(fmt.Sprintf("Data source already exists in tenant %s (title=%s)", tenantNameForLog, dataSourceName))
+			existingDataSources = append(existingDataSources, fmt.Sprintf("%s (tenant=%s)", dataSourceName, tenantNameForLog))
 		}
 	}
 
@@ -168,6 +174,27 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 			}
 		}
 	}
+
+	fmt.Println("\n" + strings.Repeat("=", 60))
+	fmt.Println("DATA SOURCE SUMMARY")
+	fmt.Println(strings.Repeat("=", 60))
+	if len(createdDataSources) > 0 {
+		fmt.Printf("Created: %d data sources\n", len(createdDataSources))
+		for _, name := range createdDataSources {
+			fmt.Printf("  ✓ %s\n", name)
+		}
+	}
+	if len(existingDataSources) > 0 {
+		fmt.Printf("\nAlready exists: %d data sources\n", len(existingDataSources))
+		for _, name := range existingDataSources {
+			fmt.Printf("  - %s\n", name)
+		}
+	}
+	if len(createdDataSources) == 0 && len(existingDataSources) == 0 {
+		fmt.Println("No data sources were added")
+	}
+	fmt.Println(strings.Repeat("=", 60))
+
 	return nil
 }
 

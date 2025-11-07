@@ -42,6 +42,8 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}
 
+	var createdPatterns []string
+
 	if cfg.GetIndexPatternsKibanaMultitenancy() {
 		if cfg.GetIndexPatternsRecovererEnabled() {
 			return fmt.Errorf("recoverer_enabled must be false in multitenancy mode")
@@ -109,14 +111,29 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 				id := fmt.Sprintf("index-pattern:%s", uuid.NewString())
 				if dryRun {
 					logger.Info(fmt.Sprintf("DRY RUN: Would create index pattern %s in tenant %s", p, t.Name))
+					createdPatterns = append(createdPatterns, fmt.Sprintf("%s (tenant=%s)", p, t.Name))
 					continue
 				}
 				if err := osClient.CreateDoc(tenantIndex, id, payload); err != nil {
 					return err
 				}
 				logger.Info(fmt.Sprintf("Created index pattern %s in tenant %s", p, t.Name))
+				createdPatterns = append(createdPatterns, fmt.Sprintf("%s (tenant=%s)", p, t.Name))
 			}
 		}
+
+		fmt.Println("\n" + strings.Repeat("=", 60))
+		fmt.Println("INDEX PATTERNS SUMMARY")
+		fmt.Println(strings.Repeat("=", 60))
+		if len(createdPatterns) > 0 {
+			fmt.Printf("Created: %d index patterns\n", len(createdPatterns))
+			for _, name := range createdPatterns {
+				fmt.Printf("  ✓ %s\n", name)
+			}
+		} else {
+			fmt.Println("No index patterns were added")
+		}
+		fmt.Println(strings.Repeat("=", 60))
 		return nil
 	}
 
@@ -175,12 +192,14 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 		id := fmt.Sprintf("index-pattern:%s", uuid.NewString())
 		if dryRun {
 			logger.Info(fmt.Sprintf("DRY RUN: Would create index pattern %s", p))
+			createdPatterns = append(createdPatterns, p)
 			continue
 		}
 		if err := osClient.CreateDoc(".kibana", id, payload); err != nil {
 			return err
 		}
 		logger.Info(fmt.Sprintf("Created index pattern %s", p))
+		createdPatterns = append(createdPatterns, p)
 	}
 	if cfg.GetIndexPatternsRecovererEnabled() {
 		frDS, err := osClient.Search(".kibana", "q=type=data-source&size=1000")
@@ -210,12 +229,28 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 				}
 				if dryRun {
 					logger.Info("DRY RUN: Would create index pattern extracted_* with data-source reference")
+					createdPatterns = append(createdPatterns, "extracted_*")
 				} else if err := osClient.CreateDoc(".kibana", "index-pattern:recoverer-extracted", payload); err == nil {
 					logger.Info("Created index pattern extracted_* with data-source reference")
+					createdPatterns = append(createdPatterns, "extracted_*")
 				}
 			}
 		}
 	}
+
+	fmt.Println("\n" + strings.Repeat("=", 60))
+	fmt.Println("INDEX PATTERNS SUMMARY")
+	fmt.Println(strings.Repeat("=", 60))
+	if len(createdPatterns) > 0 {
+		fmt.Printf("Created: %d index patterns\n", len(createdPatterns))
+		for _, name := range createdPatterns {
+			fmt.Printf("  ✓ %s\n", name)
+		}
+	} else {
+		fmt.Println("No index patterns were added")
+	}
+	fmt.Println(strings.Repeat("=", 60))
+
 	return nil
 }
 

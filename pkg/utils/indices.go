@@ -77,12 +77,15 @@ func MatchesSnapshot(snapshotName string, indexConfig config.IndexConfig) bool {
 	return MatchesIndex(indexName, indexConfig)
 }
 
-func BatchDeleteIndices(client *opensearch.Client, indices []string, dryRun bool, logger *logging.Logger) error {
+func BatchDeleteIndices(client *opensearch.Client, indices []string, dryRun bool, logger *logging.Logger) ([]string, []string, error) {
 	const batchSize = 10
+
+	var successful []string
+	var failed []string
 
 	if dryRun {
 		logger.Info(fmt.Sprintf("Dry run: would delete indices count=%d", len(indices)))
-		return nil
+		return nil, nil, nil
 	}
 
 	for i := 0; i < len(indices); i += batchSize {
@@ -97,12 +100,14 @@ func BatchDeleteIndices(client *opensearch.Client, indices []string, dryRun bool
 		err := client.DeleteIndices(batch)
 		if err != nil {
 			logger.Error(fmt.Sprintf("Failed to delete indices batch indices=%v error=%v", batch, err))
+			failed = append(failed, batch...)
 			continue
 		}
 		logger.Info(fmt.Sprintf("Indices batch deleted successfully indices=%v", batch))
+		successful = append(successful, batch...)
 	}
 
-	return nil
+	return successful, failed, nil
 }
 
 func NormalizeTenantName(name string) string {

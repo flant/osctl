@@ -85,6 +85,8 @@ func runSharding(cmd *cobra.Command, args []string) error {
 		oldReplicas int
 	}
 	var changes []templateChange
+	successfulChanges := make([]templateChange, 0)
+	failedChanges := make([]templateChange, 0)
 
 	type patternInfo struct {
 		base       string
@@ -208,21 +210,25 @@ func runSharding(cmd *cobra.Command, args []string) error {
 			template["composed_of"] = []string{"default_template"}
 		}
 		if existing == "" {
+			ch := templateChange{
+				action:   "create",
+				template: templateName,
+				pattern:  pattern,
+				shards:   shards,
+				replicas: replicas,
+				priority: priority,
+			}
 			if dryRun {
 				logger.Info(fmt.Sprintf("DRY RUN: Would create index template %s for pattern %s with shards=%d replicas=%d priority=%d", templateName, pattern, shards, replicas, priority))
-				changes = append(changes, templateChange{
-					action:   "create",
-					template: templateName,
-					pattern:  pattern,
-					shards:   shards,
-					replicas: replicas,
-					priority: priority,
-				})
+				changes = append(changes, ch)
 			} else {
 				logger.Info(fmt.Sprintf("Create index template %s for pattern %s with %d shards", templateName, pattern, shards))
 				if err := client.PutIndexTemplate(templateName, template); err != nil {
-					return err
+					logger.Error(fmt.Sprintf("Failed to create index template template=%s pattern=%s error=%v", templateName, pattern, err))
+					failedChanges = append(failedChanges, ch)
+					continue
 				}
+				successfulChanges = append(successfulChanges, ch)
 			}
 		} else {
 			curShards := 1
@@ -262,17 +268,18 @@ func runSharding(cmd *cobra.Command, args []string) error {
 				logger.Info(fmt.Sprintf("Template %s already has correct shards: %d", existing, shards))
 				continue
 			}
+			ch := templateChange{
+				action:      "update",
+				template:    existing,
+				pattern:     pattern,
+				shards:      shards,
+				replicas:    replicas,
+				oldShards:   curShards,
+				oldReplicas: replicas,
+			}
 			if dryRun {
 				logger.Info(fmt.Sprintf("DRY RUN: Would update template %s: shards %d to %d", existing, curShards, shards))
-				changes = append(changes, templateChange{
-					action:      "update",
-					template:    existing,
-					pattern:     pattern,
-					shards:      shards,
-					replicas:    replicas,
-					oldShards:   curShards,
-					oldReplicas: replicas,
-				})
+				changes = append(changes, ch)
 			} else {
 				logger.Info(fmt.Sprintf("Update existing template %s: set number_of_shards=%d", existing, shards))
 				var current map[string]any
@@ -317,8 +324,11 @@ func runSharding(cmd *cobra.Command, args []string) error {
 					}
 				}
 				if err := client.PutIndexTemplate(existing, current); err != nil {
-					return err
+					logger.Error(fmt.Sprintf("Failed to update index template template=%s pattern=%s error=%v", existing, pattern, err))
+					failedChanges = append(failedChanges, ch)
+					continue
 				}
+				successfulChanges = append(successfulChanges, ch)
 			}
 		}
 	}
@@ -337,7 +347,36 @@ func runSharding(cmd *cobra.Command, args []string) error {
 			}
 		}
 		logger.Info("")
+		return nil
 	}
+
+	fmt.Println("\n" + strings.Repeat("=", 60))
+	fmt.Println("SHARDING SUMMARY")
+	fmt.Println(strings.Repeat("=", 60))
+	if len(successfulChanges) > 0 {
+		fmt.Printf("Successfully changed: %d templates\n", len(successfulChanges))
+		for _, ch := range successfulChanges {
+			if ch.action == "create" {
+				fmt.Printf("  ✓ Created: %s (pattern=%s, shards=%d, replicas=%d)\n", ch.template, ch.pattern, ch.shards, ch.replicas)
+			} else {
+				fmt.Printf("  ✓ Updated: %s (pattern=%s, shards %d→%d)\n", ch.template, ch.pattern, ch.oldShards, ch.shards)
+			}
+		}
+	}
+	if len(failedChanges) > 0 {
+		fmt.Printf("\nFailed to change: %d templates\n", len(failedChanges))
+		for _, ch := range failedChanges {
+			if ch.action == "create" {
+				fmt.Printf("  ✗ Failed to create: %s (pattern=%s)\n", ch.template, ch.pattern)
+			} else {
+				fmt.Printf("  ✗ Failed to update: %s (pattern=%s)\n", ch.template, ch.pattern)
+			}
+		}
+	}
+	if len(successfulChanges) == 0 && len(failedChanges) == 0 {
+		fmt.Println("No templates were changed")
+	}
+	fmt.Println(strings.Repeat("=", 60))
 
 	return nil
 }

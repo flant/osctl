@@ -200,8 +200,59 @@ func WaitForSnapshotTasks(client *opensearch.Client, logger *logging.Logger, tar
 	return nil
 }
 
+func CheckIndicesExist(client *opensearch.Client, indicesStr string, logger *logging.Logger) ([]string, error) {
+	indices := strings.Split(indicesStr, ",")
+	existingIndices := make([]string, 0)
+
+	for _, indexName := range indices {
+		indexName = strings.TrimSpace(indexName)
+		if indexName == "" {
+			continue
+		}
+
+		indicesInfo, err := client.GetIndicesWithFields(indexName, "index")
+		if err != nil {
+			logger.Warn(fmt.Sprintf("Failed to check index existence index=%s error=%v", indexName, err))
+			continue
+		}
+
+		found := false
+		for _, idx := range indicesInfo {
+			if idx.Index == indexName {
+				found = true
+				break
+			}
+		}
+
+		if found {
+			existingIndices = append(existingIndices, indexName)
+		} else {
+			logger.Warn(fmt.Sprintf("Index does not exist, skipping snapshot creation index=%s", indexName))
+		}
+	}
+
+	return existingIndices, nil
+}
+
 func CreateSnapshotWithRetry(client *opensearch.Client, snapshotName, indexName, snapRepo string, madisonClient interface{}, logger *logging.Logger, pollInterval time.Duration) error {
 	const maxRetries = 7
+
+	existingIndices, err := CheckIndicesExist(client, indexName, logger)
+	if err != nil {
+		logger.Error(fmt.Sprintf("Failed to check indices existence snapshot=%s error=%v", snapshotName, err))
+		return err
+	}
+
+	if len(existingIndices) == 0 {
+		logger.Warn(fmt.Sprintf("No existing indices found, skipping snapshot creation snapshot=%s indices=%s", snapshotName, indexName))
+		return fmt.Errorf("no existing indices to snapshot")
+	}
+
+	existingIndicesStr := strings.Join(existingIndices, ",")
+	if existingIndicesStr != indexName {
+		logger.Info(fmt.Sprintf("Some indices were removed, using only existing indices snapshot=%s existing=%s original=%s", snapshotName, existingIndicesStr, indexName))
+		indexName = existingIndicesStr
+	}
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		logger.Info(fmt.Sprintf("Creating snapshot attempt snapshot=%s attempt=%d maxRetries=%d", snapshotName, attempt, maxRetries))
@@ -331,13 +382,16 @@ func FindMatchingSnapshotConfig(snapshotName string, indicesConfig []config.Inde
 	return nil
 }
 
-func BatchDeleteSnapshots(client *opensearch.Client, snapshots []string, snapRepo string, dryRun bool, logger *logging.Logger) error {
+func BatchDeleteSnapshots(client *opensearch.Client, snapshots []string, snapRepo string, dryRun bool, logger *logging.Logger) ([]string, []string, error) {
 	const batchSize = 10
 	const maxRetries = 7
 
+	var successful []string
+	var failed []string
+
 	if dryRun {
 		logger.Info(fmt.Sprintf("Dry run: would delete snapshots count=%d", len(snapshots)))
-		return nil
+		return nil, nil, nil
 	}
 
 	for i := 0; i < len(snapshots); i += batchSize {
@@ -388,16 +442,18 @@ func BatchDeleteSnapshots(client *opensearch.Client, snapshots []string, snapRep
 				}
 			} else {
 				logger.Info(fmt.Sprintf("Snapshots batch deleted successfully batch=%d attempt=%d snapshots=%v", i/batchSize+1, attempt, existingSnapshots))
+				successful = append(successful, existingSnapshots...)
 				break
 			}
 		}
 
 		if lastErr != nil {
 			logger.Error(fmt.Sprintf("Failed to delete snapshots batch after all retries batch=%d maxRetries=%d snapshots=%v error=%v", i/batchSize+1, maxRetries, batch, lastErr))
+			failed = append(failed, batch...)
 		}
 	}
 
-	return nil
+	return successful, failed, nil
 }
 
 type SnapshotGroup struct {

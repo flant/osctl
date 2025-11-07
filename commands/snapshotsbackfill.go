@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"math/rand"
 	"osctl/pkg/alerts"
 	"osctl/pkg/config"
 	"osctl/pkg/logging"
@@ -170,6 +171,8 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 
 	var totalSnapshotsToCreate int
 	var allSnapshotsToCreate []utils.SnapshotGroup
+	var successfulSnapshots []string
+	var failedSnapshots []string
 
 	for _, dateKey := range dateKeys {
 		indicesForDate := dateGroups[dateKey]
@@ -354,6 +357,13 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 		}
 
 		if !cfg.GetDryRun() {
+			if dateKey == dateKeys[0] {
+				randomWaitSeconds := rand.Intn(291) + 10
+				randomWaitDuration := time.Duration(randomWaitSeconds) * time.Second
+				logger.Info(fmt.Sprintf("Waiting %d seconds before starting snapshot creation to distribute load", randomWaitSeconds))
+				time.Sleep(randomWaitDuration)
+			}
+
 			allSnapshotsForDate, err := utils.GetSnapshotsIgnore404(client, defaultRepo, "*"+snapshotDate+"*")
 			if err != nil {
 				logger.Error(fmt.Sprintf("Failed to get snapshots for date date=%s error=%v", dateKey, err))
@@ -389,8 +399,10 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 				err = utils.CreateSnapshotWithRetry(client, group.SnapshotName, indicesStr, defaultRepo, madisonClient, logger, 10*time.Minute)
 				if err != nil {
 					logger.Error(fmt.Sprintf("Failed to create snapshot after retries snapshot=%s error=%v", group.SnapshotName, err))
+					failedSnapshots = append(failedSnapshots, group.SnapshotName)
 					continue
 				}
+				successfulSnapshots = append(successfulSnapshots, group.SnapshotName)
 
 				logger.Info("Waiting 10 minutes before next snapshot creation")
 				time.Sleep(10 * time.Minute)
@@ -435,8 +447,10 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 						err = utils.CreateSnapshotWithRetry(client, g.SnapshotName, indicesStr, repo, madisonClient, logger, 10*time.Minute)
 						if err != nil {
 							logger.Error(fmt.Sprintf("Failed to create snapshot after retries repo=%s snapshot=%s error=%v", repo, g.SnapshotName, err))
+							failedSnapshots = append(failedSnapshots, fmt.Sprintf("%s (repo=%s)", g.SnapshotName, repo))
 							continue
 						}
+						successfulSnapshots = append(successfulSnapshots, fmt.Sprintf("%s (repo=%s)", g.SnapshotName, repo))
 
 						logger.Info("Waiting 10 minutes before next snapshot creation")
 						time.Sleep(10 * time.Minute)
@@ -444,6 +458,28 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 				}
 			}
 		}
+	}
+
+	if !cfg.GetDryRun() {
+		fmt.Println("\n" + strings.Repeat("=", 60))
+		fmt.Println("SNAPSHOT BACKFILL SUMMARY")
+		fmt.Println(strings.Repeat("=", 60))
+		if len(successfulSnapshots) > 0 {
+			fmt.Printf("Successfully created: %d snapshots\n", len(successfulSnapshots))
+			for _, name := range successfulSnapshots {
+				fmt.Printf("  ✓ %s\n", name)
+			}
+		}
+		if len(failedSnapshots) > 0 {
+			fmt.Printf("\nFailed to create: %d snapshots\n", len(failedSnapshots))
+			for _, name := range failedSnapshots {
+				fmt.Printf("  ✗ %s\n", name)
+			}
+		}
+		if len(successfulSnapshots) == 0 && len(failedSnapshots) == 0 {
+			fmt.Println("No snapshots were created")
+		}
+		fmt.Println(strings.Repeat("=", 60))
 	}
 
 	if cfg.GetDryRun() {

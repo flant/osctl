@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"math/rand"
 	"osctl/pkg/config"
 	"osctl/pkg/logging"
 	"osctl/pkg/opensearch"
@@ -149,12 +150,25 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	var successfulDeletions []string
+	var failedDeletions []string
+
 	if len(snapshotsToDelete) > 0 {
+		if !cfg.GetDryRun() {
+			randomWaitSeconds := rand.Intn(291) + 10
+			randomWaitDuration := time.Duration(randomWaitSeconds) * time.Second
+			logger.Info(fmt.Sprintf("Waiting %d seconds before starting snapshot deletion to distribute load", randomWaitSeconds))
+			time.Sleep(randomWaitDuration)
+		}
+
 		logger.Info(fmt.Sprintf("Snapshots to delete %s", strings.Join(snapshotsToDelete, ", ")))
 		logger.Info(fmt.Sprintf("Deleting snapshots count=%d", len(snapshotsToDelete)))
-		if err := utils.BatchDeleteSnapshots(client, snapshotsToDelete, cfg.GetSnapshotRepo(), cfg.GetDryRun(), logger); err != nil {
+		successful, failed, err := utils.BatchDeleteSnapshots(client, snapshotsToDelete, cfg.GetSnapshotRepo(), cfg.GetDryRun(), logger)
+		if err != nil {
 			logger.Error(fmt.Sprintf("Failed to delete snapshots error=%v", err))
 		}
+		successfulDeletions = append(successfulDeletions, successful...)
+		failedDeletions = append(failedDeletions, failed...)
 	} else {
 		logger.Info("No snapshots for deletion in default repo")
 	}
@@ -165,11 +179,37 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 				continue
 			}
 			logger.Info(fmt.Sprintf("Snapshots to delete (repo=%s) %s", repo, strings.Join(names, ", ")))
-			_ = utils.BatchDeleteSnapshots(client, names, repo, cfg.GetDryRun(), logger)
+			successful, failed, _ := utils.BatchDeleteSnapshots(client, names, repo, cfg.GetDryRun(), logger)
+			for _, name := range successful {
+				successfulDeletions = append(successfulDeletions, fmt.Sprintf("%s (repo=%s)", name, repo))
+			}
+			for _, name := range failed {
+				failedDeletions = append(failedDeletions, fmt.Sprintf("%s (repo=%s)", name, repo))
+			}
 		}
 	} else {
 		logger.Info("No snapshots for deletion in custom repos")
 	}
+
+	fmt.Println("\n" + strings.Repeat("=", 60))
+	fmt.Println("SNAPSHOT DELETION SUMMARY")
+	fmt.Println(strings.Repeat("=", 60))
+	if len(successfulDeletions) > 0 {
+		fmt.Printf("Successfully deleted: %d snapshots\n", len(successfulDeletions))
+		for _, name := range successfulDeletions {
+			fmt.Printf("  ✓ %s\n", name)
+		}
+	}
+	if len(failedDeletions) > 0 {
+		fmt.Printf("\nFailed to delete: %d snapshots\n", len(failedDeletions))
+		for _, name := range failedDeletions {
+			fmt.Printf("  ✗ %s\n", name)
+		}
+	}
+	if len(successfulDeletions) == 0 && len(failedDeletions) == 0 {
+		fmt.Println("No snapshots were deleted")
+	}
+	fmt.Println(strings.Repeat("=", 60))
 
 	logger.Info("Snapshot deletion completed")
 	return nil

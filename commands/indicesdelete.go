@@ -95,16 +95,41 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 		logger.Info(fmt.Sprintf("Indices skipped (no date in name) count=%d list=%s", len(indicesWithoutDateForLog), strings.Join(indicesWithoutDateForLog, ", ")))
 	}
 
+	var successfulDeletions []string
+	var failedDeletions []string
+
 	if len(indicesToDelete) > 0 {
 		logger.Info(fmt.Sprintf("Indices to delete %s", strings.Join(indicesToDelete, ", ")))
 		logger.Info(fmt.Sprintf("Deleting indices count=%d", len(indicesToDelete)))
-		err := utils.BatchDeleteIndices(client, indicesToDelete, cfg.GetDryRun(), logger)
+		successful, failed, err := utils.BatchDeleteIndices(client, indicesToDelete, cfg.GetDryRun(), logger)
 		if err != nil {
 			logger.Error(fmt.Sprintf("Failed to delete indices error=%v", err))
 		}
+		successfulDeletions = successful
+		failedDeletions = failed
 	} else {
 		logger.Info("No indices for deletion")
 	}
+
+	fmt.Println("\n" + strings.Repeat("=", 60))
+	fmt.Println("INDICES DELETION SUMMARY")
+	fmt.Println(strings.Repeat("=", 60))
+	if len(successfulDeletions) > 0 {
+		fmt.Printf("Successfully deleted: %d indices\n", len(successfulDeletions))
+		for _, name := range successfulDeletions {
+			fmt.Printf("  ✓ %s\n", name)
+		}
+	}
+	if len(failedDeletions) > 0 {
+		fmt.Printf("\nFailed to delete: %d indices\n", len(failedDeletions))
+		for _, name := range failedDeletions {
+			fmt.Printf("  ✗ %s\n", name)
+		}
+	}
+	if len(successfulDeletions) == 0 && len(failedDeletions) == 0 {
+		fmt.Println("No indices were deleted")
+	}
+	fmt.Println(strings.Repeat("=", 60))
 
 	logger.Info("Indices deletion completed")
 	return nil

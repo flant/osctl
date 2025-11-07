@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"math/rand"
 	"osctl/pkg/alerts"
 	"osctl/pkg/config"
 	"osctl/pkg/logging"
@@ -223,7 +224,15 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	var successfulSnapshots []string
+	var failedSnapshots []string
+
 	if !cfg.GetDryRun() {
+		randomWaitSeconds := rand.Intn(291) + 10
+		randomWaitDuration := time.Duration(randomWaitSeconds) * time.Second
+		logger.Info(fmt.Sprintf("Waiting %d seconds before starting snapshot creation to distribute load", randomWaitSeconds))
+		time.Sleep(randomWaitDuration)
+
 		allSnapshots, err := utils.GetSnapshotsIgnore404(client, defaultRepo, "*"+today+"*")
 		if err != nil {
 			return fmt.Errorf("failed to get snapshots: %v", err)
@@ -264,8 +273,10 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 			err = utils.CreateSnapshotWithRetry(client, group.SnapshotName, indicesStr, defaultRepo, madisonClient, logger, 60*time.Second)
 			if err != nil {
 				logger.Error(fmt.Sprintf("Failed to create snapshot after retries snapshot=%s error=%v", group.SnapshotName, err))
+				failedSnapshots = append(failedSnapshots, group.SnapshotName)
 				continue
 			}
+			successfulSnapshots = append(successfulSnapshots, group.SnapshotName)
 		}
 
 		if len(repoGroups) > 0 {
@@ -307,12 +318,34 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 					err = utils.CreateSnapshotWithRetry(client, g.SnapshotName, indicesStr, repo, madisonClient, logger, 60*time.Second)
 					if err != nil {
 						logger.Error(fmt.Sprintf("Failed to create snapshot after retries repo=%s snapshot=%s error=%v", repo, g.SnapshotName, err))
+						failedSnapshots = append(failedSnapshots, fmt.Sprintf("%s (repo=%s)", g.SnapshotName, repo))
 						continue
 					}
+					successfulSnapshots = append(successfulSnapshots, fmt.Sprintf("%s (repo=%s)", g.SnapshotName, repo))
 				}
 			}
 		}
 	}
+
+	fmt.Println("\n" + strings.Repeat("=", 60))
+	fmt.Println("SNAPSHOT CREATION SUMMARY")
+	fmt.Println(strings.Repeat("=", 60))
+	if len(successfulSnapshots) > 0 {
+		fmt.Printf("Successfully created: %d snapshots\n", len(successfulSnapshots))
+		for _, name := range successfulSnapshots {
+			fmt.Printf("  ✓ %s\n", name)
+		}
+	}
+	if len(failedSnapshots) > 0 {
+		fmt.Printf("\nFailed to create: %d snapshots\n", len(failedSnapshots))
+		for _, name := range failedSnapshots {
+			fmt.Printf("  ✗ %s\n", name)
+		}
+	}
+	if len(successfulSnapshots) == 0 && len(failedSnapshots) == 0 {
+		fmt.Println("No snapshots were created")
+	}
+	fmt.Println(strings.Repeat("=", 60))
 
 	logger.Info("Snapshot creation completed")
 	return nil
