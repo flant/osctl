@@ -25,7 +25,7 @@ type Alert struct {
 type Labels struct {
 	Trigger       string `json:"trigger"`
 	SeverityLevel string `json:"severity_level"`
-	SnapshotsList string `json:"SnapshotsList"`
+	IndicesList   string `json:"IndicesList"`
 	Kibana        string `json:"kibana"`
 }
 
@@ -50,13 +50,13 @@ func (c *Client) SendMadisonSnapshotMissingAlert(missingSnapshots []string) (str
 		return "", nil
 	}
 
-	var displayList, snapshotsList string
+	var displayList, indicesList string
 	if len(missingSnapshots) <= 3 {
 		displayList = strings.Join(missingSnapshots, ",")
-		snapshotsList = displayList
+		indicesList = displayList
 	} else {
 		displayList = strings.Join(missingSnapshots[:3], ",") + ",... полный список индексов в описании."
-		snapshotsList = strings.Join(missingSnapshots[:3], ",") + ",..."
+		indicesList = strings.Join(missingSnapshots[:3], ",") + ",..."
 	}
 
 	summary := fmt.Sprintf("Снапшоты не найдены для индексов: %s", displayList)
@@ -67,7 +67,7 @@ func (c *Client) SendMadisonSnapshotMissingAlert(missingSnapshots []string) (str
 		Labels: Labels{
 			Trigger:       "SnapshotsMissing",
 			SeverityLevel: "5",
-			SnapshotsList: snapshotsList,
+			IndicesList:   indicesList,
 			Kibana:        c.kibanaHost,
 		},
 		Annotations: Annotations{
@@ -181,7 +181,7 @@ func (c *Client) SendMadisonSnapshotCreationFailedAlert(snapshotName, indexName 
 		Labels: Labels{
 			Trigger:       "SnapshotCreationFailed",
 			SeverityLevel: "4",
-			SnapshotsList: snapshotName,
+			IndicesList:   snapshotName,
 			Kibana:        c.kibanaHost,
 		},
 		Annotations: Annotations{

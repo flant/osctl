@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"math/rand"
 	"osctl/pkg/config"
 	"osctl/pkg/logging"
 	"osctl/pkg/opensearch"
@@ -49,12 +50,13 @@ func CheckAndCleanSnapshot(snapshotName string, indexName string, snapshots []op
 				return true, nil
 			}
 			if snapshot.State == "PARTIAL" || snapshot.State == "FAILED" {
-				logger.Info(fmt.Sprintf("Deleting FAILED snapshot snapshot=%s state=%s", snapshotName, snapshot.State))
+				logger.Info(fmt.Sprintf("Deleting PARTIAL/FAILED snapshot snapshot=%s state=%s", snapshotName, snapshot.State))
 				err := client.DeleteSnapshots(snapRepo, []string{snapshotName})
 				if err != nil {
 					logger.Error(fmt.Sprintf("Failed to delete PARTIAL/FAILED snapshot snapshot=%s error=%v", snapshotName, err))
 					return false, err
 				}
+				logger.Info(fmt.Sprintf("Deleted PARTIAL/FAILED snapshot snapshot=%s state=%s", snapshotName, snapshot.State))
 				return false, nil
 			}
 		}
@@ -199,7 +201,7 @@ func WaitForSnapshotTasks(client *opensearch.Client, logger *logging.Logger, tar
 }
 
 func CreateSnapshotWithRetry(client *opensearch.Client, snapshotName, indexName, snapRepo string, madisonClient interface{}, logger *logging.Logger, pollInterval time.Duration) error {
-	const maxRetries = 5
+	const maxRetries = 7
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		logger.Info(fmt.Sprintf("Creating snapshot attempt snapshot=%s attempt=%d maxRetries=%d", snapshotName, attempt, maxRetries))
@@ -267,13 +269,18 @@ func CreateSnapshotWithRetry(client *opensearch.Client, snapshotName, indexName,
 				logger.Info(fmt.Sprintf("Snapshot created successfully snapshot=%s duration=%s", snapshotName, durationStr))
 				return nil
 			case "PARTIAL", "FAILED":
-				logger.Warn(fmt.Sprintf("Snapshot is PARTIAL/FAILED, deleting and retrying snapshot=%s state=%s", snapshotName, snapshot.State))
+				duration := time.Since(startTime)
+				durationStr := formatDuration(duration)
+				logger.Warn(fmt.Sprintf("Snapshot is PARTIAL/FAILED, deleting and retrying snapshot=%s state=%s duration=%s", snapshotName, snapshot.State, durationStr))
 				err := client.DeleteSnapshots(snapRepo, []string{snapshotName})
 				if err != nil {
 					logger.Error(fmt.Sprintf("Failed to delete PARTIAL/FAILED snapshot snapshot=%s error=%v", snapshotName, err))
+				} else {
+					logger.Info(fmt.Sprintf("Deleted PARTIAL/FAILED snapshot snapshot=%s state=%s duration=%s", snapshotName, snapshot.State, durationStr))
 				}
 				if attempt < maxRetries {
-					time.Sleep(time.Duration(attempt) * time.Second)
+					logger.Info(fmt.Sprintf("Waiting 5 minutes before retry attempt=%d maxRetries=%d", attempt+1, maxRetries))
+					time.Sleep(5 * time.Minute)
 					break pollLoop
 				}
 			default:
@@ -326,6 +333,7 @@ func FindMatchingSnapshotConfig(snapshotName string, indicesConfig []config.Inde
 
 func BatchDeleteSnapshots(client *opensearch.Client, snapshots []string, snapRepo string, dryRun bool, logger *logging.Logger) error {
 	const batchSize = 10
+	const maxRetries = 7
 
 	if dryRun {
 		logger.Info(fmt.Sprintf("Dry run: would delete snapshots count=%d", len(snapshots)))
@@ -339,14 +347,54 @@ func BatchDeleteSnapshots(client *opensearch.Client, snapshots []string, snapRep
 		}
 
 		batch := snapshots[i:end]
-		logger.Info(fmt.Sprintf("Deleting snapshots batch batch=%d snapshots=%v", i/batchSize+1, batch))
 
-		err := client.DeleteSnapshots(snapRepo, batch)
-		if err != nil {
-			logger.Error(fmt.Sprintf("Failed to delete snapshots batch snapshots=%v error=%v", batch, err))
-			continue
+		randomWaitMinutes := rand.Intn(5) + 1
+		randomWaitDuration := time.Duration(randomWaitMinutes) * time.Minute
+		logger.Info(fmt.Sprintf("Waiting %d minutes before deleting batch batch=%d snapshots=%v", randomWaitMinutes, i/batchSize+1, batch))
+		time.Sleep(randomWaitDuration)
+
+		var lastErr error
+		for attempt := 1; attempt <= maxRetries; attempt++ {
+			existingSnapshots := make([]string, 0)
+			for _, snapshotName := range batch {
+				snapshots, err := GetSnapshotsIgnore404(client, snapRepo, snapshotName)
+				if err != nil {
+					logger.Warn(fmt.Sprintf("Failed to check snapshot existence snapshot=%s error=%v, will try to delete", snapshotName, err))
+					existingSnapshots = append(existingSnapshots, snapshotName)
+					continue
+				}
+				if len(snapshots) > 0 {
+					existingSnapshots = append(existingSnapshots, snapshotName)
+				} else {
+					logger.Info(fmt.Sprintf("Snapshot already deleted, skipping snapshot=%s", snapshotName))
+				}
+			}
+
+			if len(existingSnapshots) == 0 {
+				logger.Info(fmt.Sprintf("All snapshots from batch already deleted batch=%d attempt=%d snapshots=%v", i/batchSize+1, attempt, batch))
+				break
+			}
+
+			logger.Info(fmt.Sprintf("Deleting snapshots batch batch=%d attempt=%d maxRetries=%d snapshots=%v", i/batchSize+1, attempt, maxRetries, existingSnapshots))
+
+			err := client.DeleteSnapshots(snapRepo, existingSnapshots)
+			if err != nil {
+				lastErr = err
+				logger.Error(fmt.Sprintf("Failed to delete snapshots batch batch=%d attempt=%d snapshots=%v error=%v", i/batchSize+1, attempt, existingSnapshots, err))
+				if attempt < maxRetries {
+					logger.Info(fmt.Sprintf("Waiting 5 minutes before retry batch=%d attempt=%d", i/batchSize+1, attempt+1))
+					time.Sleep(5 * time.Minute)
+					continue
+				}
+			} else {
+				logger.Info(fmt.Sprintf("Snapshots batch deleted successfully batch=%d attempt=%d snapshots=%v", i/batchSize+1, attempt, existingSnapshots))
+				break
+			}
 		}
-		logger.Info(fmt.Sprintf("Snapshots batch deleted successfully snapshots=%v", batch))
+
+		if lastErr != nil {
+			logger.Error(fmt.Sprintf("Failed to delete snapshots batch after all retries batch=%d maxRetries=%d snapshots=%v error=%v", i/batchSize+1, maxRetries, batch, lastErr))
+		}
 	}
 
 	return nil
