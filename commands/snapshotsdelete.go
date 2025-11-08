@@ -192,25 +192,26 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 	}
 
 	if !cfg.GetDryRun() {
-		fmt.Println("\n" + strings.Repeat("=", 60))
-		fmt.Println("SNAPSHOT DELETION SUMMARY")
-		fmt.Println(strings.Repeat("=", 60))
+		logger.Info("\n" + strings.Repeat("=", 60))
+		logger.Info("SNAPSHOT DELETION SUMMARY")
+		logger.Info(strings.Repeat("=", 60))
 		if len(successfulDeletions) > 0 {
-			fmt.Printf("Successfully deleted: %d snapshots\n", len(successfulDeletions))
+			logger.Info(fmt.Sprintf("Successfully deleted: %d snapshots", len(successfulDeletions)))
 			for _, name := range successfulDeletions {
-				fmt.Printf("  ✓ %s\n", name)
+				logger.Info(fmt.Sprintf("  ✓ %s", name))
 			}
 		}
 		if len(failedDeletions) > 0 {
-			fmt.Printf("\nFailed to delete: %d snapshots\n", len(failedDeletions))
+			logger.Info("")
+			logger.Info(fmt.Sprintf("Failed to delete: %d snapshots", len(failedDeletions)))
 			for _, name := range failedDeletions {
-				fmt.Printf("  ✗ %s\n", name)
+				logger.Info(fmt.Sprintf("  ✗ %s", name))
 			}
 		}
 		if len(successfulDeletions) == 0 && len(failedDeletions) == 0 {
-			fmt.Println("No snapshots were deleted")
+			logger.Info("No snapshots were deleted")
 		}
-		fmt.Println(strings.Repeat("=", 60))
+		logger.Info(strings.Repeat("=", 60))
 	}
 
 	logger.Info("Snapshot deletion completed")

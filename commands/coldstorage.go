@@ -116,31 +116,33 @@ func runColdStorage(cmd *cobra.Command, args []string) error {
 	}
 
 	if !dryRun {
-		fmt.Println("\n" + strings.Repeat("=", 60))
-		fmt.Println("COLD STORAGE MIGRATION SUMMARY")
-		fmt.Println(strings.Repeat("=", 60))
+		logger.Info("\n" + strings.Repeat("=", 60))
+		logger.Info("COLD STORAGE MIGRATION SUMMARY")
+		logger.Info(strings.Repeat("=", 60))
 		if len(successfulMigrations) > 0 {
-			fmt.Printf("Successfully migrated to cold: %d indices\n", len(successfulMigrations))
+			logger.Info(fmt.Sprintf("Successfully migrated to cold: %d indices", len(successfulMigrations)))
 			for _, name := range successfulMigrations {
-				fmt.Printf("  ✓ %s\n", name)
+				logger.Info(fmt.Sprintf("  ✓ %s", name))
 			}
 		}
 		if len(failedMigrations) > 0 {
-			fmt.Printf("\nFailed to migrate: %d indices\n", len(failedMigrations))
+			logger.Info("")
+			logger.Info(fmt.Sprintf("Failed to migrate: %d indices", len(failedMigrations)))
 			for _, name := range failedMigrations {
-				fmt.Printf("  ✗ %s\n", name)
+				logger.Info(fmt.Sprintf("  ✗ %s", name))
 			}
 		}
 		if len(alreadyCold) > 0 {
-			fmt.Printf("\nAlready in cold: %d indices\n", len(alreadyCold))
+			logger.Info("")
+			logger.Info(fmt.Sprintf("Already in cold: %d indices", len(alreadyCold)))
 			for _, name := range alreadyCold {
-				fmt.Printf("  - %s\n", name)
+				logger.Info(fmt.Sprintf("  - %s", name))
 			}
 		}
 		if len(successfulMigrations) == 0 && len(failedMigrations) == 0 && len(alreadyCold) == 0 {
-			fmt.Println("No indices were migrated to cold storage")
+			logger.Info("No indices were migrated to cold storage")
 		}
-		fmt.Println(strings.Repeat("=", 60))
+		logger.Info(strings.Repeat("=", 60))
 	}
 
 	logger.Info(fmt.Sprintf("Cold storage migration completed processed=%d skipped_already_cold=%d", len(coldIndices), len(alreadyCold)))

@@ -105,31 +105,33 @@ func runDereplicator(cmd *cobra.Command, args []string) error {
 	}
 
 	if !dryRun {
-		fmt.Println("\n" + strings.Repeat("=", 60))
-		fmt.Println("DEREPLICATOR SUMMARY")
-		fmt.Println(strings.Repeat("=", 60))
+		logger.Info("\n" + strings.Repeat("=", 60))
+		logger.Info("DEREPLICATOR SUMMARY")
+		logger.Info(strings.Repeat("=", 60))
 		if len(successfulDereplications) > 0 {
-			fmt.Printf("Successfully dereplicated: %d indices\n", len(successfulDereplications))
+			logger.Info(fmt.Sprintf("Successfully dereplicated: %d indices", len(successfulDereplications)))
 			for _, name := range successfulDereplications {
-				fmt.Printf("  ✓ %s\n", name)
+				logger.Info(fmt.Sprintf("  ✓ %s", name))
 			}
 		}
 		if len(problemIndices) > 0 {
-			fmt.Printf("\nFailed to dereplicate: %d indices\n", len(problemIndices))
+			logger.Info("")
+			logger.Info(fmt.Sprintf("Failed to dereplicate: %d indices", len(problemIndices)))
 			for _, name := range problemIndices {
-				fmt.Printf("  ✗ %s\n", name)
+				logger.Info(fmt.Sprintf("  ✗ %s", name))
 			}
 		}
 		if len(skippedNoSnapshot) > 0 {
-			fmt.Printf("\nSkipped (no valid snapshot): %d indices\n", len(skippedNoSnapshot))
+			logger.Info("")
+			logger.Info(fmt.Sprintf("Skipped (no valid snapshot): %d indices", len(skippedNoSnapshot)))
 			for _, name := range skippedNoSnapshot {
-				fmt.Printf("  - %s\n", name)
+				logger.Info(fmt.Sprintf("  - %s", name))
 			}
 		}
 		if len(successfulDereplications) == 0 && len(problemIndices) == 0 && len(skippedNoSnapshot) == 0 {
-			fmt.Println("No indices were dereplicated")
+			logger.Info("No indices were dereplicated")
 		}
-		fmt.Println(strings.Repeat("=", 60))
+		logger.Info(strings.Repeat("=", 60))
 	}
 
 	if len(skippedNoSnapshot) > 0 {

@@ -112,25 +112,26 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 	}
 
 	if !cfg.GetDryRun() {
-		fmt.Println("\n" + strings.Repeat("=", 60))
-		fmt.Println("INDICES DELETION SUMMARY")
-		fmt.Println(strings.Repeat("=", 60))
+		logger.Info("\n" + strings.Repeat("=", 60))
+		logger.Info("INDICES DELETION SUMMARY")
+		logger.Info(strings.Repeat("=", 60))
 		if len(successfulDeletions) > 0 {
-			fmt.Printf("Successfully deleted: %d indices\n", len(successfulDeletions))
+			logger.Info(fmt.Sprintf("Successfully deleted: %d indices", len(successfulDeletions)))
 			for _, name := range successfulDeletions {
-				fmt.Printf("  ✓ %s\n", name)
+				logger.Info(fmt.Sprintf("  ✓ %s", name))
 			}
 		}
 		if len(failedDeletions) > 0 {
-			fmt.Printf("\nFailed to delete: %d indices\n", len(failedDeletions))
+			logger.Info("")
+			logger.Info(fmt.Sprintf("Failed to delete: %d indices", len(failedDeletions)))
 			for _, name := range failedDeletions {
-				fmt.Printf("  ✗ %s\n", name)
+				logger.Info(fmt.Sprintf("  ✗ %s", name))
 			}
 		}
 		if len(successfulDeletions) == 0 && len(failedDeletions) == 0 {
-			fmt.Println("No indices were deleted")
+			logger.Info("No indices were deleted")
 		}
-		fmt.Println(strings.Repeat("=", 60))
+		logger.Info(strings.Repeat("=", 60))
 	}
 
 	logger.Info("Indices deletion completed")

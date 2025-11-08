@@ -461,43 +461,45 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 	}
 
 	if !cfg.GetDryRun() {
-		fmt.Println("\n" + strings.Repeat("=", 60))
-		fmt.Println("SNAPSHOT BACKFILL SUMMARY")
-		fmt.Println(strings.Repeat("=", 60))
+		logger.Info("\n" + strings.Repeat("=", 60))
+		logger.Info("SNAPSHOT BACKFILL SUMMARY")
+		logger.Info(strings.Repeat("=", 60))
 		if len(successfulSnapshots) > 0 {
-			fmt.Printf("Successfully created: %d snapshots\n", len(successfulSnapshots))
+			logger.Info(fmt.Sprintf("Successfully created: %d snapshots", len(successfulSnapshots)))
 			for _, name := range successfulSnapshots {
-				fmt.Printf("  ✓ %s\n", name)
+				logger.Info(fmt.Sprintf("  ✓ %s", name))
 			}
 		}
 		if len(failedSnapshots) > 0 {
-			fmt.Printf("\nFailed to create: %d snapshots\n", len(failedSnapshots))
+			logger.Info("")
+			logger.Info(fmt.Sprintf("Failed to create: %d snapshots", len(failedSnapshots)))
 			for _, name := range failedSnapshots {
-				fmt.Printf("  ✗ %s\n", name)
+				logger.Info(fmt.Sprintf("  ✗ %s", name))
 			}
 		}
 		if len(successfulSnapshots) == 0 && len(failedSnapshots) == 0 {
-			fmt.Println("No snapshots were created")
+			logger.Info("No snapshots were created")
 		}
-		fmt.Println(strings.Repeat("=", 60))
+		logger.Info(strings.Repeat("=", 60))
 	}
 
 	if cfg.GetDryRun() {
-		fmt.Println("\n" + strings.Repeat("=", 60))
-		fmt.Println("DRY RUN SUMMARY")
-		fmt.Println(strings.Repeat("=", 60))
+		logger.Info("\n" + strings.Repeat("=", 60))
+		logger.Info("DRY RUN SUMMARY")
+		logger.Info(strings.Repeat("=", 60))
 		if totalSnapshotsToCreate == 0 {
-			fmt.Println("No snapshots would be created")
+			logger.Info("No snapshots would be created")
 		} else {
-			fmt.Printf("Would create %d snapshots total:\n\n", totalSnapshotsToCreate)
+			logger.Info(fmt.Sprintf("Would create %d snapshots total:", totalSnapshotsToCreate))
+			logger.Info("")
 			for i, group := range allSnapshotsToCreate {
-				fmt.Printf("%d. Snapshot: %s\n", i+1, group.SnapshotName)
-				fmt.Printf("   Pattern: %s (%s)\n", group.Pattern, group.Kind)
-				fmt.Printf("   Indices (%d): %s\n", len(group.Indices), strings.Join(group.Indices, ", "))
-				fmt.Println()
+				logger.Info(fmt.Sprintf("%d. Snapshot: %s", i+1, group.SnapshotName))
+				logger.Info(fmt.Sprintf("   Pattern: %s (%s)", group.Pattern, group.Kind))
+				logger.Info(fmt.Sprintf("   Indices (%d): %s", len(group.Indices), strings.Join(group.Indices, ", ")))
+				logger.Info("")
 			}
 		}
-		fmt.Println(strings.Repeat("=", 60))
+		logger.Info(strings.Repeat("=", 60))
 	}
 
 	logger.Info("Snapshots backfill completed")

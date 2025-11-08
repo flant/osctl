@@ -96,6 +96,29 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	if !dryRun {
+		logger.Info("\n" + strings.Repeat("=", 60))
+		logger.Info("DATA SOURCE SUMMARY")
+		logger.Info(strings.Repeat("=", 60))
+		if len(createdDataSources) > 0 {
+			logger.Info(fmt.Sprintf("Created: %d data sources", len(createdDataSources)))
+			for _, name := range createdDataSources {
+				logger.Info(fmt.Sprintf("  ✓ %s", name))
+			}
+		}
+		if len(existingDataSources) > 0 {
+			logger.Info("")
+			logger.Info(fmt.Sprintf("Already exists: %d data sources", len(existingDataSources)))
+			for _, name := range existingDataSources {
+				logger.Info(fmt.Sprintf("  - %s", name))
+			}
+		}
+		if len(createdDataSources) == 0 && len(existingDataSources) == 0 {
+			logger.Info("No data sources were added")
+		}
+		logger.Info(strings.Repeat("=", 60))
+	}
+
 	if cfg.GetDataSourceKibanaMultidomainEnabled() {
 		remote := cfg.GetDataSourceRemoteCRT()
 		parts := strings.Split(remote, "|")
@@ -173,28 +196,6 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 				}
 			}
 		}
-	}
-
-	if !dryRun {
-		fmt.Println("\n" + strings.Repeat("=", 60))
-		fmt.Println("DATA SOURCE SUMMARY")
-		fmt.Println(strings.Repeat("=", 60))
-		if len(createdDataSources) > 0 {
-			fmt.Printf("Created: %d data sources\n", len(createdDataSources))
-			for _, name := range createdDataSources {
-				fmt.Printf("  ✓ %s\n", name)
-			}
-		}
-		if len(existingDataSources) > 0 {
-			fmt.Printf("\nAlready exists: %d data sources\n", len(existingDataSources))
-			for _, name := range existingDataSources {
-				fmt.Printf("  - %s\n", name)
-			}
-		}
-		if len(createdDataSources) == 0 && len(existingDataSources) == 0 {
-			fmt.Println("No data sources were added")
-		}
-		fmt.Println(strings.Repeat("=", 60))
 	}
 
 	return nil

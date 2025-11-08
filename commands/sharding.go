@@ -351,33 +351,34 @@ func runSharding(cmd *cobra.Command, args []string) error {
 	}
 
 	if !dryRun {
-		fmt.Println("\n" + strings.Repeat("=", 60))
-		fmt.Println("SHARDING SUMMARY")
-		fmt.Println(strings.Repeat("=", 60))
+		logger.Info("\n" + strings.Repeat("=", 60))
+		logger.Info("SHARDING SUMMARY")
+		logger.Info(strings.Repeat("=", 60))
 		if len(successfulChanges) > 0 {
-			fmt.Printf("Successfully changed: %d templates\n", len(successfulChanges))
+			logger.Info(fmt.Sprintf("Successfully changed: %d templates", len(successfulChanges)))
 			for _, ch := range successfulChanges {
 				if ch.action == "create" {
-					fmt.Printf("  ✓ Created: %s (pattern=%s, shards=%d, replicas=%d)\n", ch.template, ch.pattern, ch.shards, ch.replicas)
+					logger.Info(fmt.Sprintf("  ✓ Created: %s (pattern=%s, shards=%d, replicas=%d)", ch.template, ch.pattern, ch.shards, ch.replicas))
 				} else {
-					fmt.Printf("  ✓ Updated: %s (pattern=%s, shards %d→%d)\n", ch.template, ch.pattern, ch.oldShards, ch.shards)
+					logger.Info(fmt.Sprintf("  ✓ Updated: %s (pattern=%s, shards %d→%d)", ch.template, ch.pattern, ch.oldShards, ch.shards))
 				}
 			}
 		}
 		if len(failedChanges) > 0 {
-			fmt.Printf("\nFailed to change: %d templates\n", len(failedChanges))
+			logger.Info("")
+			logger.Info(fmt.Sprintf("Failed to change: %d templates", len(failedChanges)))
 			for _, ch := range failedChanges {
 				if ch.action == "create" {
-					fmt.Printf("  ✗ Failed to create: %s (pattern=%s)\n", ch.template, ch.pattern)
+					logger.Info(fmt.Sprintf("  ✗ Failed to create: %s (pattern=%s)", ch.template, ch.pattern))
 				} else {
-					fmt.Printf("  ✗ Failed to update: %s (pattern=%s)\n", ch.template, ch.pattern)
+					logger.Info(fmt.Sprintf("  ✗ Failed to update: %s (pattern=%s)", ch.template, ch.pattern))
 				}
 			}
 		}
 		if len(successfulChanges) == 0 && len(failedChanges) == 0 {
-			fmt.Println("No templates were changed")
+			logger.Info("No templates were changed")
 		}
-		fmt.Println(strings.Repeat("=", 60))
+		logger.Info(strings.Repeat("=", 60))
 	}
 
 	return nil

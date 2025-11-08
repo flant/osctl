@@ -121,138 +121,122 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 				createdPatterns = append(createdPatterns, fmt.Sprintf("%s (tenant=%s)", p, t.Name))
 			}
 		}
-
-		if !dryRun {
-			fmt.Println("\n" + strings.Repeat("=", 60))
-			fmt.Println("INDEX PATTERNS SUMMARY")
-			fmt.Println(strings.Repeat("=", 60))
-			if len(createdPatterns) > 0 {
-				fmt.Printf("Created: %d index patterns\n", len(createdPatterns))
-				for _, name := range createdPatterns {
-					fmt.Printf("  ✓ %s\n", name)
-				}
-			} else {
-				fmt.Println("No index patterns were added")
-			}
-			fmt.Println(strings.Repeat("=", 60))
-		}
-		return nil
-	}
-
-	if cfg.GetKibanaIndexRegex() == "" {
-		return fmt.Errorf("kibana-index-regex must be provided in single-tenant mode")
-	}
-	if p := config.GetConfig().GetOSCTLTenantsConfig(); p != "" {
-		if _, err := os.Stat(p); err == nil {
-			logger.Info("kibana-tenants-config is ignored in single-tenant mode")
-		}
-	}
-
-	re := regexp.MustCompile(cfg.GetKibanaIndexRegex())
-	today := utils.FormatDate(time.Now(), cfg.GetDateFormat())
-	idxToday, err := osClient.GetIndicesWithFields(fmt.Sprintf("*-%s*,-.*", today), "index", "i")
-	if err != nil {
-		return err
-	}
-	needed := []string{}
-	for _, ii := range idxToday {
-		m := re.FindStringSubmatch(ii.Index)
-		if len(m) > 1 {
-			needed = append(needed, m[1]+"-*")
-		}
-	}
-	logger.Info(fmt.Sprintf("Required patterns (%d): %s", len(needed), strings.Join(needed, ", ")))
-	existing, existingTitles, err := getExistingIndexPatternTitles(osClient, ".kibana")
-	if err != nil {
-		return err
-	}
-	logger.Info(fmt.Sprintf("Existing index patterns in .kibana (%d): %s", len(existingTitles), strings.Join(existingTitles, ", ")))
-	toCreate := []string{}
-	seen := map[string]struct{}{}
-	for _, p := range needed {
-		if _, ok := seen[p]; ok {
-			continue
-		}
-		seen[p] = struct{}{}
-		if _, ok := existing[p]; !ok {
-			toCreate = append(toCreate, p)
-		}
-	}
-	if len(toCreate) == 0 {
-		logger.Info("No new index patterns to create in single-tenant mode")
 	} else {
-		logger.Info(fmt.Sprintf("Will create index patterns: %s", strings.Join(toCreate, ", ")))
-	}
-	for _, p := range toCreate {
-		payload := map[string]any{
-			"type": "index-pattern",
-			"index-pattern": map[string]any{
-				"title":         p,
-				"timeFieldName": "@timestamp",
-			},
+		if cfg.GetKibanaIndexRegex() == "" {
+			return fmt.Errorf("kibana-index-regex must be provided in single-tenant mode")
 		}
-		id := fmt.Sprintf("index-pattern:%s", uuid.NewString())
-		if dryRun {
-			logger.Info(fmt.Sprintf("DRY RUN: Would create index pattern %s", p))
-			createdPatterns = append(createdPatterns, p)
-			continue
+		if p := config.GetConfig().GetOSCTLTenantsConfig(); p != "" {
+			if _, err := os.Stat(p); err == nil {
+				logger.Info("kibana-tenants-config is ignored in single-tenant mode")
+			}
 		}
-		if err := osClient.CreateDoc(".kibana", id, payload); err != nil {
+
+		re := regexp.MustCompile(cfg.GetKibanaIndexRegex())
+		today := utils.FormatDate(time.Now(), cfg.GetDateFormat())
+		idxToday, err := osClient.GetIndicesWithFields(fmt.Sprintf("*-%s*,-.*", today), "index", "i")
+		if err != nil {
 			return err
 		}
-		logger.Info(fmt.Sprintf("Created index pattern %s", p))
-		createdPatterns = append(createdPatterns, p)
-	}
-	if cfg.GetIndexPatternsRecovererEnabled() {
-		frDS, err := osClient.Search(".kibana", "q=type=data-source&size=1000")
-		if err == nil {
-			var dsId string
-			for _, h := range frDS.Hits.Hits {
-				if src, ok := h.Source["data-source"].(map[string]any); ok {
-					if t, ok := src["title"].(string); ok && t == config.GetConfig().GetDataSourceName() {
-						dsId = strings.TrimPrefix(h.ID, "data-source:")
-						break
+		needed := []string{}
+		for _, ii := range idxToday {
+			m := re.FindStringSubmatch(ii.Index)
+			if len(m) > 1 {
+				needed = append(needed, m[1]+"-*")
+			}
+		}
+		logger.Info(fmt.Sprintf("Required patterns (%d): %s", len(needed), strings.Join(needed, ", ")))
+		existing, existingTitles, err := getExistingIndexPatternTitles(osClient, ".kibana")
+		if err != nil {
+			return err
+		}
+		logger.Info(fmt.Sprintf("Existing index patterns in .kibana (%d): %s", len(existingTitles), strings.Join(existingTitles, ", ")))
+		toCreate := []string{}
+		seen := map[string]struct{}{}
+		for _, p := range needed {
+			if _, ok := seen[p]; ok {
+				continue
+			}
+			seen[p] = struct{}{}
+			if _, ok := existing[p]; !ok {
+				toCreate = append(toCreate, p)
+			}
+		}
+		if len(toCreate) == 0 {
+			logger.Info("No new index patterns to create in single-tenant mode")
+		} else {
+			logger.Info(fmt.Sprintf("Will create index patterns: %s", strings.Join(toCreate, ", ")))
+		}
+		for _, p := range toCreate {
+			payload := map[string]any{
+				"type": "index-pattern",
+				"index-pattern": map[string]any{
+					"title":         p,
+					"timeFieldName": "@timestamp",
+				},
+			}
+			id := fmt.Sprintf("index-pattern:%s", uuid.NewString())
+			if dryRun {
+				logger.Info(fmt.Sprintf("DRY RUN: Would create index pattern %s", p))
+				createdPatterns = append(createdPatterns, p)
+				continue
+			}
+			if err := osClient.CreateDoc(".kibana", id, payload); err != nil {
+				return err
+			}
+			logger.Info(fmt.Sprintf("Created index pattern %s", p))
+			createdPatterns = append(createdPatterns, p)
+		}
+		if cfg.GetIndexPatternsRecovererEnabled() {
+			frDS, err := osClient.Search(".kibana", "q=type=data-source&size=1000")
+			if err == nil {
+				var dsId string
+				for _, h := range frDS.Hits.Hits {
+					if src, ok := h.Source["data-source"].(map[string]any); ok {
+						if t, ok := src["title"].(string); ok && t == config.GetConfig().GetDataSourceName() {
+							dsId = strings.TrimPrefix(h.ID, "data-source:")
+							break
+						}
 					}
 				}
-			}
-			if dsId != "" {
-				logger.Info(fmt.Sprintf("Found data-source reference id=%s for title=%s", dsId, config.GetConfig().GetDataSourceName()))
-				payload := map[string]any{
-					"type": "index-pattern",
-					"index-pattern": map[string]any{
-						"title":         "extracted_*",
-						"timeFieldName": "@timestamp",
-					},
-					"references": []map[string]string{{
-						"id":   dsId,
-						"type": "data-source",
-						"name": "dataSource",
-					}},
-				}
-				if dryRun {
-					logger.Info("DRY RUN: Would create index pattern extracted_* with data-source reference")
-					createdPatterns = append(createdPatterns, "extracted_*")
-				} else if err := osClient.CreateDoc(".kibana", "index-pattern:recoverer-extracted", payload); err == nil {
-					logger.Info("Created index pattern extracted_* with data-source reference")
-					createdPatterns = append(createdPatterns, "extracted_*")
+				if dsId != "" {
+					logger.Info(fmt.Sprintf("Found data-source reference id=%s for title=%s", dsId, config.GetConfig().GetDataSourceName()))
+					payload := map[string]any{
+						"type": "index-pattern",
+						"index-pattern": map[string]any{
+							"title":         "extracted_*",
+							"timeFieldName": "@timestamp",
+						},
+						"references": []map[string]string{{
+							"id":   dsId,
+							"type": "data-source",
+							"name": "dataSource",
+						}},
+					}
+					if dryRun {
+						logger.Info("DRY RUN: Would create index pattern extracted_* with data-source reference")
+						createdPatterns = append(createdPatterns, "extracted_*")
+					} else if err := osClient.CreateDoc(".kibana", "index-pattern:recoverer-extracted", payload); err == nil {
+						logger.Info("Created index pattern extracted_* with data-source reference")
+						createdPatterns = append(createdPatterns, "extracted_*")
+					}
 				}
 			}
 		}
 	}
 
 	if !dryRun {
-		fmt.Println("\n" + strings.Repeat("=", 60))
-		fmt.Println("INDEX PATTERNS SUMMARY")
-		fmt.Println(strings.Repeat("=", 60))
+		logger.Info("\n" + strings.Repeat("=", 60))
+		logger.Info("INDEX PATTERNS SUMMARY")
+		logger.Info(strings.Repeat("=", 60))
 		if len(createdPatterns) > 0 {
-			fmt.Printf("Created: %d index patterns\n", len(createdPatterns))
+			logger.Info(fmt.Sprintf("Created: %d index patterns", len(createdPatterns)))
 			for _, name := range createdPatterns {
-				fmt.Printf("  ✓ %s\n", name)
+				logger.Info(fmt.Sprintf("  ✓ %s", name))
 			}
 		} else {
-			fmt.Println("No index patterns were added")
+			logger.Info("No index patterns were added")
 		}
-		fmt.Println(strings.Repeat("=", 60))
+		logger.Info(strings.Repeat("=", 60))
 	}
 
 	return nil

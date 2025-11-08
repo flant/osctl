@@ -328,25 +328,26 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 	}
 
 	if !cfg.GetDryRun() {
-		fmt.Println("\n" + strings.Repeat("=", 60))
-		fmt.Println("SNAPSHOT CREATION SUMMARY")
-		fmt.Println(strings.Repeat("=", 60))
+		logger.Info("\n" + strings.Repeat("=", 60))
+		logger.Info("SNAPSHOT CREATION SUMMARY")
+		logger.Info(strings.Repeat("=", 60))
 		if len(successfulSnapshots) > 0 {
-			fmt.Printf("Successfully created: %d snapshots\n", len(successfulSnapshots))
+			logger.Info(fmt.Sprintf("Successfully created: %d snapshots", len(successfulSnapshots)))
 			for _, name := range successfulSnapshots {
-				fmt.Printf("  ✓ %s\n", name)
+				logger.Info(fmt.Sprintf("  ✓ %s", name))
 			}
 		}
 		if len(failedSnapshots) > 0 {
-			fmt.Printf("\nFailed to create: %d snapshots\n", len(failedSnapshots))
+			logger.Info("")
+			logger.Info(fmt.Sprintf("Failed to create: %d snapshots", len(failedSnapshots)))
 			for _, name := range failedSnapshots {
-				fmt.Printf("  ✗ %s\n", name)
+				logger.Info(fmt.Sprintf("  ✗ %s", name))
 			}
 		}
 		if len(successfulSnapshots) == 0 && len(failedSnapshots) == 0 {
-			fmt.Println("No snapshots were created")
+			logger.Info("No snapshots were created")
 		}
-		fmt.Println(strings.Repeat("=", 60))
+		logger.Info(strings.Repeat("=", 60))
 	}
 
 	logger.Info("Snapshot creation completed")
