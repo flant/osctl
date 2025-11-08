@@ -34,8 +34,6 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 	if cfg.GetOSDURL() == "" {
 		return fmt.Errorf("osd-url parameter is required")
 	}
-	dryRun := cfg.GetDryRun()
-
 	logger := logging.NewLogger()
 	osClient, err := utils.NewOSClientWithURL(cfg, cfg.GetOpenSearchURL())
 	if err != nil {
@@ -109,7 +107,7 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 					},
 				}
 				id := fmt.Sprintf("index-pattern:%s", uuid.NewString())
-				if dryRun {
+				if cfg.GetDryRun() {
 					logger.Info(fmt.Sprintf("DRY RUN: Would create index pattern %s in tenant %s", p, t.Name))
 					createdPatterns = append(createdPatterns, fmt.Sprintf("%s (tenant=%s)", p, t.Name))
 					continue
@@ -175,7 +173,7 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 				},
 			}
 			id := fmt.Sprintf("index-pattern:%s", uuid.NewString())
-			if dryRun {
+			if cfg.GetDryRun() {
 				logger.Info(fmt.Sprintf("DRY RUN: Would create index pattern %s", p))
 				createdPatterns = append(createdPatterns, p)
 				continue
@@ -212,7 +210,7 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 							"name": "dataSource",
 						}},
 					}
-					if dryRun {
+					if cfg.GetDryRun() {
 						logger.Info("DRY RUN: Would create index pattern extracted_* with data-source reference")
 						createdPatterns = append(createdPatterns, "extracted_*")
 					} else if err := osClient.CreateDoc(".kibana", "index-pattern:recoverer-extracted", payload); err == nil {
@@ -224,8 +222,8 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if !dryRun {
-		logger.Info("\n" + strings.Repeat("=", 60))
+	if !cfg.GetDryRun() {
+		logger.Info(strings.Repeat("=", 60))
 		logger.Info("INDEX PATTERNS SUMMARY")
 		logger.Info(strings.Repeat("=", 60))
 		if len(createdPatterns) > 0 {

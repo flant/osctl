@@ -46,7 +46,6 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 	}
 
 	logger := logging.NewLogger()
-	dryRun := cfg.GetDryRun()
 	_, err := utils.NewOSClientWithURL(cfg, cfg.GetOpenSearchURL())
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
@@ -80,7 +79,7 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 		exists := slices.Contains(existingTitles, dataSourceName)
 		logger.Info(fmt.Sprintf("Tenant %s existing data-sources (%d): %s", tenantNameForLog, len(existingTitles), strings.Join(existingTitles, ", ")))
 		if !exists {
-			if dryRun {
+			if cfg.GetDryRun() {
 				logger.Info(fmt.Sprintf("DRY RUN: Would create data source '%s' in tenant %s", dataSourceName, tenantNameForLog))
 				createdDataSources = append(createdDataSources, fmt.Sprintf("%s (tenant=%s)", dataSourceName, tenantNameForLog))
 			} else {
@@ -96,8 +95,8 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if !dryRun {
-		logger.Info("\n" + strings.Repeat("=", 60))
+	if !cfg.GetDryRun() {
+		logger.Info(strings.Repeat("=", 60))
 		logger.Info("DATA SOURCE SUMMARY")
 		logger.Info(strings.Repeat("=", 60))
 		if len(createdDataSources) > 0 {
@@ -161,7 +160,7 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 					return nil
 				}
 			}
-			if dryRun {
+			if cfg.GetDryRun() {
 				logger.Info("DRY RUN: Would update secret multi-certs with new multi.crt contents")
 				return nil
 			}
@@ -170,7 +169,7 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 				return err
 			}
 		} else if apierrors.IsNotFound(err) {
-			if dryRun {
+			if cfg.GetDryRun() {
 				logger.Info("DRY RUN: Would create secret multi-certs with multi.crt contents")
 				return nil
 			}
@@ -188,7 +187,7 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 				dep.Spec.Template.Annotations = map[string]string{}
 			}
 			dep.Spec.Template.Annotations["osctl/restartedAt"] = time.Now().Format(time.RFC3339)
-			if dryRun {
+			if cfg.GetDryRun() {
 				logger.Info("DRY RUN: Would update multi-certs and restart kibana")
 			} else {
 				if _, err := cs.AppsV1().Deployments(ns).Update(ctx, dep, metav1.UpdateOptions{}); err == nil {

@@ -27,8 +27,6 @@ func runExtractedDelete(cmd *cobra.Command, args []string) error {
 
 	days := cfg.GetExtractedDays()
 	dateFormat := cfg.GetRecovererDateFormat()
-	dryRun := cfg.GetDryRun()
-
 	logger := logging.NewLogger()
 	client, err := utils.NewOSClientWithURL(cfg, cfg.GetOpenSearchRecovererURL())
 	if err != nil {
@@ -36,7 +34,7 @@ func runExtractedDelete(cmd *cobra.Command, args []string) error {
 	}
 
 	cutoffDate := utils.FormatDate(time.Now().AddDate(0, 0, -days), dateFormat)
-	logger.Info(fmt.Sprintf("Starting extracted indices deletion days=%d cutoffDate=%s dryRun=%t", days, cutoffDate, dryRun))
+	logger.Info(fmt.Sprintf("Starting extracted indices deletion days=%d cutoffDate=%s dryRun=%t", days, cutoffDate, cfg.GetDryRun()))
 
 	pattern := cfg.GetExtractedPattern()
 	if pattern == "" {
@@ -70,7 +68,7 @@ func runExtractedDelete(cmd *cobra.Command, args []string) error {
 	logger.Info(fmt.Sprintf("Found extracted indices for deletion count=%d", len(extractedIndices)))
 	logger.Info(fmt.Sprintf("Extracted indices to delete %s", strings.Join(extractedIndices, ", ")))
 
-	if dryRun {
+	if cfg.GetDryRun() {
 		logger.Info(fmt.Sprintf("DRY RUN: Would delete extracted indices indices=%v", extractedIndices))
 		return nil
 	}

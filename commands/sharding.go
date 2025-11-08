@@ -31,7 +31,6 @@ func runSharding(cmd *cobra.Command, args []string) error {
 	cfg := config.GetConfig()
 
 	logger := logging.NewLogger()
-	dryRun := cfg.GetDryRun()
 	client, err := utils.NewOSClientWithURL(cfg, cfg.GetOpenSearchURL())
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
@@ -218,7 +217,7 @@ func runSharding(cmd *cobra.Command, args []string) error {
 				replicas: replicas,
 				priority: priority,
 			}
-			if dryRun {
+			if cfg.GetDryRun() {
 				logger.Info(fmt.Sprintf("DRY RUN: Would create index template %s for pattern %s with shards=%d replicas=%d priority=%d", templateName, pattern, shards, replicas, priority))
 				changes = append(changes, ch)
 			} else {
@@ -277,7 +276,7 @@ func runSharding(cmd *cobra.Command, args []string) error {
 				oldShards:   curShards,
 				oldReplicas: replicas,
 			}
-			if dryRun {
+			if cfg.GetDryRun() {
 				logger.Info(fmt.Sprintf("DRY RUN: Would update template %s: shards %d to %d", existing, curShards, shards))
 				changes = append(changes, ch)
 			} else {
@@ -333,7 +332,7 @@ func runSharding(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if dryRun && len(changes) > 0 {
+	if cfg.GetDryRun() && len(changes) > 0 {
 		logger.Info("")
 		logger.Info("DRY RUN SUMMARY")
 		logger.Info("===============")
@@ -350,8 +349,8 @@ func runSharding(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	if !dryRun {
-		logger.Info("\n" + strings.Repeat("=", 60))
+	if !cfg.GetDryRun() {
+		logger.Info(strings.Repeat("=", 60))
 		logger.Info("SHARDING SUMMARY")
 		logger.Info(strings.Repeat("=", 60))
 		if len(successfulChanges) > 0 {

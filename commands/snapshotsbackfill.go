@@ -461,7 +461,7 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 	}
 
 	if !cfg.GetDryRun() {
-		logger.Info("\n" + strings.Repeat("=", 60))
+		logger.Info(strings.Repeat("=", 60))
 		logger.Info("SNAPSHOT BACKFILL SUMMARY")
 		logger.Info(strings.Repeat("=", 60))
 		if len(successfulSnapshots) > 0 {
@@ -484,7 +484,7 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 	}
 
 	if cfg.GetDryRun() {
-		logger.Info("\n" + strings.Repeat("=", 60))
+		logger.Info(strings.Repeat("=", 60))
 		logger.Info("DRY RUN SUMMARY")
 		logger.Info(strings.Repeat("=", 60))
 		if totalSnapshotsToCreate == 0 {

@@ -29,10 +29,8 @@ func runColdStorage(cmd *cobra.Command, args []string) error {
 	hotCount := cfg.GetHotCount()
 	coldAttribute := cfg.GetColdAttribute()
 	dateFormat := cfg.GetDateFormat()
-	dryRun := cfg.GetDryRun()
-
 	logger := logging.NewLogger()
-	logger.Info(fmt.Sprintf("Starting cold storage migration hotCount=%d coldAttribute=%s dryRun=%t", hotCount, coldAttribute, dryRun))
+	logger.Info(fmt.Sprintf("Starting cold storage migration hotCount=%d coldAttribute=%s dryRun=%t", hotCount, coldAttribute, cfg.GetDryRun()))
 
 	client, err := utils.NewOSClientWithURL(cfg, cfg.GetOpenSearchURL())
 	if err != nil {
@@ -99,7 +97,7 @@ func runColdStorage(cmd *cobra.Command, args []string) error {
 	var failedMigrations []string
 
 	for _, index := range coldIndices {
-		if dryRun {
+		if cfg.GetDryRun() {
 			logger.Info(fmt.Sprintf("DRY RUN: Would migrate to cold storage index=%s attribute=%s", index, coldAttribute))
 			successfulMigrations = append(successfulMigrations, index)
 			continue
@@ -115,8 +113,8 @@ func runColdStorage(cmd *cobra.Command, args []string) error {
 		successfulMigrations = append(successfulMigrations, index)
 	}
 
-	if !dryRun {
-		logger.Info("\n" + strings.Repeat("=", 60))
+	if !cfg.GetDryRun() {
+		logger.Info(strings.Repeat("=", 60))
 		logger.Info("COLD STORAGE MIGRATION SUMMARY")
 		logger.Info(strings.Repeat("=", 60))
 		if len(successfulMigrations) > 0 {

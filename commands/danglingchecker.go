@@ -25,7 +25,6 @@ func init() {
 
 func runDanglingChecker(cmd *cobra.Command, args []string) error {
 	cfg := config.GetConfig()
-	dryRun := cfg.GetDryRun()
 
 	madisonKey := cfg.GetMadisonKey()
 	osdURL := cfg.GetOSDURL()
@@ -56,7 +55,7 @@ func runDanglingChecker(cmd *cobra.Command, args []string) error {
 	}
 	logger.Info(fmt.Sprintf("Dangling indices found (%d): %s", len(indexNames), strings.Join(indexNames, ", ")))
 
-	if dryRun {
+	if cfg.GetDryRun() {
 		logger.Info(fmt.Sprintf("DRY RUN: Would send Madison alert for dangling indices count=%d", len(danglingIndices)))
 	} else {
 		madisonClient := alerts.NewMadisonClient(madisonKey, osdURL, cfg.GetMadisonURL())

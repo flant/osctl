@@ -192,7 +192,7 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 	}
 
 	if !cfg.GetDryRun() {
-		logger.Info("\n" + strings.Repeat("=", 60))
+		logger.Info(strings.Repeat("=", 60))
 		logger.Info("SNAPSHOT DELETION SUMMARY")
 		logger.Info(strings.Repeat("=", 60))
 		if len(successfulDeletions) > 0 {

@@ -30,8 +30,12 @@ type Labels struct {
 }
 
 type Annotations struct {
-	Summary     string `json:"summary"`
-	Description string `json:"description"`
+	Summary                                 string `json:"summary"`
+	Description                             string `json:"description"`
+	PlkCreateGroupIfNotExistsElkFieldsGroup string `json:"plk_create_group_if_not_exists__elk_fields_group,omitempty"`
+	PlkGroupedByElkFieldsGroup              string `json:"plk_grouped_by__elk_fields_group,omitempty"`
+	PlkMarkupFormat                         string `json:"plk_markup_format,omitempty"`
+	PlkProtocolVersion                      string `json:"plk_protocol_version,omitempty"`
 }
 
 func NewMadisonClient(apiKey, kibanaHost, madisonURL string) *Client {
@@ -45,22 +49,22 @@ func NewMadisonClient(apiKey, kibanaHost, madisonURL string) *Client {
 	}
 }
 
-func (c *Client) SendMadisonSnapshotMissingAlert(missingSnapshots []string) (string, error) {
-	if len(missingSnapshots) == 0 {
+func (c *Client) SendMadisonSnapshotMissingAlert(missingSnapshotIndicesList []string) (string, error) {
+	if len(missingSnapshotIndicesList) == 0 {
 		return "", nil
 	}
 
 	var displayList, indicesList string
-	if len(missingSnapshots) <= 3 {
-		displayList = strings.Join(missingSnapshots, ",")
+	if len(missingSnapshotIndicesList) <= 3 {
+		displayList = strings.Join(missingSnapshotIndicesList, ",")
 		indicesList = displayList
 	} else {
-		displayList = strings.Join(missingSnapshots[:3], ",") + ",... полный список индексов в описании."
-		indicesList = strings.Join(missingSnapshots[:3], ",") + ",..."
+		displayList = strings.Join(missingSnapshotIndicesList[:3], ",") + ",... полный список индексов в описании."
+		indicesList = strings.Join(missingSnapshotIndicesList[:3], ",") + ",..."
 	}
 
 	summary := fmt.Sprintf("Снапшоты не найдены для индексов: %s", displayList)
-	fullList := strings.Join(missingSnapshots, ",")
+	fullList := strings.Join(missingSnapshotIndicesList, ",")
 	description := fmt.Sprintf("Снапшоты для индексов (%s) — не обнаружены, хотя ожидаются. Алерт одноразовый, просьба не закрывать без создания нужных снапшотов.", fullList)
 
 	payload := Alert{
@@ -71,8 +75,12 @@ func (c *Client) SendMadisonSnapshotMissingAlert(missingSnapshots []string) (str
 			Kibana:        c.kibanaHost,
 		},
 		Annotations: Annotations{
-			Summary:     summary,
-			Description: description,
+			Summary:                                 summary,
+			Description:                             description,
+			PlkCreateGroupIfNotExistsElkFieldsGroup: "ElkSnapshotMissingGroup,kibana=~kibana",
+			PlkGroupedByElkFieldsGroup:              "ElkSnapshotMissingGroup,kibana=~kibana",
+			PlkMarkupFormat:                         "markdown",
+			PlkProtocolVersion:                      "1",
 		},
 	}
 
@@ -118,21 +126,31 @@ func (c *Client) SendMadisonDanglingIndicesAlert(danglingIndices []string) (stri
 		return "", nil
 	}
 
-	summary := "Кластер содержит dangling индексы"
-	description := fmt.Sprintf("Кластер содержит dangling индексы.\nПроверьте индексы в %s\nGET _dangling?pretty", c.kibanaHost)
+	var displayList, indicesList string
+	if len(danglingIndices) <= 3 {
+		displayList = strings.Join(danglingIndices, ",")
+		indicesList = displayList
+	} else {
+		indicesList = strings.Join(danglingIndices[:3], ",") + ",..."
+	}
 
-	payload := map[string]any{
-		"severity_level": 4,
-		"type":           "Events::Continuous",
-		"source_type":    "custom",
-		"labels": map[string]string{
-			"trigger":      "dangling_indices_mon",
-			"os-dashboard": c.kibanaHost,
+	summary := "Кластер содержит dangling индексы"
+	description := fmt.Sprintf("Кластер содержит dangling индексы. Проверьте индексы в %s GET _dangling?pretty", c.kibanaHost)
+
+	payload := Alert{
+		Labels: Labels{
+			Trigger:       "dangling_indices_mon",
+			SeverityLevel: "4",
+			IndicesList:   indicesList,
+			Kibana:        c.kibanaHost,
 		},
-		"annotations": map[string]string{
-			"summary":                      summary,
-			"description":                  description,
-			"polk_flant_com_markup_format": "markdown",
+		Annotations: Annotations{
+			Summary:                                 summary,
+			Description:                             description,
+			PlkCreateGroupIfNotExistsElkFieldsGroup: "ElkDanglingIndicesGroup,kibana=~kibana",
+			PlkGroupedByElkFieldsGroup:              "ElkDanglingIndicesGroup,kibana=~kibana",
+			PlkMarkupFormat:                         "markdown",
+			PlkProtocolVersion:                      "1",
 		},
 	}
 
@@ -181,12 +199,16 @@ func (c *Client) SendMadisonSnapshotCreationFailedAlert(snapshotName, indexName 
 		Labels: Labels{
 			Trigger:       "SnapshotCreationFailed",
 			SeverityLevel: "4",
-			IndicesList:   snapshotName,
+			IndicesList:   indexName,
 			Kibana:        c.kibanaHost,
 		},
 		Annotations: Annotations{
-			Summary:     summary,
-			Description: description,
+			Summary:                                 summary,
+			Description:                             description,
+			PlkCreateGroupIfNotExistsElkFieldsGroup: "ElkSnapshotCreationFailedGroup,kibana=~kibana",
+			PlkGroupedByElkFieldsGroup:              "ElkSnapshotCreationFailedGroup,kibana=~kibana",
+			PlkMarkupFormat:                         "markdown",
+			PlkProtocolVersion:                      "1",
 		},
 	}
 

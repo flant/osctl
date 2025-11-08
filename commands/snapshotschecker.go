@@ -7,6 +7,7 @@ import (
 	"osctl/pkg/logging"
 	"osctl/pkg/utils"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -25,9 +26,7 @@ func init() {
 
 func runSnapshotsChecker(cmd *cobra.Command, args []string) error {
 	cfg := config.GetConfig()
-	cmdCfg := cfg
 	logger := logging.NewLogger()
-	dryRun := cmdCfg.GetDryRun()
 
 	logger.Info("Starting snapshot checking")
 
@@ -42,46 +41,53 @@ func runSnapshotsChecker(cmd *cobra.Command, args []string) error {
 	}
 
 	unknownConfig := cfg.GetOsctlIndicesUnknownConfig()
+	s3Config := cfg.GetOsctlIndicesS3SnapshotsConfig()
 
-	dayBeforeYesterday := utils.GetDayBeforeYesterdayFormatted(cfg.GetDateFormat())
+	today := utils.FormatDate(time.Now(), cfg.GetDateFormat())
+	yesterday := utils.FormatDate(time.Now().AddDate(0, 0, -1), cfg.GetDateFormat())
 
-	logger.Info(fmt.Sprintf("Getting indices for date date=%s", dayBeforeYesterday))
-	allIndices, err := client.GetIndicesWithFields("*"+dayBeforeYesterday+"*", "index")
+	logger.Info(fmt.Sprintf("Getting all indices excluding today and yesterday today=%s yesterday=%s", today, yesterday))
+
+	allIndices, err := client.GetIndicesWithFields("*", "index")
 	if err != nil {
-		return fmt.Errorf("failed to get indices for date: %v", err)
+		return fmt.Errorf("failed to get all indices: %v", err)
 	}
 
-	if len(allIndices) == 0 {
-		logger.Info(fmt.Sprintf("No indices found for date date=%s", dayBeforeYesterday))
+	var indicesToProcess []string
+	for _, idx := range allIndices {
+		indexName := idx.Index
+		if utils.ShouldSkipIndex(indexName) {
+			continue
+		}
+
+		hasDate := utils.HasDateInName(indexName, cfg.GetDateFormat())
+		if !hasDate {
+			continue
+		}
+
+		extractedDate := utils.ExtractDateFromIndex(indexName, cfg.GetDateFormat())
+		if extractedDate == "" {
+			continue
+		}
+
+		if extractedDate == today || extractedDate == yesterday {
+			continue
+		}
+
+		indicesToProcess = append(indicesToProcess, indexName)
+	}
+
+	logger.Info(fmt.Sprintf("Found indices to process count=%d", len(indicesToProcess)))
+	if len(indicesToProcess) > 0 {
+		logger.Info(fmt.Sprintf("Indices to process %s", strings.Join(indicesToProcess, ", ")))
+	}
+
+	if len(indicesToProcess) == 0 {
+		logger.Info("No indices to process")
 		return nil
 	}
 
-	indexNamesList := utils.IndexInfosToNames(allIndices)
-	logger.Info(fmt.Sprintf("Found indices %s", strings.Join(indexNamesList, ", ")))
-
-	var expectedIndicesList []string
-	for _, idx := range allIndices {
-		indexName := idx.Index
-
-		shouldSnapshot := false
-
-		for _, indexConfig := range indicesConfig {
-			if utils.MatchesIndex(indexName, indexConfig) && indexConfig.Snapshot {
-				shouldSnapshot = true
-				break
-			}
-		}
-
-		if !shouldSnapshot && unknownConfig.Snapshot {
-			shouldSnapshot = true
-		}
-
-		if shouldSnapshot {
-			expectedIndicesList = append(expectedIndicesList, indexName)
-		}
-	}
-
-	logger.Info("Getting all snapshots from repository")
+	logger.Info(fmt.Sprintf("Getting all snapshots from repository repo=%s", cfg.GetSnapshotRepo()))
 	allSnapshots, err := client.GetSnapshots(cfg.GetSnapshotRepo(), "*")
 	if err != nil {
 		return fmt.Errorf("failed to get snapshots: %v", err)
@@ -99,20 +105,71 @@ func runSnapshotsChecker(cmd *cobra.Command, args []string) error {
 		logger.Info("Found snapshots none")
 	}
 
-	var missingSnapshots []string
-	for _, indexName := range expectedIndicesList {
-		if !utils.HasValidSnapshot(indexName, allSnapshots) {
-			missingSnapshots = append(missingSnapshots, indexName)
+	var missingSnapshotIndicesList []string
+
+	for _, indexName := range indicesToProcess {
+		indexConfig := utils.FindMatchingIndexConfig(indexName, indicesConfig)
+		shouldHaveSnapshot := false
+		var cutoffDate string
+
+		if indexConfig != nil {
+			if !indexConfig.Snapshot || indexConfig.ManualSnapshot {
+				continue
+			}
+
+			shouldHaveSnapshot = true
+
+			cutoffDateDaysCount := utils.FormatDate(time.Now().AddDate(0, 0, -indexConfig.DaysCount), cfg.GetDateFormat())
+			cutoffDateS3 := ""
+			if indexConfig.SnapshotCountS3 > 0 {
+				cutoffDateS3 = utils.FormatDate(time.Now().AddDate(0, 0, -indexConfig.SnapshotCountS3), cfg.GetDateFormat())
+			} else {
+				s3All := s3Config.UnitCount.All
+				if s3All > 0 {
+					cutoffDateS3 = utils.FormatDate(time.Now().AddDate(0, 0, -s3All), cfg.GetDateFormat())
+				}
+			}
+
+			cutoffDate = utils.GetLaterCutoffDate(cutoffDateDaysCount, cutoffDateS3, cfg.GetDateFormat())
+
+			if utils.IsOlderThanCutoff(indexName, cutoffDate, cfg.GetDateFormat()) {
+				logger.Info(fmt.Sprintf("Skipping index older than cutoff index=%s cutoff=%s", indexName, cutoffDate))
+				continue
+			}
+		} else {
+			if unknownConfig.Snapshot && !unknownConfig.ManualSnapshot {
+				shouldHaveSnapshot = true
+
+				cutoffDateDaysCount := utils.FormatDate(time.Now().AddDate(0, 0, -unknownConfig.DaysCount), cfg.GetDateFormat())
+				cutoffDateS3 := ""
+				s3Unknown := s3Config.UnitCount.Unknown
+				if s3Unknown > 0 {
+					cutoffDateS3 = utils.FormatDate(time.Now().AddDate(0, 0, -s3Unknown), cfg.GetDateFormat())
+				}
+
+				cutoffDate = utils.GetLaterCutoffDate(cutoffDateDaysCount, cutoffDateS3, cfg.GetDateFormat())
+
+				if utils.IsOlderThanCutoff(indexName, cutoffDate, cfg.GetDateFormat()) {
+					logger.Info(fmt.Sprintf("Skipping unknown index older than cutoff index=%s cutoff=%s", indexName, cutoffDate))
+					continue
+				}
+			}
+		}
+
+		if shouldHaveSnapshot {
+			if !utils.HasValidSnapshot(indexName, allSnapshots) {
+				missingSnapshotIndicesList = append(missingSnapshotIndicesList, indexName)
+			}
 		}
 	}
 
-	if len(missingSnapshots) > 0 {
-		logger.Warn(fmt.Sprintf("Missing snapshots found count=%d", len(missingSnapshots)))
-		logger.Warn(fmt.Sprintf("Missing snapshots list %s", strings.Join(missingSnapshots, ", ")))
-		if dryRun {
+	if len(missingSnapshotIndicesList) > 0 {
+		logger.Warn(fmt.Sprintf("Missing snapshots found count=%d", len(missingSnapshotIndicesList)))
+		logger.Warn(fmt.Sprintf("Missing snapshots list %s", strings.Join(missingSnapshotIndicesList, ", ")))
+		if cfg.GetDryRun() {
 			logger.Info("DRY RUN: Would send Madison alert for missing snapshots")
 		} else {
-			err := sendMissingSnapshotsAlert(cfg, missingSnapshots)
+			err := sendMissingSnapshotsAlert(cfg, missingSnapshotIndicesList)
 			if err != nil {
 				logger.Error(fmt.Sprintf("Failed to send Madison alert error=%v", err))
 			}
@@ -125,10 +182,10 @@ func runSnapshotsChecker(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func sendMissingSnapshotsAlert(cfg *config.Config, missingSnapshots []string) error {
+func sendMissingSnapshotsAlert(cfg *config.Config, missingSnapshotIndicesList []string) error {
 	logger := logging.NewLogger()
 	madisonClient := alerts.NewMadisonClient(cfg.GetMadisonKey(), cfg.GetOSDURL(), cfg.GetMadisonURL())
-	response, err := madisonClient.SendMadisonSnapshotMissingAlert(missingSnapshots)
+	response, err := madisonClient.SendMadisonSnapshotMissingAlert(missingSnapshotIndicesList)
 	if err != nil {
 		return err
 	}

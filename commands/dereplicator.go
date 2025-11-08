@@ -31,14 +31,13 @@ func runDereplicator(cmd *cobra.Command, args []string) error {
 	dateFormat := cfg.GetDateFormat()
 	useSnapshot := cfg.GetDereplicatorUseSnapshot()
 	snapRepo := cfg.GetSnapshotRepo()
-	dryRun := cfg.GetDryRun()
 
 	if useSnapshot && snapRepo == "" {
 		return fmt.Errorf("snap-repo parameter is required when use-snapshot is enabled")
 	}
 
 	logger := logging.NewLogger()
-	logger.Info(fmt.Sprintf("Starting dereplication process daysCount=%d useSnapshot=%t snapRepo=%s dryRun=%t", daysCount, useSnapshot, snapRepo, dryRun))
+	logger.Info(fmt.Sprintf("Starting dereplication process daysCount=%d useSnapshot=%t snapRepo=%s dryRun=%t", daysCount, useSnapshot, snapRepo, cfg.GetDryRun()))
 
 	client, err := utils.NewOSClientWithURL(cfg, cfg.GetOpenSearchURL())
 	if err != nil {
@@ -89,7 +88,7 @@ func runDereplicator(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		if dryRun {
+		if cfg.GetDryRun() {
 			logger.Info(fmt.Sprintf("DRY RUN: Would set replicas to 0 index=%s", index))
 			successfulDereplications = append(successfulDereplications, index)
 			continue
@@ -104,8 +103,8 @@ func runDereplicator(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if !dryRun {
-		logger.Info("\n" + strings.Repeat("=", 60))
+	if !cfg.GetDryRun() {
+		logger.Info(strings.Repeat("=", 60))
 		logger.Info("DEREPLICATOR SUMMARY")
 		logger.Info(strings.Repeat("=", 60))
 		if len(successfulDereplications) > 0 {

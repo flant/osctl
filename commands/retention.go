@@ -31,14 +31,13 @@ func runRetention(cmd *cobra.Command, args []string) error {
 	threshold := cfg.GetRetentionThreshold()
 	snapRepo := cfg.GetSnapshotRepo()
 	dateFormat := cfg.GetDateFormat()
-	dryRun := cfg.GetDryRun()
 
 	if snapRepo == "" {
 		return fmt.Errorf("snap-repo parameter is required")
 	}
 
 	logger := logging.NewLogger()
-	logger.Info(fmt.Sprintf("Starting retention process threshold=%.2f snapRepo=%s dryRun=%t", threshold, snapRepo, dryRun))
+	logger.Info(fmt.Sprintf("Starting retention process threshold=%.2f snapRepo=%s dryRun=%t", threshold, snapRepo, cfg.GetDryRun()))
 
 	client, err := utils.NewOSClientWithURL(cfg, cfg.GetOpenSearchURL())
 	if err != nil {
@@ -95,7 +94,7 @@ func runRetention(cmd *cobra.Command, args []string) error {
 		indicesToDelete = append(indicesToDelete, idx)
 	}
 
-	if dryRun {
+	if cfg.GetDryRun() {
 		fmt.Println("\nDRY RUN: Indices that would be deleted")
 		fmt.Println("=" + strings.Repeat("=", 50))
 		count := 0
@@ -145,8 +144,8 @@ func runRetention(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if !dryRun {
-		logger.Info("\n" + strings.Repeat("=", 60))
+	if !cfg.GetDryRun() {
+		logger.Info(strings.Repeat("=", 60))
 		logger.Info("RETENTION SUMMARY")
 		logger.Info(strings.Repeat("=", 60))
 		logger.Info(fmt.Sprintf("Final disk utilization: %d%%", avgUtil))
