@@ -110,18 +110,20 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 			logger.Info(fmt.Sprintf("Snapshot is currently IN_PROGRESS snapshot=%s repo=%s", snapshotName, repoToUse))
 			return nil
 		}
-		fmt.Println("\nDRY RUN: Manual snapshot creation plan")
-		fmt.Println("=" + strings.Repeat("=", 50))
+		logger.Info("DRY RUN: Manual snapshot creation plan")
+		logger.Info("=" + strings.Repeat("=", 50))
 
-		fmt.Printf("\nSnapshot (repo %s): %s\n", repoToUse, snapshotName)
-		fmt.Printf("Pattern: %s (%s)\n", value, kind)
-		fmt.Printf("Indices (%d):\n", len(matchingIndices))
+		logger.Info("")
+		logger.Info(fmt.Sprintf("Snapshot (repo %s): %s", repoToUse, snapshotName))
+		logger.Info(fmt.Sprintf("Pattern: %s (%s)", value, kind))
+		logger.Info(fmt.Sprintf("Indices (%d):", len(matchingIndices)))
 
 		for _, index := range matchingIndices {
-			fmt.Printf("  %s\n", index)
+			logger.Info(fmt.Sprintf("  %s", index))
 		}
 
-		fmt.Printf("\nDRY RUN: Would create 1 manual snapshot\n")
+		logger.Info("")
+		logger.Info("DRY RUN: Would create 1 manual snapshot")
 		return nil
 	}
 

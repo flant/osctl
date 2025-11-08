@@ -95,20 +95,20 @@ func runRetention(cmd *cobra.Command, args []string) error {
 	}
 
 	if cfg.GetDryRun() {
-		fmt.Println("\nDRY RUN: Indices that would be deleted")
-		fmt.Println("=" + strings.Repeat("=", 50))
+		logger.Info("DRY RUN: Indices that would be deleted")
+		logger.Info("=" + strings.Repeat("=", 50))
 		count := 0
 		for _, idx := range indicesToDelete {
 			if count >= 5 {
 				break
 			}
-			fmt.Printf("%d. %s (size: %s)\n", count+1, idx.Index, idx.Size)
+			logger.Info(fmt.Sprintf("%d. %s (size: %s)", count+1, idx.Index, idx.Size))
 			count++
 		}
 		if len(indicesToDelete) > 5 {
-			fmt.Printf("... and %d more indices\n", len(indicesToDelete)-5)
+			logger.Info(fmt.Sprintf("... and %d more indices", len(indicesToDelete)-5))
 		}
-		fmt.Printf("\nDRY RUN: Would delete %d indices\n", len(indicesToDelete))
+		logger.Info(fmt.Sprintf("DRY RUN: Would delete %d indices", len(indicesToDelete)))
 		return nil
 	}
 

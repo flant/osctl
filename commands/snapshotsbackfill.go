@@ -193,7 +193,12 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 		for _, indexName := range indicesForDate {
 			indexConfig := utils.FindMatchingIndexConfig(indexName, indicesConfig)
 			if indexConfig != nil {
-				if !indexConfig.Snapshot || indexConfig.ManualSnapshot {
+				if !indexConfig.Snapshot {
+					logger.Info(fmt.Sprintf("Skipping index: snapshot disabled in config index=%s", indexName))
+					continue
+				}
+				if indexConfig.ManualSnapshot {
+					logger.Info(fmt.Sprintf("Skipping index: manual snapshot in config index=%s", indexName))
 					continue
 				}
 
@@ -255,7 +260,6 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 				Kind:         "unknown",
 			})
 		}
-
 		if len(snapshotGroups) == 0 && len(repoGroups) == 0 {
 			logger.Info(fmt.Sprintf("No snapshots to create for date date=%s", dateKey))
 			continue
@@ -269,10 +273,45 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 			filteredMain := make([]utils.SnapshotGroup, 0, len(snapshotGroups))
 			inProgressMain := make([]string, 0)
 			for _, g := range snapshotGroups {
-				if state, ok := utils.GetSnapshotStateByName(g.SnapshotName, existingMain); ok && state == "SUCCESS" {
+				state, ok := utils.GetSnapshotStateByName(g.SnapshotName, existingMain)
+				if ok && state == "SUCCESS" {
+					missingIndices := make([]string, 0)
+					for _, snapshot := range existingMain {
+						if snapshot.Snapshot == g.SnapshotName {
+							for _, idx := range g.Indices {
+								found := false
+								for _, snapshotIndex := range snapshot.Indices {
+									if snapshotIndex == idx {
+										found = true
+										break
+									}
+								}
+								if !found {
+									missingIndices = append(missingIndices, idx)
+								}
+							}
+							break
+						}
+					}
+					if len(missingIndices) == 0 {
+						continue
+					}
+					randomSuffix := utils.GenerateRandomAlphanumericString(6)
+					parts := strings.Split(g.SnapshotName, "-")
+					if len(parts) > 0 {
+						datePart := parts[len(parts)-1]
+						baseName := strings.Join(parts[:len(parts)-1], "-")
+						newSnapshotName := baseName + "-" + randomSuffix + "-" + datePart
+						filteredMain = append(filteredMain, utils.SnapshotGroup{
+							SnapshotName: newSnapshotName,
+							Indices:      missingIndices,
+							Pattern:      g.Pattern,
+							Kind:         g.Kind,
+						})
+					}
 					continue
 				}
-				if state, ok := utils.GetSnapshotStateByName(g.SnapshotName, existingMain); ok && state == "IN_PROGRESS" {
+				if ok && state == "IN_PROGRESS" {
 					inProgressMain = append(inProgressMain, fmt.Sprintf("repo=%s snapshot=%s", defaultRepo, g.SnapshotName))
 					continue
 				}
@@ -293,10 +332,45 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 					existing = nil
 				}
 				for _, g := range groups {
-					if state, ok := utils.GetSnapshotStateByName(g.SnapshotName, existing); ok && state == "SUCCESS" {
+					state, ok := utils.GetSnapshotStateByName(g.SnapshotName, existing)
+					if ok && state == "SUCCESS" {
+						missingIndices := make([]string, 0)
+						for _, snapshot := range existing {
+							if snapshot.Snapshot == g.SnapshotName {
+								for _, idx := range g.Indices {
+									found := false
+									for _, snapshotIndex := range snapshot.Indices {
+										if snapshotIndex == idx {
+											found = true
+											break
+										}
+									}
+									if !found {
+										missingIndices = append(missingIndices, idx)
+									}
+								}
+								break
+							}
+						}
+						if len(missingIndices) == 0 {
+							continue
+						}
+						randomSuffix := utils.GenerateRandomAlphanumericString(6)
+						parts := strings.Split(g.SnapshotName, "-")
+						if len(parts) > 0 {
+							datePart := parts[len(parts)-1]
+							baseName := strings.Join(parts[:len(parts)-1], "-")
+							newSnapshotName := baseName + "-" + randomSuffix + "-" + datePart
+							filteredPerRepo[repo] = append(filteredPerRepo[repo], utils.SnapshotGroup{
+								SnapshotName: newSnapshotName,
+								Indices:      missingIndices,
+								Pattern:      g.Pattern,
+								Kind:         g.Kind,
+							})
+						}
 						continue
 					}
-					if state, ok := utils.GetSnapshotStateByName(g.SnapshotName, existing); ok && state == "IN_PROGRESS" {
+					if ok && state == "IN_PROGRESS" {
 						inProgressPerRepo = append(inProgressPerRepo, fmt.Sprintf("repo=%s snapshot=%s", repo, g.SnapshotName))
 						continue
 					}
@@ -304,55 +378,61 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 				}
 			}
 
-			fmt.Println("\nDRY RUN: Snapshot creation plan")
-			fmt.Println("=" + strings.Repeat("=", 50))
-			fmt.Printf("Index date: %s, Snapshot date: %s\n", dateKey, snapshotDate)
+			total := len(filteredMain)
+			for _, groups := range filteredPerRepo {
+				total += len(groups)
+			}
+
+			logger.Info("DRY RUN: Snapshot creation plan")
+			logger.Info("=" + strings.Repeat("=", 50))
+			logger.Info(fmt.Sprintf("Index date: %s, Snapshot date: %s", dateKey, snapshotDate))
 
 			if len(inProgressMain)+len(inProgressPerRepo) > 0 {
-				fmt.Println("\nCurrently IN_PROGRESS snapshots:")
+				logger.Info("")
+				logger.Info("Currently IN_PROGRESS snapshots:")
 				for _, msg := range inProgressMain {
-					fmt.Printf("  %s\n", msg)
+					logger.Info(fmt.Sprintf("  %s", msg))
 				}
 				for _, msg := range inProgressPerRepo {
-					fmt.Printf("  %s\n", msg)
+					logger.Info(fmt.Sprintf("  %s", msg))
 				}
-				fmt.Println("=" + strings.Repeat("=", 30))
+				logger.Info("=" + strings.Repeat("=", 30))
 			}
 
 			for i, group := range filteredMain {
-				fmt.Printf("\nSnapshot %d (repo %s): %s\n", i+1, defaultRepo, group.SnapshotName)
-				fmt.Printf("Pattern: %s (%s)\n", group.Pattern, group.Kind)
-				fmt.Printf("Indices (%d):\n", len(group.Indices))
+				logger.Info("")
+				logger.Info(fmt.Sprintf("Snapshot %d (repo %s): %s", i+1, defaultRepo, group.SnapshotName))
+				logger.Info(fmt.Sprintf("Pattern: %s (%s)", group.Pattern, group.Kind))
+				logger.Info(fmt.Sprintf("Indices (%d):", len(group.Indices)))
 				for _, index := range group.Indices {
-					fmt.Printf("  %s\n", index)
+					logger.Info(fmt.Sprintf("  %s", index))
 				}
-				fmt.Println("=" + strings.Repeat("=", 30))
+				logger.Info("=" + strings.Repeat("=", 30))
 			}
 
 			if len(filteredPerRepo) > 0 {
 				for repo, groups := range filteredPerRepo {
 					for _, g := range groups {
-						fmt.Printf("\nSnapshot (repo %s): %s\n", repo, g.SnapshotName)
-						fmt.Printf("Pattern: %s (%s)\n", g.Pattern, g.Kind)
-						fmt.Printf("Indices (%d):\n", len(g.Indices))
+						logger.Info("")
+						logger.Info(fmt.Sprintf("Snapshot (repo %s): %s", repo, g.SnapshotName))
+						logger.Info(fmt.Sprintf("Pattern: %s (%s)", g.Pattern, g.Kind))
+						logger.Info(fmt.Sprintf("Indices (%d):", len(g.Indices)))
 						for _, index := range g.Indices {
-							fmt.Printf("  %s\n", index)
+							logger.Info(fmt.Sprintf("  %s", index))
 						}
-						fmt.Println("=" + strings.Repeat("=", 30))
+						logger.Info("=" + strings.Repeat("=", 30))
 					}
 				}
 			}
 
-			total := len(filteredMain)
-			for _, groups := range filteredPerRepo {
-				total += len(groups)
-			}
+			logger.Info("")
+			logger.Info(fmt.Sprintf("DRY RUN: Would create %d snapshots for index date %s (snapshot date %s)", total, dateKey, snapshotDate))
+
 			totalSnapshotsToCreate += total
 			allSnapshotsToCreate = append(allSnapshotsToCreate, filteredMain...)
 			for _, groups := range filteredPerRepo {
 				allSnapshotsToCreate = append(allSnapshotsToCreate, groups...)
 			}
-			fmt.Printf("\nDRY RUN: Would create %d snapshots for index date %s (snapshot date %s)\n", total, dateKey, snapshotDate)
 			continue
 		}
 
@@ -373,7 +453,48 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 			for _, group := range snapshotGroups {
 				if state, ok, err := utils.CheckSnapshotStateInRepo(client, defaultRepo, group.SnapshotName); err == nil && ok {
 					if state == "SUCCESS" {
-						logger.Info(fmt.Sprintf("Valid snapshot already exists snapshot=%s", group.SnapshotName))
+						missingIndices := make([]string, 0)
+						for _, snapshot := range allSnapshotsForDate {
+							if snapshot.Snapshot == group.SnapshotName {
+								for _, idx := range group.Indices {
+									found := false
+									for _, snapshotIndex := range snapshot.Indices {
+										if snapshotIndex == idx {
+											found = true
+											break
+										}
+									}
+									if !found {
+										missingIndices = append(missingIndices, idx)
+									}
+								}
+								break
+							}
+						}
+						if len(missingIndices) == 0 {
+							logger.Info(fmt.Sprintf("Valid snapshot already exists with all indices snapshot=%s", group.SnapshotName))
+							continue
+						}
+						randomSuffix := utils.GenerateRandomAlphanumericString(6)
+						parts := strings.Split(group.SnapshotName, "-")
+						if len(parts) > 0 {
+							datePart := parts[len(parts)-1]
+							baseName := strings.Join(parts[:len(parts)-1], "-")
+							newSnapshotName := baseName + "-" + randomSuffix + "-" + datePart
+							logger.Info(fmt.Sprintf("Some indices missing in existing snapshot, creating additional snapshot original=%s new=%s missingIndicesCount=%d", group.SnapshotName, newSnapshotName, len(missingIndices)))
+							indicesStr := strings.Join(missingIndices, ",")
+							logger.Info(fmt.Sprintf("Creating snapshot %s", newSnapshotName))
+							logger.Info(fmt.Sprintf("Snapshot indices %s", indicesStr))
+							err = utils.CreateSnapshotWithRetry(client, newSnapshotName, indicesStr, defaultRepo, madisonClient, logger, 10*time.Minute)
+							if err != nil {
+								logger.Error(fmt.Sprintf("Failed to create snapshot after retries snapshot=%s error=%v", newSnapshotName, err))
+								failedSnapshots = append(failedSnapshots, newSnapshotName)
+							} else {
+								successfulSnapshots = append(successfulSnapshots, newSnapshotName)
+							}
+							logger.Info("Waiting 10 minutes before next snapshot creation")
+							time.Sleep(10 * time.Minute)
+						}
 						continue
 					}
 					if state == "IN_PROGRESS" {
@@ -424,7 +545,48 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 					for _, g := range groups {
 						if state, ok, err := utils.CheckSnapshotStateInRepo(client, repo, g.SnapshotName); err == nil && ok {
 							if state == "SUCCESS" {
-								logger.Info(fmt.Sprintf("Valid snapshot already exists repo=%s snapshot=%s", repo, g.SnapshotName))
+								missingIndices := make([]string, 0)
+								for _, snapshot := range existing {
+									if snapshot.Snapshot == g.SnapshotName {
+										for _, idx := range g.Indices {
+											found := false
+											for _, snapshotIndex := range snapshot.Indices {
+												if snapshotIndex == idx {
+													found = true
+													break
+												}
+											}
+											if !found {
+												missingIndices = append(missingIndices, idx)
+											}
+										}
+										break
+									}
+								}
+								if len(missingIndices) == 0 {
+									logger.Info(fmt.Sprintf("Valid snapshot already exists with all indices repo=%s snapshot=%s", repo, g.SnapshotName))
+									continue
+								}
+								randomSuffix := utils.GenerateRandomAlphanumericString(6)
+								parts := strings.Split(g.SnapshotName, "-")
+								if len(parts) > 0 {
+									datePart := parts[len(parts)-1]
+									baseName := strings.Join(parts[:len(parts)-1], "-")
+									newSnapshotName := baseName + "-" + randomSuffix + "-" + datePart
+									logger.Info(fmt.Sprintf("Some indices missing in existing snapshot, creating additional snapshot repo=%s original=%s new=%s missingIndicesCount=%d", repo, g.SnapshotName, newSnapshotName, len(missingIndices)))
+									indicesStr := strings.Join(missingIndices, ",")
+									logger.Info(fmt.Sprintf("Creating snapshot repo=%s snapshot=%s", repo, newSnapshotName))
+									logger.Info(fmt.Sprintf("Snapshot indices %s", indicesStr))
+									err = utils.CreateSnapshotWithRetry(client, newSnapshotName, indicesStr, repo, madisonClient, logger, 10*time.Minute)
+									if err != nil {
+										logger.Error(fmt.Sprintf("Failed to create snapshot after retries repo=%s snapshot=%s error=%v", repo, newSnapshotName, err))
+										failedSnapshots = append(failedSnapshots, fmt.Sprintf("%s (repo=%s)", newSnapshotName, repo))
+									} else {
+										successfulSnapshots = append(successfulSnapshots, fmt.Sprintf("%s (repo=%s)", newSnapshotName, repo))
+									}
+									logger.Info("Waiting 10 minutes before next snapshot creation")
+									time.Sleep(10 * time.Minute)
+								}
 								continue
 							}
 							if state == "IN_PROGRESS" {
