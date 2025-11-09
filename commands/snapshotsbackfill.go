@@ -92,6 +92,14 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 				continue
 			}
 
+			goFormat := utils.ConvertDateFormat(cfg.GetDateFormat())
+			indexTime, err := time.Parse(goFormat, extractedDate)
+			if err == nil {
+				if indexTime.After(time.Now()) {
+					continue
+				}
+			}
+
 			if extractedDate == dayBeforeYesterday || utils.IsOlderThanCutoff(indexName, dayBeforeYesterday, cfg.GetDateFormat()) {
 				indicesToProcess = append(indicesToProcess, indexName)
 			}

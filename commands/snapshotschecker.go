@@ -74,6 +74,14 @@ func runSnapshotsChecker(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
+		goFormat := utils.ConvertDateFormat(cfg.GetDateFormat())
+		indexTime, err := time.Parse(goFormat, extractedDate)
+		if err == nil {
+			if indexTime.After(time.Now()) {
+				continue
+			}
+		}
+
 		indicesToProcess = append(indicesToProcess, indexName)
 	}
 
