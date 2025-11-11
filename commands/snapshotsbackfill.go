@@ -264,9 +264,24 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 		snapshotGroups := utils.GroupIndicesForSnapshots(indicesToSnapshot, indicesConfig, snapshotDate)
 
 		if unknownConfig.Snapshot && !unknownConfig.ManualSnapshot && len(unknownIndices) > 0 {
-			randomSuffix := utils.GenerateRandomAlphanumericString(6)
+			unknownSnapshotName := "unknown-" + snapshotDate
+			existingForDate, err := utils.GetSnapshotsIgnore404(client, defaultRepo, "*"+snapshotDate+"*")
+			if err != nil {
+				existingForDate = nil
+			}
+			if existingForDate == nil {
+				existingForDate = []opensearch.Snapshot{}
+			}
+
+			state, exists := utils.GetSnapshotStateByName(unknownSnapshotName, existingForDate)
+			snapshotName := unknownSnapshotName
+			if exists && state == "SUCCESS" {
+				randomSuffix := utils.GenerateRandomAlphanumericString(6)
+				snapshotName = "unknown-" + randomSuffix + "-" + snapshotDate
+			}
+
 			snapshotGroups = append(snapshotGroups, utils.SnapshotGroup{
-				SnapshotName: "unknown-" + randomSuffix + "-" + snapshotDate,
+				SnapshotName: snapshotName,
 				Indices:      unknownIndices,
 				Pattern:      "unknown",
 				Kind:         "unknown",
