@@ -43,9 +43,12 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	allSnapshots, err := client.GetSnapshots(cfg.GetSnapshotRepo(), "*")
+	allSnapshots, err := utils.GetSnapshotsIgnore404(client, cfg.GetSnapshotRepo(), "*")
 	if err != nil {
 		return fmt.Errorf("failed to get all snapshots: %v", err)
+	}
+	if allSnapshots == nil {
+		allSnapshots = []opensearch.Snapshot{}
 	}
 
 	var names []string
@@ -107,10 +110,13 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 		}
 	}
 	for repo := range repoSet {
-		rsnaps, err := client.GetSnapshots(repo, "*")
+		rsnaps, err := utils.GetSnapshotsIgnore404(client, repo, "*")
 		if err != nil {
 			logger.Error(fmt.Sprintf("Failed to get repo snapshots repo=%s error=%v", repo, err))
 			continue
+		}
+		if rsnaps == nil {
+			rsnaps = []opensearch.Snapshot{}
 		}
 		if len(rsnaps) > 0 {
 			rnames := make([]string, 0, len(rsnaps))

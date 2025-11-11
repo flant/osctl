@@ -72,9 +72,12 @@ func runDereplicator(cmd *cobra.Command, args []string) error {
 
 	var snapshots []opensearch.Snapshot
 	if useSnapshot {
-		snapshots, err = client.GetSnapshots(snapRepo, "*")
+		snapshots, err = utils.GetSnapshotsIgnore404(client, snapRepo, "*")
 		if err != nil {
 			return fmt.Errorf("failed to get snapshots: %v", err)
+		}
+		if snapshots == nil {
+			snapshots = []opensearch.Snapshot{}
 		}
 	}
 

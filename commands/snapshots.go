@@ -6,6 +6,7 @@ import (
 	"osctl/pkg/alerts"
 	"osctl/pkg/config"
 	"osctl/pkg/logging"
+	"osctl/pkg/opensearch"
 	"osctl/pkg/utils"
 	"strings"
 	"time"
@@ -136,9 +137,12 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 	}
 
 	if cfg.GetDryRun() {
-		existingMain, err := client.GetSnapshots(defaultRepo, "*"+today+"*")
+		existingMain, err := utils.GetSnapshotsIgnore404(client, defaultRepo, "*"+today+"*")
 		if err != nil {
 			existingMain = nil
+		}
+		if existingMain == nil {
+			existingMain = []opensearch.Snapshot{}
 		}
 		filteredMain := make([]utils.SnapshotGroup, 0, len(snapshotGroups))
 		inProgressMain := make([]string, 0)
@@ -162,9 +166,12 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 		filteredPerRepo := map[string][]utils.SnapshotGroup{}
 		inProgressPerRepo := make([]string, 0)
 		for repo, groups := range perRepo {
-			existing, err := client.GetSnapshots(repo, "*"+today+"*")
+			existing, err := utils.GetSnapshotsIgnore404(client, repo, "*"+today+"*")
 			if err != nil {
 				existing = nil
+			}
+			if existing == nil {
+				existing = []opensearch.Snapshot{}
 			}
 			for _, g := range groups {
 				if state, ok := utils.GetSnapshotStateByName(g.SnapshotName, existing); ok && state == "SUCCESS" {
@@ -240,6 +247,9 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 		allSnapshots, err := utils.GetSnapshotsIgnore404(client, defaultRepo, "*"+today+"*")
 		if err != nil {
 			return fmt.Errorf("failed to get snapshots: %v", err)
+		}
+		if allSnapshots == nil {
+			allSnapshots = []opensearch.Snapshot{}
 		}
 		existingNames := utils.SnapshotsToNames(allSnapshots)
 		if len(existingNames) > 0 {
@@ -334,6 +344,9 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 				if err != nil {
 					logger.Error(fmt.Sprintf("Failed to get snapshots from repo repo=%s error=%v", repo, err))
 					continue
+				}
+				if existing == nil {
+					existing = []opensearch.Snapshot{}
 				}
 				for _, g := range groups {
 					if state, ok, err := utils.CheckSnapshotStateInRepo(client, repo, g.SnapshotName); err == nil && ok {

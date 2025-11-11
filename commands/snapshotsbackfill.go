@@ -6,6 +6,7 @@ import (
 	"osctl/pkg/alerts"
 	"osctl/pkg/config"
 	"osctl/pkg/logging"
+	"osctl/pkg/opensearch"
 	"osctl/pkg/utils"
 	"sort"
 	"strings"
@@ -117,9 +118,12 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 	}
 
 	logger.Info(fmt.Sprintf("Getting all snapshots from repository repo=%s", defaultRepo))
-	allSnapshots, err := client.GetSnapshots(defaultRepo, "*")
+	allSnapshots, err := utils.GetSnapshotsIgnore404(client, defaultRepo, "*")
 	if err != nil {
 		return fmt.Errorf("failed to get snapshots: %v", err)
+	}
+	if allSnapshots == nil {
+		allSnapshots = []opensearch.Snapshot{}
 	}
 
 	var snapshotNames []string
@@ -274,9 +278,12 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 		}
 
 		if cfg.GetDryRun() {
-			existingMain, err := client.GetSnapshots(defaultRepo, "*"+snapshotDate+"*")
+			existingMain, err := utils.GetSnapshotsIgnore404(client, defaultRepo, "*"+snapshotDate+"*")
 			if err != nil {
 				existingMain = nil
+			}
+			if existingMain == nil {
+				existingMain = []opensearch.Snapshot{}
 			}
 			filteredMain := make([]utils.SnapshotGroup, 0, len(snapshotGroups))
 			inProgressMain := make([]string, 0)
@@ -335,9 +342,12 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 			filteredPerRepo := map[string][]utils.SnapshotGroup{}
 			inProgressPerRepo := make([]string, 0)
 			for repo, groups := range perRepo {
-				existing, err := client.GetSnapshots(repo, "*"+snapshotDate+"*")
+				existing, err := utils.GetSnapshotsIgnore404(client, repo, "*"+snapshotDate+"*")
 				if err != nil {
 					existing = nil
+				}
+				if existing == nil {
+					existing = []opensearch.Snapshot{}
 				}
 				for _, g := range groups {
 					state, ok := utils.GetSnapshotStateByName(g.SnapshotName, existing)
@@ -457,6 +467,9 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 				logger.Error(fmt.Sprintf("Failed to get snapshots for date date=%s error=%v", dateKey, err))
 				continue
 			}
+			if allSnapshotsForDate == nil {
+				allSnapshotsForDate = []opensearch.Snapshot{}
+			}
 
 			for _, group := range snapshotGroups {
 				if state, ok, err := utils.CheckSnapshotStateInRepo(client, defaultRepo, group.SnapshotName); err == nil && ok {
@@ -549,6 +562,9 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 					if err != nil {
 						logger.Error(fmt.Sprintf("Failed to get snapshots from repo repo=%s error=%v", repo, err))
 						continue
+					}
+					if existing == nil {
+						existing = []opensearch.Snapshot{}
 					}
 					for _, g := range groups {
 						if state, ok, err := utils.CheckSnapshotStateInRepo(client, repo, g.SnapshotName); err == nil && ok {

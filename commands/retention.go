@@ -73,9 +73,12 @@ func runRetention(cmd *cobra.Command, args []string) error {
 	found := utils.IndexInfosToNames(indices)
 	logger.Info(fmt.Sprintf("Found indices to evaluate %s", strings.Join(found, ", ")))
 
-	snapshots, err := client.GetSnapshots(snapRepo, "*")
+	snapshots, err := utils.GetSnapshotsIgnore404(client, snapRepo, "*")
 	if err != nil {
 		return fmt.Errorf("failed to get snapshots: %v", err)
+	}
+	if snapshots == nil {
+		snapshots = []opensearch.Snapshot{}
 	}
 
 	var indicesToDelete []opensearch.IndexInfo

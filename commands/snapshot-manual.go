@@ -141,6 +141,9 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get snapshots: %v", err)
 	}
+	if allSnapshots == nil {
+		allSnapshots = []opensearch.Snapshot{}
+	}
 
 	existNames := utils.SnapshotsToNames(allSnapshots)
 	if len(existNames) > 0 {

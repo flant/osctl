@@ -5,6 +5,7 @@ import (
 	"osctl/pkg/alerts"
 	"osctl/pkg/config"
 	"osctl/pkg/logging"
+	"osctl/pkg/opensearch"
 	"osctl/pkg/utils"
 	"strings"
 	"time"
@@ -96,9 +97,12 @@ func runSnapshotsChecker(cmd *cobra.Command, args []string) error {
 	}
 
 	logger.Info(fmt.Sprintf("Getting all snapshots from repository repo=%s", cfg.GetSnapshotRepo()))
-	allSnapshots, err := client.GetSnapshots(cfg.GetSnapshotRepo(), "*")
+	allSnapshots, err := utils.GetSnapshotsIgnore404(client, cfg.GetSnapshotRepo(), "*")
 	if err != nil {
 		return fmt.Errorf("failed to get snapshots: %v", err)
+	}
+	if allSnapshots == nil {
+		allSnapshots = []opensearch.Snapshot{}
 	}
 
 	var snapshotNames []string
