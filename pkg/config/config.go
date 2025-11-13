@@ -27,6 +27,8 @@ type Config struct {
 	MadisonKey                         string
 	SnapshotRepo                       string
 	RetentionThreshold                 string
+	RetentionDaysCount                 string
+	RetentionCheckSnapshots            string
 	DereplicatorDaysCount              string
 	DereplicatorUseSnapshot            string
 	DataSourceName                     string
@@ -138,6 +140,8 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		MadisonKey:                    getValue(cmd, "madison-key", "MADISON_KEY", viper.GetString("madison_key")),
 		SnapshotRepo:                  getValue(cmd, "snap-repo", "SNAPSHOT_REPOSITORY", viper.GetString("snapshot_repo")),
 		RetentionThreshold:            getValue(cmd, "retention-threshold", "RETENTION_THRESHOLD", viper.GetString("retention_threshold")),
+		RetentionDaysCount:            getValue(cmd, "retention-days-count", "RETENTION_DAYS_COUNT", viper.GetString("retention_days_count")),
+		RetentionCheckSnapshots:       getValue(cmd, "retention-check-snapshots", "RETENTION_CHECK_SNAPSHOTS", viper.GetString("retention_check_snapshots")),
 		DereplicatorDaysCount:         getValue(cmd, "dereplicator-days-count", "DEREPLICATOR_DAYS", viper.GetString("dereplicator_days_count")),
 		DereplicatorUseSnapshot:       getValue(cmd, "dereplicator-use-snapshot", "DEREPLICATOR_USE_SNAPSHOT", viper.GetString("dereplicator_use_snapshot")),
 		HotCount:                      getValue(cmd, "hot-count", "HOT_COUNT", viper.GetString("hot_count")),
@@ -209,6 +213,8 @@ func setDefaults() {
 	viper.SetDefault("madison_key", "")
 	viper.SetDefault("snapshot_repo", "s3-backup")
 	viper.SetDefault("retention_threshold", 75.0)
+	viper.SetDefault("retention_days_count", 2)
+	viper.SetDefault("retention_check_snapshots", true)
 	viper.SetDefault("dereplicator_days_count", 2)
 	viper.SetDefault("dereplicator_use_snapshot", false)
 	viper.SetDefault("hot_count", 4)
@@ -355,6 +361,14 @@ func (c *Config) GetRetryAttempts() int {
 
 func (c *Config) GetRetentionThreshold() float64 {
 	return parseFloatWithDefault(c.RetentionThreshold, "retention_threshold")
+}
+
+func (c *Config) GetRetentionDaysCount() int {
+	return parseIntWithDefault(c.RetentionDaysCount, "retention_days_count")
+}
+
+func (c *Config) GetRetentionCheckSnapshots() bool {
+	return parseBoolWithDefault(c.RetentionCheckSnapshots, "retention_check_snapshots")
 }
 
 func (c *Config) GetDereplicatorDaysCount() int {
@@ -560,6 +574,8 @@ var CommandFlags = map[string][]FlagDefinition{
 	},
 	"retention": {
 		{"retention-threshold", "int", 75, "Disk usage threshold percentage", []string{"min:0", "max:100"}},
+		{"retention-days-count", "int", 2, "Number of days to keep indices (indices newer than this will not be deleted). Minimum 2 days.", []string{"min:2", "max:365"}},
+		{"retention-check-snapshots", "bool", true, "Check for valid snapshots before deleting indices", []string{}},
 		{"snap-repo", "string", "", "Snapshot repository name", []string{"required"}},
 		{"dry-run", "bool", false, "Show what would be deleted without actually deleting", []string{}},
 	},

@@ -59,6 +59,8 @@ indexpatterns_recoverer_enabled: true
 
 # retention:
 retention_threshold: 75.0
+retention_days_count: 2
+retention_check_snapshots: true
 
 # sharding:
 sharding_target_size_gib: 25

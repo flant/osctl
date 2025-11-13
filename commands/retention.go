@@ -29,6 +29,8 @@ func runRetention(cmd *cobra.Command, args []string) error {
 	cfg := config.GetConfig()
 
 	threshold := cfg.GetRetentionThreshold()
+	retentionDaysCount := cfg.GetRetentionDaysCount()
+	checkSnapshots := cfg.GetRetentionCheckSnapshots()
 	snapRepo := cfg.GetSnapshotRepo()
 	dateFormat := cfg.GetDateFormat()
 
@@ -36,8 +38,12 @@ func runRetention(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("snap-repo parameter is required")
 	}
 
+	if retentionDaysCount < 2 {
+		return fmt.Errorf("retention-days-count must be at least 2 days, got %d", retentionDaysCount)
+	}
+
 	logger := logging.NewLogger()
-	logger.Info(fmt.Sprintf("Starting retention process threshold=%.2f snapRepo=%s dryRun=%t", threshold, snapRepo, cfg.GetDryRun()))
+	logger.Info(fmt.Sprintf("Starting retention process threshold=%.2f retentionDaysCount=%d checkSnapshots=%t snapRepo=%s dryRun=%t", threshold, retentionDaysCount, checkSnapshots, snapRepo, cfg.GetDryRun()))
 
 	client, err := utils.NewOSClientWithURL(cfg, cfg.GetOpenSearchURL())
 	if err != nil {
@@ -56,43 +62,86 @@ func runRetention(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	today := utils.FormatDate(time.Now(), dateFormat)
-	yesterday := utils.FormatDate(time.Now().AddDate(0, 0, -1), dateFormat)
+	cutoffDate := utils.FormatDate(time.Now().AddDate(0, 0, -retentionDaysCount), dateFormat)
+	logger.Info(fmt.Sprintf("Cutoff date for retention cutoffDate=%s retentionDaysCount=%d", cutoffDate, retentionDaysCount))
 
-	pattern := fmt.Sprintf("*,-.*,-*%s,-*%s,-extracted_*", today, yesterday)
-	indices, err := client.GetIndicesWithFields(pattern, "index,ss", "ss:desc")
+	allIndices, err := client.GetIndicesWithFields("*", "index,ss", "ss:desc")
 	if err != nil {
 		return fmt.Errorf("failed to get indices: %v", err)
 	}
 
-	if len(indices) == 0 {
+	if len(allIndices) == 0 {
 		logger.Info("No indices to process")
 		return nil
 	}
 
-	found := utils.IndexInfosToNames(indices)
-	logger.Info(fmt.Sprintf("Found indices to evaluate %s", strings.Join(found, ", ")))
+	filteredIndices := make([]opensearch.IndexInfo, 0)
+	goFormat := utils.ConvertDateFormat(dateFormat)
 
-	snapshots, err := utils.GetSnapshotsIgnore404(client, snapRepo, "*")
-	if err != nil {
-		return fmt.Errorf("failed to get snapshots: %v", err)
+	for _, idx := range allIndices {
+		indexName := idx.Index
+
+		if utils.ShouldSkipIndex(indexName) {
+			continue
+		}
+
+		hasDate := utils.HasDateInName(indexName, dateFormat)
+		if !hasDate {
+			continue
+		}
+
+		extractedDate := utils.ExtractDateFromIndex(indexName, dateFormat)
+		if extractedDate == "" {
+			continue
+		}
+
+		indexTime, err := time.Parse(goFormat, extractedDate)
+		if err == nil {
+			if indexTime.After(time.Now()) {
+				continue
+			}
+		}
+
+		if utils.IsOlderThanCutoff(indexName, cutoffDate, dateFormat) {
+			filteredIndices = append(filteredIndices, idx)
+		} else {
+			logger.Info(fmt.Sprintf("Skipping index: newer than cutoff date index=%s cutoffDate=%s", indexName, cutoffDate))
+		}
 	}
-	if snapshots == nil {
-		snapshots = []opensearch.Snapshot{}
+
+	if len(filteredIndices) == 0 {
+		logger.Info("No indices older than cutoff date to process")
+		return nil
+	}
+
+	found := utils.IndexInfosToNames(filteredIndices)
+	logger.Info(fmt.Sprintf("Found indices to evaluate count=%d indices=%s", len(filteredIndices), strings.Join(found, ", ")))
+
+	var snapshots []opensearch.Snapshot
+	if checkSnapshots {
+		snapshots, err = utils.GetSnapshotsIgnore404(client, snapRepo, "*")
+		if err != nil {
+			return fmt.Errorf("failed to get snapshots: %v", err)
+		}
+		if snapshots == nil {
+			snapshots = []opensearch.Snapshot{}
+		}
+		logger.Info(fmt.Sprintf("Found snapshots count=%d", len(snapshots)))
 	}
 
 	var indicesToDelete []opensearch.IndexInfo
-	for _, idx := range indices {
+	for _, idx := range filteredIndices {
 		if float64(avgUtil) <= threshold {
 			break
 		}
 
-		if !utils.HasValidSnapshot(idx.Index, snapshots) {
-			logger.Warn(fmt.Sprintf("No valid snapshots found index=%s", idx.Index))
-			continue
+		if checkSnapshots {
+			if !utils.HasValidSnapshot(idx.Index, snapshots) {
+				logger.Warn(fmt.Sprintf("No valid snapshots found index=%s", idx.Index))
+				continue
+			}
+			logger.Info(fmt.Sprintf("Valid snapshot found index=%s", idx.Index))
 		}
-
-		logger.Info(fmt.Sprintf("Valid snapshot found index=%s", idx.Index))
 
 		indicesToDelete = append(indicesToDelete, idx)
 	}
