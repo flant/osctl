@@ -519,7 +519,7 @@ osctl/
 
 **Алгоритм:**
 
-1. **Валидация параметров**: Проверяем `--datasource-name`, `--os-url` и `--osd-url` (обязательны)
+1. **Валидация параметров**: Проверяем `--datasource-name`, `--datasource-endpoint` и `--osd-url` (обязательны)
 2. **Нормализация URL**: Добавляем схему `https://` к `osd-url` если отсутствует через `NormalizeURL`
 3. **Определение списка тенантов**:
    - Если `--datasource-kibana-multitenancy` - загружаем тенанты из `--kibana-tenants-config` (общий флаг, не `datasource-kibana-tenants-config`)
@@ -527,7 +527,7 @@ osctl/
 4. **Для каждого тенанта**:
    - Получаем существующие data sources через `GET /api/saved_objects/_find?type=data-source&securitytenant={tenant}` (используем оригинальное имя тенанта с дефисами)
    - Проверяем наличие data source с нужным названием
-   - Если не существует - создаем через `POST /api/saved_objects/data-source` с basic auth
+   - Если не существует - создаем через `POST /api/saved_objects/data-source` с basic auth, используя `--datasource-endpoint` как endpoint для OpenSearch
 5. **Multidomain режим** (если `--datasource-kibana-multidomain-enabled`):
    - Декодируем `--datasource-remote-crt` (base64 строки, разделенные `|`)
    - Получаем `ca.crt` из Kubernetes секрета `recoverer-certs` в namespace `--kube-namespace`
@@ -540,6 +540,7 @@ osctl/
 
 **Конфигурация:**
 - Использует `--datasource-name` для названия data source (по умолчанию "recoverer")
+- Использует `--datasource-endpoint` для OpenSearch endpoint URL при создании data source (по умолчанию "https://opendistro-recoverer:9200")
 - Использует `--kibana-user` и `--kibana-pass` для basic auth
 - Использует `--kube-namespace` для namespace Kubernetes секретов (по умолчанию "infra-elklogs")
 - Использует `--datasource-kibana-multitenancy` для включения multitenancy

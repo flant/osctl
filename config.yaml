@@ -32,6 +32,7 @@ hot_count: 4
 
 # datasource
 datasource_name: "recoverer"
+datasource_endpoint: "https://opendistro-recoverer:9200"
 kube_namespace: "infra-elklogs"
 kibana_user: ""
 kibana_pass: ""

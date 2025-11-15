@@ -59,6 +59,7 @@ type Config struct {
 	DataSourceKibanaMultitenancy       string
 	DataSourceKibanaMultidomainEnabled string
 	DataSourceRemoteCRT                string
+	DataSourceEndpoint                 string
 	IndexPatternsKibanaMultitenancy    string
 	IndexPatternsKibanaTenantsConfig   string
 	IndexPatternsRecovererEnabled      string
@@ -171,6 +172,7 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		DataSourceKibanaMultitenancy:       getValue(cmd, "datasource-kibana-multitenancy", "DATASOURCE_KIBANA_MULTITENANCY", viper.GetString("datasource_kibana_multitenancy")),
 		DataSourceKibanaMultidomainEnabled: getValue(cmd, "datasource-kibana-multidomain-enabled", "DATASOURCE_KIBANA_MULTIDOMAIN_ENABLED", viper.GetString("datasource_kibana_multidomain_enabled")),
 		DataSourceRemoteCRT:                getValue(cmd, "datasource-remote-crt", "DATASOURCE_REMOTE_CRT", viper.GetString("datasource_remote_crt")),
+		DataSourceEndpoint:                 getValue(cmd, "datasource-endpoint", "DATASOURCE_ENDPOINT", viper.GetString("datasource_endpoint")),
 		IndexPatternsKibanaMultitenancy:    getValue(cmd, "indexpatterns-kibana-multitenancy", "INDEXPATTERNS_KIBANA_MULTITENANCY", viper.GetString("indexpatterns_kibana_multitenancy")),
 		IndexPatternsKibanaTenantsConfig:   getValue(cmd, "indexpatterns-kibana-tenants-config", "INDEXPATTERNS_KIBANA_TENANTS_CONFIG", viper.GetString("indexpatterns_kibana_tenants_config")),
 		IndexPatternsRecovererEnabled:      getValue(cmd, "indexpatterns-recoverer-enabled", "INDEXPATTERNS_RECOVERER_ENABLED", viper.GetString("indexpatterns_recoverer_enabled")),
@@ -239,6 +241,7 @@ func setDefaults() {
 	viper.SetDefault("kibana_tenants_config", "osctltenants.yaml")
 	viper.SetDefault("kibana_multidomain_enabled", false)
 	viper.SetDefault("datasource_name", "recoverer")
+	viper.SetDefault("datasource_endpoint", "https://opendistro-recoverer:9200")
 }
 
 func GetAvailableActions() []string {
@@ -540,6 +543,10 @@ func (c *Config) GetDataSourceRemoteCRT() string {
 	return c.DataSourceRemoteCRT
 }
 
+func (c *Config) GetDataSourceEndpoint() string {
+	return c.DataSourceEndpoint
+}
+
 func (c *Config) GetIndexPatternsKibanaTenantsConfig() string {
 	return c.IndexPatternsKibanaTenantsConfig
 }
@@ -603,6 +610,7 @@ var CommandFlags = map[string][]FlagDefinition{
 		{"kibana-user", "string", "", "Kibana API user", []string{}},
 		{"kibana-pass", "string", "", "Kibana API password", []string{}},
 		{"datasource-name", "string", "recoverer", "Data source title", []string{}},
+		{"datasource-endpoint", "string", "https://opendistro-recoverer:9200", "OpenSearch endpoint URL for data source", []string{}},
 		{"kube-namespace", "string", "default", "Kubernetes namespace for secrets", []string{}},
 		{"datasource-kibana-multidomain-enabled", "bool", false, "Enable Kibana multidomain cert management", []string{}},
 		{"datasource-remote-crt", "string", "", "Concatenated base64 certs separated by | for multidomain", []string{}},

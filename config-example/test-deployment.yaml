@@ -13,7 +13,6 @@ spec:
     type: Recreate
   template:
     metadata:
-      creationTimestamp: null
       labels:
         app: osctl-test
     spec:
@@ -41,7 +40,7 @@ spec:
             weight: 100
       containers:
       - name: osctl-test
-        image: ghcr.io/flant/osctl:0.0.11
+        image: ghcr.io/flant/osctl:0.0.27
         command:
         - sh
         - -c

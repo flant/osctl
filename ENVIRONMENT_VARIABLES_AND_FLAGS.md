@@ -194,6 +194,7 @@ osctl --action=snapshot
 | `--kibana-user` | `KIBANA_API_USER` | Пользователь API Kibana | (пусто) |
 | `--kibana-pass` | `KIBANA_API_PASS` | Пароль API Kibana | (пусто) |
 | `--datasource-name` | `DATA_SOURCE_NAME` | Название data-source | `recoverer` |
+| `--datasource-endpoint` | `DATASOURCE_ENDPOINT` | OpenSearch endpoint URL для data-source | `https://opendistro-recoverer:9200` |
 | `--kube-namespace` | `KUBE_NAMESPACE` | Namespace для секретов | `infra-elklogs` |
 | `--datasource-kibana-multidomain-enabled` | `DATASOURCE_KIBANA_MULTIDOMAIN_ENABLED` | Управление секретом `multi-certs` и перезапуск Kibana если было обновление сертификатов | `false` |
 | `--datasource-remote-crt` | `DATASOURCE_REMOTE_CRT` | base64 сертификаты, разделённые \\| (используется при multidomain, будут объединены с `recoverer-certs/ca.crt` ) | (пусто) |
@@ -205,6 +206,7 @@ osctl --action=snapshot
 
 **Ключи в конфиг файле:**
 - `datasource_name`
+- `datasource_endpoint`
 - `kube_namespace`
 - `kibana_user`
 - `kibana_pass`

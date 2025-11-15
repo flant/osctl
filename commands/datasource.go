@@ -38,11 +38,12 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 
 	dataSourceName := cfg.GetDataSourceName()
 	osdURL := cfg.GetOSDURL()
+	dataSourceEndpoint := cfg.GetDataSourceEndpoint()
 
 	osdURL = utils.NormalizeURL(osdURL)
 
-	if dataSourceName == "" || cfg.GetOpenSearchURL() == "" || osdURL == "" {
-		return fmt.Errorf("dataSourceName, os-url and osd-url parameters are required")
+	if dataSourceName == "" || dataSourceEndpoint == "" || osdURL == "" {
+		return fmt.Errorf("dataSourceName, datasource-endpoint and osd-url parameters are required")
 	}
 
 	logger := logging.NewLogger()
@@ -83,7 +84,7 @@ func runDataSource(cmd *cobra.Command, args []string) error {
 				logger.Info(fmt.Sprintf("DRY RUN: Would create data source '%s' in tenant %s", dataSourceName, tenantNameForLog))
 				createdDataSources = append(createdDataSources, fmt.Sprintf("%s (tenant=%s)", dataSourceName, tenantNameForLog))
 			} else {
-				if err := kb.CreateDataSource(tenant, dataSourceName, cfg.GetOpenSearchURL(), user, pass); err != nil {
+				if err := kb.CreateDataSource(tenant, dataSourceName, dataSourceEndpoint, user, pass); err != nil {
 					return err
 				}
 				logger.Info(fmt.Sprintf("Created data source '%s' in tenant %s", dataSourceName, tenantNameForLog))

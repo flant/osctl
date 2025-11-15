@@ -78,10 +78,22 @@ scp osctl ИМЯ_НОДЫ-a-ks-master-0:/tmp
 
 #### 4.1. Подготовка деплоймента
 
-1. В нужном namespace создайте деплоймент из `config-example/test-deployment.yaml`:
+1. В нужном namespace создайте деплоймент из `config-example/test-deployment.yaml` или запустите джобу со слипом из существующих osctl кронджоб:
 
 ```bash
 kubectl -n infra-elklogs apply -f config-example/test-deployment.yaml
+```
+
+или
+
+```
+          containers:
+          - command:
+            - sh
+            - -c
+            - sleep 1000000000000000000000
+
+create job --from=cronjobs/*  *-test
 ```
 
 #### 4.2. Копирование файлов в под
@@ -92,7 +104,7 @@ kubectl -n infra-elklogs apply -f config-example/test-deployment.yaml
 kubectl -n infra-elklogs cp /tmp/osctl <pod-name>:/tmp
 ```
 
-2. Скопируйте конфигурационные файлы в под:
+2. Скопируйте конфигурационные файлы в под или если он запущен из кронджобы - то возьмите текущие ( но в /tmp перенести придется ):
 
 ```bash
 kubectl -n infra-elklogs cp config.yaml <pod-name>:/tmp
