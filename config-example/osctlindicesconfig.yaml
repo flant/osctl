@@ -34,7 +34,7 @@ indices:
     snapshot: true
     manual_snapshot: true
   - kind: regex
-    value: ".*-logs-.*-\\d{4}\\.\\d{2}\\.\\d{2}.*"
-    name: "app-logs"
+    value: '.*-logs-.*-\d{4}\.\d{2}\.\d{2}.*'
+    name: app-logs
     days_count: 14
     snapshot: true

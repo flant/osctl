@@ -235,7 +235,7 @@ func setDefaults() {
 	viper.SetDefault("osctl_indices_config", "osctlindicesconfig.yaml")
 	viper.SetDefault("sharding_target_size_gib", 25)
 	viper.SetDefault("exclude_sharding", "")
-	viper.SetDefault("kibana_index_regex", "^([\\w-]+)-([\\w-]*)(\\d{4}[\\.-]\\d{2}[\\.-]\\d{2}(?:[\\.-]\\d{2})*)$")
+	viper.SetDefault("kibana_index_regex", `^([\w-]+)-([\w-]*)(\d{4}[\.-]\d{2}[\.-]\d{2}(?:[\.-]\d{2})*)$`)
 	viper.SetDefault("recoverer_enabled", false)
 	viper.SetDefault("kube_namespace", "infra-elklogs")
 	viper.SetDefault("kibana_tenants_config", "osctltenants.yaml")
