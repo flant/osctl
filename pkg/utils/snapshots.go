@@ -75,9 +75,12 @@ func GetSnapshotStateByName(snapshotName string, snapshots []opensearch.Snapshot
 }
 
 func CheckSnapshotStateInRepo(client *opensearch.Client, repo string, snapshotName string) (string, bool, error) {
-	snaps, err := client.GetSnapshots(repo, snapshotName)
+	snaps, err := GetSnapshotsIgnore404(client, repo, snapshotName)
 	if err != nil {
 		return "", false, err
+	}
+	if len(snaps) == 0 {
+		return "", false, nil
 	}
 	if state, ok := GetSnapshotStateByName(snapshotName, snaps); ok {
 		return state, true, nil
@@ -254,6 +257,7 @@ func CreateSnapshotWithRetry(client *opensearch.Client, snapshotName, indexName,
 		indexName = existingIndicesStr
 	}
 
+retryLoop:
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		logger.Info(fmt.Sprintf("Creating snapshot attempt snapshot=%s attempt=%d maxRetries=%d", snapshotName, attempt, maxRetries))
 
@@ -279,7 +283,7 @@ func CreateSnapshotWithRetry(client *opensearch.Client, snapshotName, indexName,
 		if err != nil {
 			logger.Error(fmt.Sprintf("Failed to create snapshot snapshot=%s attempt=%d error=%v", snapshotName, attempt, err))
 			if attempt < maxRetries {
-				time.Sleep(time.Duration(attempt) * time.Second)
+				time.Sleep(pollInterval)
 				continue
 			}
 			logger.Error(fmt.Sprintf("Snapshot creation failed after all retries snapshot=%s maxRetries=%d", snapshotName, maxRetries))
@@ -289,19 +293,32 @@ func CreateSnapshotWithRetry(client *opensearch.Client, snapshotName, indexName,
 
 		logger.Info(fmt.Sprintf("Waiting for snapshot completion snapshot=%s", snapshotName))
 
-	pollLoop:
+		const maxWaitForVisibility = 15 * time.Minute
+		visibilityDeadline := startTime.Add(maxWaitForVisibility)
+
 		for {
 			snapshots, err := client.GetSnapshots(snapRepo, snapshotName)
 			if err != nil {
-				logger.Error(fmt.Sprintf("Failed to get snapshots snapshot=%s error=%v", snapshotName, err))
-				if attempt < maxRetries {
-					time.Sleep(pollInterval)
-					continue
+				if time.Now().After(visibilityDeadline) {
+					logger.Error(fmt.Sprintf("Error getting snapshot after creation timeout snapshot=%s timeout=%v attempt=%d error=%v", snapshotName, maxWaitForVisibility, attempt, err))
+					if attempt < maxRetries {
+						continue retryLoop
+					}
+					return fmt.Errorf("snapshot %s error after creation timeout: %v, attempt=%d", snapshotName, err, attempt)
 				}
-				return err
+				logger.Error(fmt.Sprintf("Failed to get snapshots snapshot=%s error=%v attempt=%d, error might be transient, wait a bit and retry", snapshotName, err, attempt))
+				time.Sleep(pollInterval)
+				continue
 			}
 			if len(snapshots) == 0 {
-				logger.Info(fmt.Sprintf("Waiting for snapshot visibility snapshot=%s", snapshotName))
+				if time.Now().After(visibilityDeadline) {
+					logger.Error(fmt.Sprintf("Snapshot not found in list after creation timeout snapshot=%s timeout=%v attempt=%d", snapshotName, maxWaitForVisibility, attempt))
+					if attempt < maxRetries {
+						continue retryLoop
+					}
+					return fmt.Errorf("snapshot %s not found in list after creation", snapshotName)
+				}
+				logger.Info(fmt.Sprintf("Waiting for snapshot visibility snapshot=%s attempt=%d", snapshotName, attempt))
 				time.Sleep(pollInterval)
 				continue
 			}
@@ -317,28 +334,29 @@ func CreateSnapshotWithRetry(client *opensearch.Client, snapshotName, indexName,
 			case "SUCCESS":
 				duration := time.Since(startTime)
 				durationStr := formatDuration(duration)
-				logger.Info(fmt.Sprintf("Snapshot created successfully snapshot=%s duration=%s", snapshotName, durationStr))
+				logger.Info(fmt.Sprintf("Snapshot created successfully snapshot=%s duration=%s attempt=%d", snapshotName, durationStr, attempt))
 				return nil
 			case "PARTIAL", "FAILED":
 				duration := time.Since(startTime)
 				durationStr := formatDuration(duration)
-				logger.Warn(fmt.Sprintf("Snapshot is PARTIAL/FAILED, deleting and retrying snapshot=%s state=%s duration=%s", snapshotName, snapshot.State, durationStr))
+				logger.Warn(fmt.Sprintf("Snapshot is PARTIAL/FAILED, deleting and retrying snapshot=%s state=%s duration=%s attempt=%d", snapshotName, snapshot.State, durationStr, attempt))
 				err := client.DeleteSnapshots(snapRepo, []string{snapshotName})
 				if err != nil {
 					logger.Error(fmt.Sprintf("Failed to delete PARTIAL/FAILED snapshot snapshot=%s error=%v", snapshotName, err))
 				} else {
-					logger.Info(fmt.Sprintf("Deleted PARTIAL/FAILED snapshot snapshot=%s state=%s duration=%s", snapshotName, snapshot.State, durationStr))
+					logger.Info(fmt.Sprintf("Deleted PARTIAL/FAILED snapshot snapshot=%s state=%s duration=%s attempt=%d", snapshotName, snapshot.State, durationStr, attempt))
 				}
 				if attempt < maxRetries {
-					logger.Info(fmt.Sprintf("Waiting 5 minutes before retry attempt=%d maxRetries=%d", attempt+1, maxRetries))
-					time.Sleep(5 * time.Minute)
-					break pollLoop
+					logger.Info(fmt.Sprintf("Waiting 15 minutes before retry attempt=%d maxRetries=%d", attempt+1, maxRetries))
+					time.Sleep(15 * time.Minute)
+					continue retryLoop
 				}
 			default:
-				logger.Warn(fmt.Sprintf("Unknown snapshot state snapshot=%s state=%s", snapshotName, snapshot.State))
+				logger.Warn(fmt.Sprintf("Unknown snapshot state snapshot=%s state=%s attempt=%d", snapshotName, snapshot.State, attempt))
 				if attempt < maxRetries {
 					time.Sleep(time.Duration(attempt) * time.Second)
-					break pollLoop
+					logger.Warn(fmt.Sprintf("Unknown snapshot state snapshot=%s state=%s attempt=%d, try again", snapshotName, snapshot.State, attempt))
+					continue retryLoop
 				}
 			}
 

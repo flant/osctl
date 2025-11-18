@@ -38,10 +38,14 @@ func ShouldSkipIndex(indexName string) bool {
 	if strings.HasPrefix(indexName, ".") {
 		return true
 	}
-	if strings.HasPrefix(indexName, "restored-") {
+	if strings.HasPrefix(indexName, "extracted_") {
 		return true
 	}
-	if strings.HasPrefix(indexName, "extracted_") {
+	return false
+}
+
+func ShouldSkipIndexRetention(indexName string) bool {
+	if strings.HasPrefix(indexName, ".") {
 		return true
 	}
 	return false

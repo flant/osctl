@@ -81,7 +81,7 @@ func runRetention(cmd *cobra.Command, args []string) error {
 	for _, idx := range allIndices {
 		indexName := idx.Index
 
-		if utils.ShouldSkipIndex(indexName) {
+		if utils.ShouldSkipIndexRetention(indexName) {
 			continue
 		}
 
