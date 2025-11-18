@@ -237,8 +237,8 @@ func getAverageUtilization(client *opensearch.Client) (int, error) {
 
 	sum := 0
 	for _, alloc := range allocation {
-		if percent, err := strconv.Atoi(alloc.DiskPercent); err == nil {
-			sum += percent
+		if percent, err := strconv.ParseFloat(alloc.Dup, 64); err == nil {
+			sum += int(percent)
 		}
 	}
 
