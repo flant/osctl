@@ -55,13 +55,16 @@ recoverer_date_format: "%d-%m-%Y"
 kibana_index_regex: '^([\w-]+)-([\w-]*)(\d{4}[\.-]\d{2}[\.-]\d{2}(?:[\.-]\d{2})*)$'
 indexpatterns_kibana_multitenancy: false
 indexpatterns_recoverer_enabled: true
+
 # indicesdelete:
+indicesdelete_check_snapshots: true
 # Uses osctl-indices-config for detailed configuration
 
 # retention:
 retention_threshold: 75.0
 retention_days_count: 2
 retention_check_snapshots: true
+retention_check_nodes_down: true
 
 # sharding:
 sharding_target_size_gib: 25

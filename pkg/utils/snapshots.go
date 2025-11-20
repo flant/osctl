@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"math/rand"
+	"osctl/pkg/alerts"
 	"osctl/pkg/config"
 	"osctl/pkg/logging"
 	"osctl/pkg/opensearch"
@@ -287,7 +288,18 @@ retryLoop:
 				continue
 			}
 			logger.Error(fmt.Sprintf("Snapshot creation failed after all retries snapshot=%s maxRetries=%d", snapshotName, maxRetries))
-			SendSnapshotFailureAlert(snapshotName, indexName, madisonClient, logger)
+			logger.Error(fmt.Sprintf("SENDING ALERT: Snapshot creation failed snapshot=%s index=%s message=%s", snapshotName, indexName,
+				fmt.Sprintf("Snapshot %s for index %s failed to create after %d retries", snapshotName, indexName, maxRetries)))
+			if madisonClient != nil {
+				if client, ok := madisonClient.(*alerts.Client); ok {
+					response, err := client.SendMadisonSnapshotCreationFailedAlert(snapshotName, indexName)
+					if err != nil {
+						logger.Error(fmt.Sprintf("Failed to send Madison alert error=%v", err))
+					} else {
+						logger.Info(fmt.Sprintf("Madison alert sent successfully: type=SnapshotCreationFailed response=%s", response))
+					}
+				}
+			}
 			return err
 		}
 
@@ -365,18 +377,10 @@ retryLoop:
 	}
 
 	logger.Error(fmt.Sprintf("Snapshot creation failed after all retries snapshot=%s maxRetries=%d", snapshotName, maxRetries))
-	SendSnapshotFailureAlert(snapshotName, indexName, madisonClient, logger)
-	return fmt.Errorf("snapshot creation failed after %d retries", maxRetries)
-}
-
-func SendSnapshotFailureAlert(snapshotName, indexName string, madisonClient interface{}, logger *logging.Logger) {
 	logger.Error(fmt.Sprintf("SENDING ALERT: Snapshot creation failed snapshot=%s index=%s message=%s", snapshotName, indexName,
-		fmt.Sprintf("Snapshot %s for index %s failed to create after 5 retries", snapshotName, indexName)))
-
+		fmt.Sprintf("Snapshot %s for index %s failed to create after %d retries", snapshotName, indexName, maxRetries)))
 	if madisonClient != nil {
-		if client, ok := madisonClient.(interface {
-			SendMadisonSnapshotCreationFailedAlert(snapshotName, indexName string) (string, error)
-		}); ok {
+		if client, ok := madisonClient.(*alerts.Client); ok {
 			response, err := client.SendMadisonSnapshotCreationFailedAlert(snapshotName, indexName)
 			if err != nil {
 				logger.Error(fmt.Sprintf("Failed to send Madison alert error=%v", err))
@@ -385,6 +389,7 @@ func SendSnapshotFailureAlert(snapshotName, indexName string, madisonClient inte
 			}
 		}
 	}
+	return fmt.Errorf("snapshot creation failed after %d retries", maxRetries)
 }
 
 func FindMatchingSnapshotConfig(snapshotName string, indicesConfig []config.IndexConfig) *config.IndexConfig {

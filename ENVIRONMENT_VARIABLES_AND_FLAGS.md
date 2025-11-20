@@ -98,10 +98,16 @@ osctl --action=snapshot
 | Флаг | Переменная окружения | Описание | Значение по умолчанию |
 |------|---------------------|----------|--------------|
 | `--retention-threshold` | `RETENTION_THRESHOLD` | Порог использования диска в процентах | `75` |
+| `--retention-days-count` | `RETENTION_DAYS_COUNT` | Количество дней для хранения индексов | `2` |
+| `--retention-check-snapshots` | `RETENTION_CHECK_SNAPSHOTS` | Проверять наличие валидных снапшотов перед удалением | `true` |
+| `--retention-check-nodes-down` | `RETENTION_CHECK_NODES_DOWN` | Проверять выбывшие ноды из кластера перед запуском retention | `true` |
 | `--dry-run` | `DRY_RUN` | Показать, какие индексы будут удалены, без удаления | `false` |
 
 **Ключи в конфиг файле:**
-- `retention-threshold`
+- `retention_threshold`
+- `retention_days_count`
+- `retention_check_snapshots`
+- `retention_check_nodes_down`
 
 ### `dereplicator`
 
@@ -265,7 +271,13 @@ osctl --action=snapshot
 
 | Флаг | Переменная окружения | Описание | Значение по умолчанию |
 |------|---------------------|----------|--------------|
+| `--indicesdelete-check-snapshots` | `INDICESDELETE_CHECK_SNAPSHOTS` | Проверять наличие валидных снапшотов перед удалением индексов, которые должны иметь снапшоты. Если `true` и не удалось получить информацию о снапшотах или `snap-repo` не настроен, джоба завершается с ошибкой | `true` |
+| `--snap-repo` | `SNAPSHOT_REPOSITORY` | Название репозитория для снапшотов (обязателен если `indicesdelete-check-snapshots=true`) | (пусто) |
 | `--dry-run` | `DRY_RUN` | Показать удаляемые индексы без удаления | `false` |
+
+**Ключи в конфиг файле:**
+- `indicesdelete_check_snapshots`
+- `snapshot_repo`
 
 В режиме multitenancy список тенантов берется из `--kibana-tenants-config` (`KIBANA_TENANTS_CONFIG`), файл обязателен.
 
