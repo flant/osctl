@@ -98,10 +98,16 @@ osctl --action=snapshot
 | Флаг | Переменная окружения | Описание | Значение по умолчанию |
 |------|---------------------|----------|--------------|
 | `--retention-threshold` | `RETENTION_THRESHOLD` | Порог использования диска в процентах | `75` |
+| `--retention-days-count` | `RETENTION_DAYS_COUNT` | Количество дней для хранения индексов | `2` |
+| `--retention-check-snapshots` | `RETENTION_CHECK_SNAPSHOTS` | Проверять наличие валидных снапшотов перед удалением | `true` |
+| `--retention-check-nodes-down` | `RETENTION_CHECK_NODES_DOWN` | Проверять выбывшие ноды из кластера перед запуском retention | `true` |
 | `--dry-run` | `DRY_RUN` | Показать, какие индексы будут удалены, без удаления | `false` |
 
 **Ключи в конфиг файле:**
-- `retention-threshold`
+- `retention_threshold`
+- `retention_days_count`
+- `retention_check_snapshots`
+- `retention_check_nodes_down`
 
 ### `dereplicator`
 

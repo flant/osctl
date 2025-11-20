@@ -64,6 +64,7 @@ indicesdelete_check_snapshots: true
 retention_threshold: 75.0
 retention_days_count: 2
 retention_check_snapshots: true
+retention_check_nodes_down: true
 
 # sharding:
 sharding_target_size_gib: 25
