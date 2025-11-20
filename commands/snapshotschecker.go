@@ -181,9 +181,12 @@ func runSnapshotsChecker(cmd *cobra.Command, args []string) error {
 		if cfg.GetDryRun() {
 			logger.Info("DRY RUN: Would send Madison alert for missing snapshots")
 		} else {
-			err := sendMissingSnapshotsAlert(cfg, missingSnapshotIndicesList)
+			madisonClient := alerts.NewMadisonClient(cfg.GetMadisonKey(), cfg.GetOSDURL(), cfg.GetMadisonURL())
+			response, err := madisonClient.SendMadisonSnapshotMissingAlert(missingSnapshotIndicesList)
 			if err != nil {
 				logger.Error(fmt.Sprintf("Failed to send Madison alert error=%v", err))
+			} else {
+				logger.Info(fmt.Sprintf("Madison alert sent successfully: type=SnapshotMissing response=%s", response))
 			}
 		}
 	} else {
@@ -191,16 +194,5 @@ func runSnapshotsChecker(cmd *cobra.Command, args []string) error {
 	}
 
 	logger.Info("Snapshot checking completed")
-	return nil
-}
-
-func sendMissingSnapshotsAlert(cfg *config.Config, missingSnapshotIndicesList []string) error {
-	logger := logging.NewLogger()
-	madisonClient := alerts.NewMadisonClient(cfg.GetMadisonKey(), cfg.GetOSDURL(), cfg.GetMadisonURL())
-	response, err := madisonClient.SendMadisonSnapshotMissingAlert(missingSnapshotIndicesList)
-	if err != nil {
-		return err
-	}
-	logger.Info(fmt.Sprintf("Madison alert sent successfully: type=SnapshotMissing response=%s", response))
 	return nil
 }
