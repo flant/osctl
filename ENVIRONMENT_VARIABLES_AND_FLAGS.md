@@ -265,7 +265,13 @@ osctl --action=snapshot
 
 | Флаг | Переменная окружения | Описание | Значение по умолчанию |
 |------|---------------------|----------|--------------|
+| `--indicesdelete-check-snapshots` | `INDICESDELETE_CHECK_SNAPSHOTS` | Проверять наличие валидных снапшотов перед удалением индексов, которые должны иметь снапшоты. Если `true` и не удалось получить информацию о снапшотах или `snap-repo` не настроен, джоба завершается с ошибкой | `true` |
+| `--snap-repo` | `SNAPSHOT_REPOSITORY` | Название репозитория для снапшотов (обязателен если `indicesdelete-check-snapshots=true`) | (пусто) |
 | `--dry-run` | `DRY_RUN` | Показать удаляемые индексы без удаления | `false` |
+
+**Ключи в конфиг файле:**
+- `indicesdelete_check_snapshots`
+- `snapshot_repo`
 
 В режиме multitenancy список тенантов берется из `--kibana-tenants-config` (`KIBANA_TENANTS_CONFIG`), файл обязателен.
 

@@ -180,28 +180,70 @@ osctl/
 ### 4. **indicesdelete** - Удаление индексов
 
 **Алгоритм:**
-1. **Загрузка конфигурации**: Получаем `osctl-indices-config` и `unknown.days_count`
-2. **Получение индексов**: `GET /_cat/indices/*?h=index,cd&bytes=b&s=index:asc` для всех индексов
-3. **Фильтрация индексов**:
+1. **Загрузка конфигурации**: Получаем `osctl-indices-config`, `unknown.days_count`, S3 конфигурацию (`unit_count.all`, `unit_count.unknown`) и `indicesdelete_check_snapshots`
+2. **Валидация конфигурации** (при загрузке):
+   - Если есть секции `indices` или `unknown`: проверяем что `s3_snapshots.unit_count.all >= 1` (иначе ошибка)
+   - Для каждого индекса: проверяем что `days_count >= 1` и `snapshot_count_s3 >= 0` (иначе ошибка)
+   - Для `unknown`: проверяем что `days_count >= 1` или `0` (не задан) (иначе ошибка)
+   - Если `snapshot_count_s3 == 0` и `snapshot: true`, устанавливаем `snapshot_count_s3 = unit_count.all`
+   - Если `unit_count.unknown == 0` и `unit_count.all > 0`, устанавливаем `unit_count.unknown = unit_count.all`
+3. **Получение индексов**: `GET /_cat/indices/*?h=index,cd&bytes=b&s=index:asc` для всех индексов
+4. **Фильтрация индексов**:
    - Пропускаем системные индексы (начинающиеся с `.`)
    - Пропускаем extracted индексы (начинающиеся с `extracted_`)
    - Для каждого индекса находим соответствующий конфиг через `FindMatchingIndexConfig`
    - Если конфиг найден:
-     - Если индекс имеет дату в названии - проверяем возраст через `IsOlderThanCutoff` с `days_count` из конфига
+     - Если индекс имеет дату в названии:
+       - **Индексы старше retention period (days_count)**: Проверяем возраст через `IsOlderThanCutoff` с `days_count` из конфига - если старше, добавляем в список `indicesOlderThanRetentionPeriod`
+       - **Индексы, требующие проверки снапшотов**: Если `snapshot: true` в конфиге:
+         - Определяем cutoff дату для снапшотов: используем `snapshot_count_s3` из конфига (если не задан, используется `s3_snapshots.unit_count.all`)
+         - Если индекс старше `days_count`, но НЕ старше `snapshot_count_s3` - добавляем в список `indicesRequiringSnapshotCheck`
+         - Если индекс старше `snapshot_count_s3` - снапшот уже ротирован, проверка не требуется, индекс удаляется без проверки (через `indicesOlderThanRetentionPeriod`)
      - Если у индекса нет даты в названии - просто логируем (не проверяем возраст, не удаляем)
    - Если конфиг не найден:
      - Если индекс имеет дату в названии - добавляем в `unknownIndices` для дальнейшей обработки
      - Если у индекса нет даты в названии - просто логируем (не проверяем возраст, не добавляем в unknown, не удаляем)
-4. **Фильтрация unknown индексов**: Применяем `FilterUnknownIndices` для исключения известных паттернов (только для индексов с датой в названии)
-5. **Обработка unknown индексов**: Для каждого отфильтрованного unknown индекса (только с датой в названии):
-   - Если `unknown.days_count > 0` и индекс старше cutoff - добавляем в список для удаления
-6. **Dry run режим**: Показываем список индексов для удаления
-7. **Удаление**: Через `DeleteIndicesBatch` с dry run поддержкой
+5. **Фильтрация unknown индексов**: Применяем `FilterUnknownIndices` для исключения известных паттернов (только для индексов с датой в названии)
+6. **Обработка unknown индексов**: Для каждого отфильтрованного unknown индекса (только с датой в названии):
+   - **Индексы старше retention period**: Если `unknown.days_count > 0` и индекс старше cutoff - добавляем в список `indicesOlderThanRetentionPeriod`
+   - **Индексы, требующие проверки снапшотов**: Если `unknown.snapshot: true` и `unknown.manual_snapshot: false`:
+     - Определяем cutoff дату для снапшотов: используем `s3_snapshots.unit_count.unknown` из S3 конфига
+     - Если индекс старше `unknown.days_count`, но НЕ старше `unit_count.unknown` - добавляем в список `indicesRequiringSnapshotCheck`
+     - Если индекс старше `unit_count.unknown` - снапшот уже ротирован, проверка не требуется, индекс удаляется без проверки (через `indicesOlderThanRetentionPeriod`)
+7. **Логирование списков**: Логируем оба списка с указанием количества и полного списка индексов
+8. **Проверка снапшотов** (если есть индексы, требующие проверки):
+   - Если `indicesdelete_check_snapshots=true`:
+     - Проверяем наличие `snap-repo` - если не настроен, джоба завершается с ошибкой
+     - Получаем все снапшоты один раз через `GET /_snapshot/{snap_repo}/*` с обработкой 404 через `GetSnapshotsIgnore404` (для избежания зависаний)
+     - Если произошла ошибка при получении снапшотов - джоба завершается с ошибкой
+     - Для каждого индекса из списка `indicesRequiringSnapshotCheck` проверяем наличие валидного снапшота через `HasValidSnapshot`
+     - Если снапшот найден - логируем и добавляем индекс в финальный список для удаления
+     - Если снапшота нет - логируем предупреждение и НЕ добавляем индекс в финальный список (но сохраняем для summary)
+     - Добавляем все индексы из `indicesOlderThanRetentionPeriod`, которые не в `indicesRequiringSnapshotCheck` (для них проверка не требуется) в финальный список для удаления
+   - Если `indicesdelete_check_snapshots=false`:
+     - Пропускаем проверку снапшотов, используем только `indicesOlderThanRetentionPeriod` (все индексы старше `days_count` удаляются без проверки)
+9. **Dry run режим**: Показываем финальный список индексов для удаления
+10. **Удаление**: Через `BatchDeleteIndices` с dry run поддержкой
+11. **Summary**: В конце выводится summary с успешно удаленными индексами, неудачными удалениями и индексами, пропущенными из-за отсутствия валидного снапшота
 
 **Примечания:**
 - Никогда не удаляем системные индексы (начинающиеся с `.`)
 - Никогда не трогаем индексы без даты в нужном формате старше чем Unknown политика, но выводим их в лог
-- Удаляем не смотря на то, что у индекса может не быть снапшота - поскольку мы рискуем заполонить кластер мусором ненужным, и есть куча алертов - и на то, что снапшот 5 раз подряд не создался, и на то, что потом он много дней подряд не создавался повторно.
+- Если `indicesdelete_check_snapshots=true` и не удалось получить информацию о снапшотах или `snap-repo` не настроен - джоба завершается с ошибкой
+- Индексы из списка `indicesRequiringSnapshotCheck` (старше `days_count`, но не старше `snapshot_count_s3`) удаляются только если у них есть валидный снапшот (при `indicesdelete_check_snapshots=true`)
+- Индексы старше `snapshot_count_s3` удаляются без проверки снапшота (снапшот уже ротирован)
+- Индексы из списка `indicesOlderThanRetentionPeriod`, которые не в `indicesRequiringSnapshotCheck` (если `snapshot: false` или старше `snapshot_count_s3`), удаляются без проверки снапшотов
+- Если для группы индексов `snapshot: false`, то индексы не попадают в `indicesRequiringSnapshotCheck` и удаляются по правилам `indicesOlderThanRetentionPeriod`
+- Если для unknown индексов `unknown.snapshot: false`, то они не попадают в `indicesRequiringSnapshotCheck`
+- Снапшоты получаются один раз для всех индексов (как в `snapshotschecker` и `snapshotsbackfill`)
+
+**Конфигурация:**
+- Использует `--osctl-indices-config` для централизованной конфигурации
+- Использует `--indicesdelete-check-snapshots` для включения/выключения проверки снапшотов перед удалением (по умолчанию `true`)
+- Использует `--snap-repo` для проверки снапшотов (обязателен если `indicesdelete-check-snapshots=true`)
+- Учитывает `days_count` и `snapshot_count_s3` из конфига индексов
+- Учитывает `s3_snapshots.unit_count.all` и `s3_snapshots.unit_count.unknown` из S3 конфига
+- Валидация конфига: `all >= 1`, `days_count >= 1`, `snapshot_count_s3 >= 0`
 
 ### 5. **retention** - Удаление индексов по утилизации диска
 

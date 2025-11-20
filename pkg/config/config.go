@@ -29,6 +29,7 @@ type Config struct {
 	RetentionThreshold                 string
 	RetentionDaysCount                 string
 	RetentionCheckSnapshots            string
+	IndicesDeleteCheckSnapshots        string
 	DereplicatorDaysCount              string
 	DereplicatorUseSnapshot            string
 	DataSourceName                     string
@@ -143,6 +144,7 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		RetentionThreshold:            getValue(cmd, "retention-threshold", "RETENTION_THRESHOLD", viper.GetString("retention_threshold")),
 		RetentionDaysCount:            getValue(cmd, "retention-days-count", "RETENTION_DAYS_COUNT", viper.GetString("retention_days_count")),
 		RetentionCheckSnapshots:       getValue(cmd, "retention-check-snapshots", "RETENTION_CHECK_SNAPSHOTS", viper.GetString("retention_check_snapshots")),
+		IndicesDeleteCheckSnapshots:   getValue(cmd, "indicesdelete-check-snapshots", "INDICESDELETE_CHECK_SNAPSHOTS", viper.GetString("indicesdelete_check_snapshots")),
 		DereplicatorDaysCount:         getValue(cmd, "dereplicator-days-count", "DEREPLICATOR_DAYS", viper.GetString("dereplicator_days_count")),
 		DereplicatorUseSnapshot:       getValue(cmd, "dereplicator-use-snapshot", "DEREPLICATOR_USE_SNAPSHOT", viper.GetString("dereplicator_use_snapshot")),
 		HotCount:                      getValue(cmd, "hot-count", "HOT_COUNT", viper.GetString("hot_count")),
@@ -217,6 +219,7 @@ func setDefaults() {
 	viper.SetDefault("retention_threshold", 75.0)
 	viper.SetDefault("retention_days_count", 2)
 	viper.SetDefault("retention_check_snapshots", true)
+	viper.SetDefault("indicesdelete_check_snapshots", true)
 	viper.SetDefault("dereplicator_days_count", 2)
 	viper.SetDefault("dereplicator_use_snapshot", false)
 	viper.SetDefault("hot_count", 4)
@@ -372,6 +375,10 @@ func (c *Config) GetRetentionDaysCount() int {
 
 func (c *Config) GetRetentionCheckSnapshots() bool {
 	return parseBoolWithDefault(c.RetentionCheckSnapshots, "retention_check_snapshots")
+}
+
+func (c *Config) GetIndicesDeleteCheckSnapshots() bool {
+	return parseBoolWithDefault(c.IndicesDeleteCheckSnapshots, "indicesdelete_check_snapshots")
 }
 
 func (c *Config) GetDereplicatorDaysCount() int {
@@ -626,6 +633,8 @@ var CommandFlags = map[string][]FlagDefinition{
 		{"dry-run", "bool", false, "Show what would be deleted without actually deleting", []string{}},
 	},
 	"indicesdelete": {
+		{"indicesdelete-check-snapshots", "bool", true, "Check for valid snapshots before deleting indices that should have snapshots. If true and snapshots cannot be retrieved or snap-repo is not configured, job exits with error.", []string{}},
+		{"snap-repo", "string", "", "Snapshot repository name (required if indicesdelete-check-snapshots is true)", []string{}},
 		// Uses --osctl-indices-config for configuration
 		{"dry-run", "bool", false, "Show what would be deleted without actually deleting", []string{}},
 	},
