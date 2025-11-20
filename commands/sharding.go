@@ -93,7 +93,6 @@ func runSharding(cmd *cobra.Command, args []string) error {
 		maxSize    int64
 		maxSizeStr string
 		indices    []string
-		isHourly   bool
 	}
 	patterns := make(map[string]*patternInfo)
 
@@ -104,12 +103,7 @@ func runSharding(cmd *cobra.Command, args []string) error {
 			continue
 		}
 		base := name
-		isHourly := false
 		if pos := strings.LastIndex(name, today); pos >= 0 {
-			restAfterDate := name[pos+len(today):]
-			if len(restAfterDate) > 0 && strings.HasPrefix(restAfterDate, "-") {
-				isHourly = true
-			}
 			base = strings.TrimSuffix(name[:pos], "-")
 		} else {
 			base = strings.TrimSuffix(base, today)
@@ -121,7 +115,6 @@ func runSharding(cmd *cobra.Command, args []string) error {
 		}
 		if pi, ok := patterns[pattern]; ok {
 			pi.indices = append(pi.indices, name)
-			pi.isHourly = pi.isHourly || isHourly
 			if sz, err := strconv.ParseInt(it.PriStoreSize, 10, 64); err == nil && sz > pi.maxSize {
 				pi.maxSize = sz
 				pi.maxSizeStr = it.PriStoreSize
@@ -133,7 +126,6 @@ func runSharding(cmd *cobra.Command, args []string) error {
 				maxSize:    0,
 				maxSizeStr: it.PriStoreSize,
 				indices:    []string{name},
-				isHourly:   isHourly,
 			}
 			if sz, err := strconv.ParseInt(it.PriStoreSize, 10, 64); err == nil {
 				patterns[pattern].maxSize = sz
@@ -150,6 +142,12 @@ func runSharding(cmd *cobra.Command, args []string) error {
 		}
 	} else {
 		logger.Info(fmt.Sprintf("DEBUG: Failed to get all templates: %v", err))
+	}
+
+	defaultTemplateExists, err := utils.TemplateExists(client, "default_template")
+	if err != nil {
+		logger.Warn(fmt.Sprintf("Failed to check default_template existence: %v", err))
+		defaultTemplateExists = false
 	}
 
 	for pattern, pi := range patterns {
@@ -205,7 +203,7 @@ func runSharding(cmd *cobra.Command, args []string) error {
 				"settings": settings["index"],
 			},
 		}
-		if pi.isHourly {
+		if defaultTemplateExists {
 			template["composed_of"] = []string{"default_template"}
 		}
 		if existing == "" {
@@ -232,34 +230,8 @@ func runSharding(cmd *cobra.Command, args []string) error {
 		} else {
 			curShards := 1
 			if tpl, err := client.GetIndexTemplate(existing); err == nil {
-				if len(tpl.IndexTemplates) > 0 {
-					if tset, ok := tpl.IndexTemplates[0].IndexTemplate.Template["settings"].(map[string]any); ok {
-						if idx, ok := tset["index"].(map[string]any); ok {
-							if v, ok := idx["number_of_shards"]; ok {
-								logger.Info(fmt.Sprintf("DEBUG: Template %s current shards value: %v (type: %T)", existing, v, v))
-								var s int
-								switch val := v.(type) {
-								case string:
-									if parsed, err := strconv.Atoi(val); err == nil {
-										s = parsed
-									}
-								case int:
-									s = val
-								case int64:
-									s = int(val)
-								case float64:
-									s = int(val)
-								default:
-									if parsed, err := strconv.Atoi(fmt.Sprintf("%v", v)); err == nil {
-										s = parsed
-									}
-								}
-								if s > 0 {
-									curShards = s
-								}
-							}
-						}
-					}
+				if s, err := utils.GetTemplateShardCount(tpl); err == nil && s > 0 {
+					curShards = s
 				}
 			}
 			logger.Info(fmt.Sprintf("DEBUG: Template %s: current shards=%d, target shards=%d", existing, curShards, shards))
@@ -320,6 +292,9 @@ func runSharding(cmd *cobra.Command, args []string) error {
 								},
 							},
 						},
+					}
+					if defaultTemplateExists {
+						current["composed_of"] = []string{"default_template"}
 					}
 				}
 				if err := client.PutIndexTemplate(existing, current); err != nil {
