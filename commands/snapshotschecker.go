@@ -185,9 +185,9 @@ func runSnapshotsChecker(cmd *cobra.Command, args []string) error {
 			response, err := madisonClient.SendMadisonSnapshotMissingAlert(missingSnapshotIndicesList)
 			if err != nil {
 				logger.Error(fmt.Sprintf("Failed to send Madison alert error=%v", err))
-			} else {
-				logger.Info(fmt.Sprintf("Madison alert sent successfully: type=SnapshotMissing response=%s", response))
+				return fmt.Errorf("failed to send Madison alert: %v", err)
 			}
+			logger.Info(fmt.Sprintf("Madison alert sent successfully: type=SnapshotMissing response=%s", response))
 		}
 	} else {
 		logger.Info("All snapshots are present")
