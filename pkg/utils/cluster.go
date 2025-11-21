@@ -89,8 +89,8 @@ func CheckNodesDown(client *opensearch.Client, logger *logging.Logger, checkEnab
 	}
 
 	nodeCount := len(allocation)
-	var nodePrefixes []string
-	prefixSet := make(map[string]bool)
+	var stsBaseNames []string
+	baseNameSet := make(map[string]bool)
 	var invalidNodeNames []string
 
 	re := regexp.MustCompile(`-\d+$`)
@@ -101,10 +101,10 @@ func CheckNodesDown(client *opensearch.Client, logger *logging.Logger, checkEnab
 			invalidNodeNames = append(invalidNodeNames, nodeName)
 		}
 
-		prefix := re.ReplaceAllString(nodeName, "")
-		if !prefixSet[prefix] {
-			prefixSet[prefix] = true
-			nodePrefixes = append(nodePrefixes, prefix)
+		baseName := re.ReplaceAllString(nodeName, "")
+		if !baseNameSet[baseName] {
+			baseNameSet[baseName] = true
+			stsBaseNames = append(stsBaseNames, baseName)
 		}
 	}
 
@@ -114,7 +114,7 @@ func CheckNodesDown(client *opensearch.Client, logger *logging.Logger, checkEnab
 
 	if showDetails {
 		logger.Info(fmt.Sprintf("Nodes in cluster: %d", nodeCount))
-		logger.Info(fmt.Sprintf("Node prefixes found: %s", strings.Join(nodePrefixes, ", ")))
+		logger.Info(fmt.Sprintf("StatefulSet base names found: %s", strings.Join(stsBaseNames, ", ")))
 	}
 
 	rc, err := rest.InClusterConfig()
@@ -137,8 +137,8 @@ func CheckNodesDown(client *opensearch.Client, logger *logging.Logger, checkEnab
 	var matchingSts []string
 
 	for _, sts := range stsList.Items {
-		for _, prefix := range nodePrefixes {
-			if strings.HasPrefix(sts.Name, prefix) || strings.Contains(sts.Name, prefix) {
+		for _, baseName := range stsBaseNames {
+			if sts.Name == baseName {
 				replicas := int(*sts.Spec.Replicas)
 				totalReplicas += replicas
 				matchingSts = append(matchingSts, fmt.Sprintf("%s (replicas=%d)", sts.Name, replicas))
@@ -152,7 +152,7 @@ func CheckNodesDown(client *opensearch.Client, logger *logging.Logger, checkEnab
 			logger.Info(fmt.Sprintf("StatefulSets found: %s", strings.Join(matchingSts, ", ")))
 			logger.Info(fmt.Sprintf("Total replicas in StatefulSets: %d", totalReplicas))
 		} else {
-			logger.Warn("No matching StatefulSets found for node prefixes")
+			logger.Warn("No matching StatefulSets found for node base names")
 		}
 		logger.Info(fmt.Sprintf("Nodes in cluster: %d, Expected replicas: %d, Difference: %d", nodeCount, totalReplicas, totalReplicas-nodeCount))
 	}
