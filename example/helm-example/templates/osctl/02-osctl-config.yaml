@@ -104,11 +104,13 @@ data:
     {{- end }}
 
     # indicesdelete:
+    indicesdelete_check_snapshots: true
 
     # retention:
     retention_threshold: {{ .Values.retention.threshold | default 75.0 | quote }}
     retention_days_count: 2
     retention_check_snapshots: true
+    retention_check_nodes_down: true
 
     # sharding:
     sharding_target_size_gib: {{ .Values.sharding.target_size_gib | default 25 | quote }}
