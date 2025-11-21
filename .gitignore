@@ -1,6 +1,4 @@
 build/
 main
-osctl
-
 # Test certificates
 test-certs/

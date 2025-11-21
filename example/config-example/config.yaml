@@ -1,0 +1,91 @@
+# Configuration File for osctl
+
+# Action to execute (optional) - if set, osctl will automatically run this command
+# Available actions: snapshots, snapshot-manual, snapshotsdelete, snapshotschecker, 
+#                   indicesdelete, retention, dereplicator, coldstorage, 
+#                   extracteddelete, danglingchecker
+action: ""
+
+# Common settings shared across all commands
+opensearch_url: "https://opendistro:9200"
+cert_file: "/etc/ssl/certs/admin-crt.pem"
+key_file: "/etc/ssl/certs/admin-key.pem"
+ca_file: ""
+timeout: "300s"
+retry_attempts: 3
+date_format: "%Y.%m.%d"
+dry_run: false
+snapshot_repo: "s3-backup"
+
+# madison alerts settings
+madison_url: "https://madison.flant.com/api/events/custom/"
+madison_key: ""
+osd_url: ""
+
+# Command-specific configurations
+
+# coldstorage
+cold_attribute: "cold"
+hot_count: 4
+
+# danglingchecker
+
+# datasource
+datasource_name: "recoverer"
+datasource_endpoint: "https://opendistro-recoverer:9200"
+kube_namespace: "infra-elklogs"
+kibana_user: ""
+kibana_pass: ""
+datasource_kibana_multitenancy: false
+datasource_kibana_multidomain_enabled: false
+datasource_remote_crt: ""
+
+# dereplicator:
+dereplicator_days_count: 2
+dereplicator_use_snapshot: false
+
+
+# extracteddelete:
+opensearch_recoverer_url: "https://opendistro-recoverer:9200"
+extracted_pattern: "extracted_"
+extracted_days: 2
+recoverer_date_format: "%d-%m-%Y"
+
+# indexpatterns:
+kibana_index_regex: '^([\w-]+)-([\w-]*)(\d{4}[\.-]\d{2}[\.-]\d{2}(?:[\.-]\d{2})*)$'
+indexpatterns_kibana_multitenancy: false
+indexpatterns_recoverer_enabled: true
+
+# indicesdelete:
+indicesdelete_check_snapshots: true
+# Uses osctl-indices-config for detailed configuration
+
+# retention:
+retention_threshold: 75.0
+retention_days_count: 2
+retention_check_snapshots: true
+retention_check_nodes_down: true
+
+# sharding:
+sharding_target_size_gib: 25
+exclude_sharding: ""
+
+# snapshots:
+# Uses osctl-indices-config for detailed configuration
+
+# snapshotschecker:
+# Uses osctl-indices-config for detailed configuration
+
+# snapshotsdelete:
+# Uses osctl-indices-config for detailed configuration
+
+# snapshotsbackfill:
+# Uses osctl-indices-config for detailed configuration
+snapshots_backfill_indices_list: ""
+
+# snapshotmanual:
+snapshot_manual_kind: "prefix"
+snapshot_manual_value: ""
+snapshot_manual_name: ""
+snapshot_manual_repo: ""
+snapshot_manual_system: false

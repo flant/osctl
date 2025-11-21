@@ -1,0 +1,224 @@
+{{- define "toleration" }}
+{{- if hasKey .Values.opendistro "nodegroup" }}
+tolerations:
+  - key: dedicated.flant.com
+    operator: "Equal"
+    value: {{ .Values.opendistro.nodegroup | quote }}
+    effect: "NoSchedule"
+  - key: dedicated
+    operator: "Equal"
+    value: {{ .Values.opendistro.nodegroup | quote }}
+    effect: "NoSchedule"
+{{- end }}
+{{- end }}
+
+{{- define "toleration_common" }}
+{{- if hasKey .Values.common "nodegroup" }}
+tolerations:
+  - key: dedicated.flant.com
+    operator: "Equal"
+    value: {{ .Values.common.nodegroup | quote }}
+    effect: "NoSchedule"
+  - key: dedicated
+    operator: "Equal"
+    value: {{ .Values.common.nodegroup | quote }}
+    effect: "NoSchedule"
+{{- end }}
+{{- end }}
+
+{{- define "nodeselector" }}
+{{- if hasKey .Values.opendistro "nodegroup" }}
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: node-role.flant.com/{{ .Values.opendistro.nodegroup }}
+          operator: In
+          values:
+          - ""
+      - matchExpressions:
+        - key: node-role/{{ .Values.opendistro.nodegroup }}
+          operator: In
+          values:
+          - ""
+{{- end }}
+{{- end }}
+
+{{- define "nodeselector.cold" }}
+{{- if hasKey .Values.coldCluster "nodegroup" }}
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: node-role.flant.com/{{ .Values.coldCluster.nodegroup }}
+          operator: In
+          values:
+          - ""
+      - matchExpressions:
+        - key: node-role/{{ .Values.coldCluster.nodegroup }}
+          operator: In
+          values:
+          - ""
+{{- end }}
+{{- end }}
+
+{{- define "nodeselector.standby" }}
+{{- if hasKey .Values.standbyCluster "nodegroup" }}
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: node-role.flant.com/{{ .Values.standbyCluster.nodegroup }}
+          operator: In
+          values:
+          - ""
+      - matchExpressions:
+        - key: node-role/{{ .Values.standbyCluster.nodegroup }}
+          operator: In
+          values:
+          - ""
+{{- end }}
+{{- end }}
+
+{{- define "toleration.standby" }}
+{{- if hasKey .Values.standbyCluster "nodegroup" }}
+tolerations:
+  - key: dedicated.flant.com
+    operator: "Equal"
+    value: {{ .Values.standbyCluster.nodegroup | quote }}
+    effect: "NoSchedule"
+  - key: dedicated
+    operator: "Equal"
+    value: {{ .Values.standbyCluster.nodegroup | quote }}
+    effect: "NoSchedule"
+{{- end }}
+{{- end }}
+
+
+{{- define "nodeselector_common" }}
+{{- if hasKey .Values.common "nodegroup" }}
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: node-role.flant.com/{{ .Values.common.nodegroup }}
+          operator: In
+          values:
+          - ""
+      - matchExpressions:
+        - key: node-role/{{ .Values.common.nodegroup }}
+          operator: In
+          values:
+          - ""
+{{- end }}
+{{- end }}
+
+{{- define "odsp_extend_role" }}
+{{- if hasKey .Values "osecurity_extend" }}
+lmru_special:
+  reserved: true
+  hidden: false
+  cluster_permissions:
+{{ .Values.osecurity_extend.permission | indent 2 }}
+  index_permissions:
+  - index_patterns:
+    - "*"
+    fls: []
+    masked_fields: []
+    allowed_actions:
+{{ .Values.osecurity_extend.permission | indent 4}}
+  tenant_permissions:
+  - tenant_patterns:
+    - "*"
+    allowed_actions:
+    - "kibana_all_write"
+  static: false
+{{- end }}
+{{- end }}
+
+{{- define "odsp_extend_role_mapping" }}
+{{- if hasKey .Values "osecurity_extend" }}
+lmru_special:
+  reserved: false
+  hidden: false
+  backend_roles:
+{{ .Values.osecurity_extend.groups | indent 2}}
+  hosts: []
+  users: []
+  and_backend_roles: []
+  description: "LMRU role with special permissions"
+{{- end }}
+{{- end }}
+
+{{- define "osctl_volumes" }}
+          - name: osctl-config
+            configMap:
+              name: osctl-configmap
+              defaultMode: 420
+          - name: osctl-tenants
+            configMap:
+              name: osctltenants
+              defaultMode: 420
+          - name: osctl-indices-config
+            configMap:
+              name: osctlindicesconfig
+              defaultMode: 420
+{{- include "osctl_cert_volumes" . }}
+{{- end }}
+
+{{- define "osctl_cert_volumes" }}
+{{- if eq .Values.opendistro.certificates.type "custom" }}
+          - name: certs
+            secret:
+              secretName: opendistro-tls-data
+              defaultMode: 420
+{{- else if eq .Values.opendistro.certificates.type "cluster" }}
+          - name: certs
+            secret:
+              secretName: opendistro-certs
+              defaultMode: 420
+          - name: admin-certs
+            secret:
+              secretName: opendistro-admin-certs
+              defaultMode: 420
+{{- end }}
+{{- end }}
+
+{{- define "osctl_volume_mounts" }}
+            - name: osctl-config
+              mountPath: /app/config.yaml
+              subPath: config.yml
+              readOnly: true
+            - name: osctl-config
+              mountPath: /app/osctltenants.yaml
+              subPath: osctltenants.yml
+              readOnly: true
+            - name: osctl-config
+              mountPath: /app/osctlindicesconfig.yaml
+              subPath: osctlindicesconfig.yml
+              readOnly: true
+{{- include "osctl_cert_volume_mounts" . }}
+{{- end }}
+
+{{- define "osctl_cert_volume_mounts" }}
+{{- if eq .Values.opendistro.certificates.type "custom" }}
+            - mountPath: /etc/ssl/certs/admin-crt.pem
+              name: certs
+              subPath: admin-crt.pem
+              readOnly: true
+            - mountPath: /etc/ssl/certs/admin-key.pem
+              name: certs
+              subPath: admin-key.pem
+              readOnly: true
+{{- else if eq .Values.opendistro.certificates.type "cluster" }}
+            - mountPath: /etc/ssl/certs/admin-crt.pem
+              name: admin-certs
+              subPath: tls.crt
+              readOnly: true
+            - mountPath: /etc/ssl/certs/admin-key.pem
+              name: admin-certs
+              subPath: tls.key
+              readOnly: true
+{{- end }}
+{{- end }}
+
