@@ -30,6 +30,9 @@ data:
     {{- end }}
     {{- end }}
     snapshot_repo: {{ $snapshot_repo | default "" | quote }}
+    kibana_user: {{ .Values.apiuser.elasticsearch.username | quote }}
+    kibana_pass: {{ .Values.apiuser.elasticsearch.password | quote }}
+    kube_namespace: {{ .Release.Namespace | quote }}
 
     # madison alerts settings
     madison_url: "https://madison.flant.com/api/events/custom/"
@@ -58,18 +61,14 @@ data:
     # datasource
     datasource_name: {{ .Values.datasource.datasource_name | default "recoverer" | quote }}
     datasource_endpoint: "https://opendistro-recoverer:9200"
-    kibana_user: {{ .Values.apiuser.elasticsearch.username | quote }}
-    kibana_pass: {{ .Values.apiuser.elasticsearch.password | quote }}
     datasource_kibana_multitenancy: {{ .Values.security.multitenancy | default false | quote }}
     {{- if .Values.kibana.multidomain.enabled }}
-    kube_namespace: {{ .Release.Namespace | quote }}
     {{- if hasKey .Values.kibana.multidomain "remote_crt" }}
     datasource_remote_crt: {{ join "|" .Values.kibana.multidomain.remote_crt | quote }}
     {{- else }}
     datasource_remote_crt: ""
     {{- end }}
     {{- else }}
-    kube_namespace: ""
     datasource_remote_crt: ""
     {{- end }}
     datasource_kibana_multidomain_enabled: {{ .Values.kibana.multidomain.enabled | default false | quote }}
