@@ -80,21 +80,6 @@ tolerations:
 {{- end }}
 {{- end }}
 
-{{- define "toleration.standby" }}
-{{- if hasKey .Values.standbyCluster "nodegroup" }}
-tolerations:
-  - key: dedicated.flant.com
-    operator: "Equal"
-    value: {{ .Values.standbyCluster.nodegroup | quote }}
-    effect: "NoSchedule"
-  - key: dedicated
-    operator: "Equal"
-    value: {{ .Values.standbyCluster.nodegroup | quote }}
-    effect: "NoSchedule"
-{{- end }}
-{{- end }}
-
-
 {{- define "nodeselector_common" }}
 {{- if hasKey .Values.common "nodegroup" }}
   nodeAffinity:
@@ -110,43 +95,6 @@ tolerations:
           operator: In
           values:
           - ""
-{{- end }}
-{{- end }}
-
-{{- define "odsp_extend_role" }}
-{{- if hasKey .Values "osecurity_extend" }}
-lmru_special:
-  reserved: true
-  hidden: false
-  cluster_permissions:
-{{ .Values.osecurity_extend.permission | indent 2 }}
-  index_permissions:
-  - index_patterns:
-    - "*"
-    fls: []
-    masked_fields: []
-    allowed_actions:
-{{ .Values.osecurity_extend.permission | indent 4}}
-  tenant_permissions:
-  - tenant_patterns:
-    - "*"
-    allowed_actions:
-    - "kibana_all_write"
-  static: false
-{{- end }}
-{{- end }}
-
-{{- define "odsp_extend_role_mapping" }}
-{{- if hasKey .Values "osecurity_extend" }}
-lmru_special:
-  reserved: false
-  hidden: false
-  backend_roles:
-{{ .Values.osecurity_extend.groups | indent 2}}
-  hosts: []
-  users: []
-  and_backend_roles: []
-  description: "LMRU role with special permissions"
 {{- end }}
 {{- end }}
 
