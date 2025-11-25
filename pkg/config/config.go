@@ -63,6 +63,7 @@ type Config struct {
 	IndexPatternsKibanaMultitenancy    string
 	IndexPatternsKibanaTenantsConfig   string
 	IndexPatternsRecovererEnabled      string
+	IndexPatternsRefreshEnabled        string
 	SnapshotsBackfillIndicesList       string
 }
 
@@ -176,6 +177,7 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		IndexPatternsKibanaMultitenancy:    getValue(cmd, "indexpatterns-kibana-multitenancy", "INDEXPATTERNS_KIBANA_MULTITENANCY", viper.GetString("indexpatterns_kibana_multitenancy")),
 		IndexPatternsKibanaTenantsConfig:   getValue(cmd, "indexpatterns-kibana-tenants-config", "INDEXPATTERNS_KIBANA_TENANTS_CONFIG", viper.GetString("indexpatterns_kibana_tenants_config")),
 		IndexPatternsRecovererEnabled:      getValue(cmd, "indexpatterns-recoverer-enabled", "INDEXPATTERNS_RECOVERER_ENABLED", viper.GetString("indexpatterns_recoverer_enabled")),
+		IndexPatternsRefreshEnabled:        getValue(cmd, "indexpatterns-refresh-enabled", "INDEXPATTERNS_REFRESH_ENABLED", viper.GetString("indexpatterns_refresh_enabled")),
 		SnapshotsBackfillIndicesList:       getValue(cmd, "indices-list", "SNAPSHOTS_BACKFILL_INDICES_LIST", viper.GetString("snapshots_backfill_indices_list")),
 	}
 
@@ -242,6 +244,7 @@ func setDefaults() {
 	viper.SetDefault("kibana_multidomain_enabled", false)
 	viper.SetDefault("datasource_name", "recoverer")
 	viper.SetDefault("datasource_endpoint", "https://opendistro-recoverer:9200")
+	viper.SetDefault("indexpatterns_refresh_enabled", true)
 }
 
 func GetAvailableActions() []string {
@@ -408,6 +411,10 @@ func (c *Config) GetIndexPatternsKibanaMultitenancy() bool {
 
 func (c *Config) GetIndexPatternsRecovererEnabled() bool {
 	return parseBoolWithDefault(c.IndexPatternsRecovererEnabled, "indexpatterns_recoverer_enabled")
+}
+
+func (c *Config) GetIndexPatternsRefreshEnabled() bool {
+	return parseBoolWithDefault(c.IndexPatternsRefreshEnabled, "indexpatterns_refresh_enabled")
 }
 
 func (c *Config) GetShardingTargetSizeGiB() int {
@@ -640,6 +647,7 @@ var CommandFlags = map[string][]FlagDefinition{
 		{"indexpatterns-kibana-multitenancy", "bool", false, "Enable multitenancy mode", []string{}},
 		{"indexpatterns-kibana-tenants-config", "string", "osctltenants.yaml", "Path to YAML tenants and patterns", []string{}},
 		{"indexpatterns-recoverer-enabled", "bool", false, "Enable recoverer extracted_* pattern creation", []string{}},
+		{"indexpatterns-refresh-enabled", "bool", false, "Enable refreshing for existing index patterns", []string{}},
 		{"dry-run", "bool", false, "Show what index patterns would be created without creating", []string{}},
 	},
 	"snapshotsdelete": {

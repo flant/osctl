@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"osctl/pkg/config"
+	"osctl/pkg/kibana"
 	"osctl/pkg/logging"
 	"osctl/pkg/opensearch"
 	"osctl/pkg/utils"
@@ -39,7 +40,25 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}
+	if cfg.GetIndexPatternsRefreshEnabled() {
 
+		user := cfg.GetKibanaUser()
+		pass := cfg.GetKibanaPass()
+		kb := kibana.NewClient(utils.NormalizeURL(cfg.GetOSDURL()), user, pass, cfg.GetTimeout())
+		existing, err := getExistingIndexPatternIds(osClient, ".kibana*")
+		if err != nil {
+			return err
+		}
+		logger.Info(fmt.Sprintf("Will refresh %d existing index-patterns", len(existing)))
+		for ip_id, ip_title := range existing {
+			logger.Info(fmt.Sprintf("Start refreshing index-pattern %s:%s", ip_id, ip_title))
+			err := kb.RefreshIndexPattern(ip_id, ip_title)
+			if err != nil {
+				logger.Error(fmt.Sprintf("Refreshing index-pattern %s:%s failed with %s", ip_id, ip_title, err))
+			}
+		}
+
+	}
 	var createdPatterns []string
 
 	if cfg.GetIndexPatternsKibanaMultitenancy() {
@@ -258,4 +277,23 @@ func getExistingIndexPatternTitles(osClient *opensearch.Client, index string) (m
 		}
 	}
 	return existing, titles, nil
+}
+
+func getExistingIndexPatternIds(osClient *opensearch.Client, index string) (map[string]string, error) {
+	sr, err := osClient.Search(index, "q=type:index-pattern&size=1000")
+	if err != nil {
+		return nil, err
+	}
+	existing := map[string]string{}
+	for _, h := range sr.Hits.Hits {
+		if src, ok := h.Source["index-pattern"].(map[string]any); ok {
+			if t, ok := src["title"].(string); ok {
+				if _, seen := existing[h.ID]; !seen {
+					p_id := strings.Split(h.ID, ":")
+					existing[p_id[1]] = t
+				}
+			}
+		}
+	}
+	return existing, nil
 }
