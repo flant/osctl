@@ -59,7 +59,17 @@ func LoadOsctlIndicesConfig(path string) (*OsctlIndicesConfig, error) {
 
 	hasIndicesOrUnknown := len(config.Indices) > 0 || config.Unknown.DaysCount > 0
 	if hasIndicesOrUnknown {
-		if config.S3Snapshots.UnitCount.All < 1 {
+		hasSnapshotEnabled := config.Unknown.Snapshot
+		if !hasSnapshotEnabled {
+			for _, idx := range config.Indices {
+				if idx.Snapshot {
+					hasSnapshotEnabled = true
+					break
+				}
+			}
+		}
+
+		if hasSnapshotEnabled && config.S3Snapshots.UnitCount.All < 1 {
 			return nil, fmt.Errorf("s3_snapshots.unit_count.all must be >= 1 when indices or unknown config is present")
 		}
 
