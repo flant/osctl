@@ -1,8 +1,7 @@
 build/
 main
+# Test certificates
+test-certs/
 osctl
 Makefile
 test.yaml
-
-# Test certificates
-test-certs/

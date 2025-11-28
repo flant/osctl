@@ -194,6 +194,12 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		if repoToUse == "" {
 			return fmt.Errorf("snap-repo is required (or set snapshot-manual-repo) for %s", commandName)
 		}
+	case "indexpatterns":
+		if parseBoolWithDefault(configInstance.IndexPatternsRefreshEnabled, "indexpatterns_refresh_enabled") {
+			if configInstance.KibanaUser == "" || configInstance.KibanaPass == "" {
+				return fmt.Errorf("kibana-user and kibana-pass are required when indexpatterns-refresh-enabled is true")
+			}
+		}
 	}
 
 	return nil
