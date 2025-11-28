@@ -52,7 +52,6 @@ func (c *Client) GetIndicesWithFields(pattern, fields string, sortBy ...string) 
 	if sortParam != "" {
 		url += fmt.Sprintf("&s=%s", sortParam)
 	}
-
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %v", err)

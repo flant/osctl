@@ -2,3 +2,6 @@ build/
 main
 # Test certificates
 test-certs/
+osctl
+Makefile
+test.yaml
