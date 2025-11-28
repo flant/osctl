@@ -496,6 +496,12 @@ osctl/
 
 ### 13. **indexpatterns** - Управление Kibana index patterns
 
+**Обновление паттернов**
+Выполняется до создания паттернов. 
+1. Получаем список существующих index patterns - имя и ID
+2. Через запрос в API OpenSearchDasboard `GET /api/index_patterns/_fields_for_wildcard?pattern={ИМЯ}&meta_fields=_source&meta_fields=_id&meta_fields=_type&meta_fields=_index&meta_fields=_score` получаем актуальный маппинг для индекса
+3. Обновляем паттерн по его ID - `PUT /api/saved_objects/index-pattern/{ID}"`
+
 **Алгоритм (multitenancy):**
 
 1. **Загрузка конфигурации тенантов**: Получаем `--indexpatterns-kibana-tenants-config` (по умолчанию `osctltenants.yaml`)
@@ -534,6 +540,7 @@ osctl/
 - Использует `--indexpatterns-kibana-tenants-config` для пути к конфигу тенантов
 - Использует `--kibana-index-regex` для построения паттернов в single-tenant режиме
 - Использует `--indexpatterns-recoverer-enabled` для создания `extracted_*` pattern (только в single-tenant режиме)
+- Использует `--indexpatterns-refresh-enabled` для обновления существующих index patterns
 - `extracted_*` по соображениям безопасности не создается в режиме multitenancy
 
 ### 14. **datasource** - Создание Kibana data sources
