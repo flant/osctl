@@ -4,7 +4,6 @@ import (
 	b64 "encoding/base64"
 	"fmt"
 
-	//"math/rand/v2"
 	"osctl/pkg/config"
 	"osctl/pkg/opensearch"
 	"strings"

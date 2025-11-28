@@ -56,14 +56,17 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 		logger.Info(fmt.Sprintf("Will refresh %d existing index-patterns", len(existing)))
 		for ip_id, ip_title := range existingIdsTitiles {
 			if cfg.GetDryRun() {
-				logger.Info(fmt.Sprintf("DRY RUN: Start refreshing index-pattern %s:%s", ip_id, ip_title))
-				refreshedPatterns = append(refreshedPatterns, ip_title)
-			} else if err := kb.RefreshIndexPattern(ip_id, ip_title); err == nil {
-				logger.Info(fmt.Sprintf("Start refreshing index-pattern %s:%s", ip_id, ip_title))
+				logger.Info(fmt.Sprintf("DRY RUN: Would refresh index-pattern %s:%s", ip_id, ip_title))
 				refreshedPatterns = append(refreshedPatterns, ip_title)
 			} else {
-				logger.Error(fmt.Sprintf("Refreshing index-pattern %s:%s failed with %s", ip_id, ip_title, err))
-				failedRefreshedPatterns = append(failedRefreshedPatterns, ip_title)
+				logger.Info(fmt.Sprintf("Refreshing index-pattern %s:%s", ip_id, ip_title))
+				if err := kb.RefreshIndexPattern(ip_id, ip_title); err == nil {
+					logger.Info(fmt.Sprintf("Successfully refreshed index-pattern %s:%s", ip_id, ip_title))
+					refreshedPatterns = append(refreshedPatterns, ip_title)
+				} else {
+					logger.Error(fmt.Sprintf("Failed to refresh index-pattern %s:%s: %s", ip_id, ip_title, err))
+					failedRefreshedPatterns = append(failedRefreshedPatterns, ip_title)
+				}
 			}
 		}
 
