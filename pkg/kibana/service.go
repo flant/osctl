@@ -92,7 +92,7 @@ func (c *Client) CreateDataSource(tenant, title, endpoint, user, password string
 	return nil
 }
 
-func (c *Client) GetActualMappingForIndexPattern(title string) ([]Fields, error) {
+func (c *Client) GetActualMappingForIndexPattern(title string) (Fields, error) {
 
 	u := fmt.Sprintf("%s/api/index_patterns/_fields_for_wildcard?pattern=%s&meta_fields=_source&meta_fields=_id&meta_fields=_type&meta_fields=_index&meta_fields=_score", c.baseURL, title)
 	req, err := http.NewRequest("GET", u, nil)
@@ -112,16 +112,20 @@ func (c *Client) GetActualMappingForIndexPattern(title string) ([]Fields, error)
 	}
 
 	body, err := io.ReadAll(resp.Body)
+
 	if err != nil {
 		return nil, err
 	}
-	var fields []Fields
+	var fields Fields
 	err = json.Unmarshal(body, &fields)
+	if err != nil {
+		return nil, err
+	}
 	return fields, nil
 }
 
 func (c *Client) RefreshIndexPattern(id string, title string) error {
-	var fields []Fields
+	var fields Fields
 	fields, err := c.GetActualMappingForIndexPattern(title)
 
 	if err != nil {
@@ -145,6 +149,7 @@ func (c *Client) RefreshIndexPattern(id string, title string) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.do(req)
+
 	if err != nil {
 		return err
 	}
