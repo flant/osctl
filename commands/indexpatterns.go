@@ -30,6 +30,9 @@ func init() {
 }
 
 func runIndexPatterns(cmd *cobra.Command, args []string) error {
+	var refreshedPatterns []string
+	var failedRefreshedPatterns []string
+
 	cfg := config.GetConfig()
 
 	if cfg.GetOSDURL() == "" {
@@ -51,10 +54,17 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 		}
 		logger.Info(fmt.Sprintf("Will refresh %d existing index-patterns", len(existing)))
 		for ip_id, ip_title := range existing {
-			logger.Info(fmt.Sprintf("Start refreshing index-pattern %s:%s", ip_id, ip_title))
-			err := kb.RefreshIndexPattern(ip_id, ip_title)
-			if err != nil {
-				logger.Error(fmt.Sprintf("Refreshing index-pattern %s:%s failed with %s", ip_id, ip_title, err))
+			if cfg.GetDryRun() {
+				logger.Info(fmt.Sprintf("DRY RUN: Start refreshing index-pattern %s:%s", ip_id, ip_title))
+				refreshedPatterns = append(refreshedPatterns, ip_title)
+			} else {
+				logger.Info(fmt.Sprintf("Start refreshing index-pattern %s:%s", ip_id, ip_title))
+				err := kb.RefreshIndexPattern(ip_id, ip_title)
+				if err != nil {
+					logger.Error(fmt.Sprintf("Refreshing index-pattern %s:%s failed with %s", ip_id, ip_title, err))
+					failedRefreshedPatterns = append(failedRefreshedPatterns, ip_title)
+				}
+				refreshedPatterns = append(refreshedPatterns, ip_title)
 			}
 		}
 
@@ -161,6 +171,7 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 				needed = append(needed, m[1]+"-*")
 			}
 		}
+
 		logger.Info(fmt.Sprintf("Required patterns (%d): %s", len(needed), strings.Join(needed, ", ")))
 		existing, existingTitles, err := getExistingIndexPatternTitles(osClient, ".kibana")
 		if err != nil {
@@ -245,6 +256,23 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 		logger.Info(strings.Repeat("=", 60))
 		logger.Info("INDEX PATTERNS SUMMARY")
 		logger.Info(strings.Repeat("=", 60))
+
+		if len(refreshedPatterns) > 0 {
+			logger.Info(fmt.Sprintf("Refreshed: %d index patterns", len(refreshedPatterns)))
+			for _, name := range refreshedPatterns {
+				logger.Info(fmt.Sprintf("  ✓ %s", name))
+			}
+		} else {
+			logger.Info("No index patterns were refreshed")
+		}
+
+		if len(failedRefreshedPatterns) > 0 {
+			logger.Info(fmt.Sprintf("Failed while refresh: %d index patterns", len(failedRefreshedPatterns)))
+			for _, name := range failedRefreshedPatterns {
+				logger.Info(fmt.Sprintf("  ✕ %s", name))
+			}
+		}
+
 		if len(createdPatterns) > 0 {
 			logger.Info(fmt.Sprintf("Created: %d index patterns", len(createdPatterns)))
 			for _, name := range createdPatterns {

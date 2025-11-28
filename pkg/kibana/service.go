@@ -145,9 +145,9 @@ func (c *Client) RefreshIndexPattern(id string, title string) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.do(req)
-	defer resp.Body.Close()
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 	return nil
 }
