@@ -1,0 +1,142 @@
+{{- $osctlEnabled := false }}
+{{- if .Values.osctl.enabled }}
+{{- $osctlEnabled = true }}
+{{- else if or (and (hasKey .Values "retention") .Values.retention.enabled) (and (hasKey .Values "sharding") .Values.sharding.enabled) (and (hasKey .Values "danglingChecker") .Values.danglingChecker.enabled) (and (hasKey .Values "dereplicator") .Values.dereplicator.enabled) (and (hasKey .Values "datasource") (and (hasKey .Values "coldCluster") .Values.coldCluster.enabled)) }}
+{{- $osctlEnabled = true }}
+{{- end }}
+{{- if $osctlEnabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: osctl-configmap
+  annotations:
+    argocd.argoproj.io/sync-options: Replace=true
+data:
+  config.yml: |-
+    ---
+    # Common settings shared across all commands
+    opensearch_url: "https://opendistro:{{ .Values.opendistro.port_http }}"
+    cert_file: "/etc/ssl/certs/admin-crt.pem"
+    key_file: "/etc/ssl/certs/admin-key.pem"
+    ca_file: ""
+    timeout: "300s"
+    retry_attempts: 3
+    date_format: {{ .Values.osctl.date_format | default "%Y.%m.%d" | quote }}
+    dry_run: false
+    {{- $snapshot_repo := "" }}
+    {{- range .Values.opendistro.s3_backup.repos }}
+    {{- if eq .client "default" }}
+    {{- $snapshot_repo = .repository }}
+    {{- end }}
+    {{- end }}
+    snapshot_repo: {{ $snapshot_repo | default "" | quote }}
+    kibana_user: {{ .Values.apiuser.elasticsearch.username | quote }}
+    kibana_pass: {{ .Values.apiuser.elasticsearch.password | quote }}
+    kube_namespace: {{ .Release.Namespace | quote }}
+
+    # madison alerts settings
+    madison_url: "https://madison.flant.com/api/events/custom/"
+    {{- $madison_key := "" }}
+    {{- if and (hasKey .Values "admin") (hasKey .Values.admin "madison_key") }}
+    {{- $madison_key = .Values.admin.madison_key }}
+    {{- else if and (hasKey .Values "madison") (hasKey .Values.madison "key") }}
+    {{- $madison_key = .Values.madison.key }}
+    {{- end }}
+    madison_key: {{ $madison_key | quote }}
+    osd_url: "https://{{ .Values.kibana.host }}"
+
+    # Command-specific configurations
+
+    # coldstorage
+    {{- if hasKey .Values "coldCluster" }}
+    cold_attribute: {{ .Values.coldCluster.coldAttribute | default "cold" | quote }}
+    hot_count: {{ .Values.coldCluster.hotCount | default 4 | quote }}
+    {{- else }}
+    cold_attribute: ""
+    hot_count: ""
+    {{- end }}
+
+    # danglingchecker
+
+    # datasource
+    datasource_name: {{ .Values.datasource.datasource_name | default "recoverer" | quote }}
+    datasource_endpoint: "https://opendistro-recoverer:9200"
+    datasource_kibana_multitenancy: {{ .Values.security.multitenancy | default false | quote }}
+    {{- if .Values.kibana.multidomain.enabled }}
+    {{- if hasKey .Values.kibana.multidomain "remote_crt" }}
+    datasource_remote_crt: {{ join "|" .Values.kibana.multidomain.remote_crt | quote }}
+    {{- else }}
+    datasource_remote_crt: ""
+    {{- end }}
+    {{- else }}
+    datasource_remote_crt: ""
+    {{- end }}
+    datasource_kibana_multidomain_enabled: {{ .Values.kibana.multidomain.enabled | default false | quote }}
+
+    # dereplicator:
+    dereplicator_days_count: {{ .Values.dereplicator.days_count | default 2 | quote }}
+    {{- if .Values.dereplicator.use_snapshot }}
+    dereplicator_use_snapshot: true
+    {{- else }}
+    dereplicator_use_snapshot: false
+    {{- end }}
+
+    # extracteddelete:
+    {{- if .Values.recoverer.enabled }}
+    opensearch_recoverer_url: "https://opendistro-recoverer:9200"
+    {{- else }}
+    opensearch_recoverer_url: "https://opendistro:{{ .Values.opendistro.port_http }}"
+    {{- end }}
+    extracted_pattern: {{ .Values.extracteddelete.extracted_pattern | default "extracted_" | quote }}
+    extracted_days: {{ .Values.extracteddelete.extracted_days | default 2 | quote }}
+    recoverer_date_format: {{ .Values.extracteddelete.recoverer_date_format | default "%d-%m-%Y" | quote }}
+
+    # indexpatterns:
+    kibana_index_regex: {{ .Values.kibana.index_patterns.regex | squote }}
+    indexpatterns_kibana_multitenancy: {{ .Values.security.multitenancy | default false | quote }}
+    {{- if and (.Values.security.multitenancy | default false) (.Values.recoverer.enabled | default false) }}
+    indexpatterns_recoverer_enabled: false
+    {{- else if (.Values.recoverer.enabled | default false) }}
+    indexpatterns_recoverer_enabled: true
+    {{- else }}
+    indexpatterns_recoverer_enabled: false
+    {{- end }}
+    indexpatterns_refresh_enabled: {{ .Values.indexpatterns.refresh_enabled | default true | quote }}
+
+    # indicesdelete:
+    indicesdelete_check_snapshots: true
+
+    # retention:
+    retention_threshold: {{ .Values.retention.threshold | default 75.0 | quote }}
+    retention_days_count: 2
+    retention_check_snapshots: true
+    retention_check_nodes_down: true
+
+    # sharding:
+    sharding_target_size_gib: {{ .Values.sharding.target_size_gib | default 25 | quote }}
+    exclude_sharding: {{ .Values.sharding.exclude_indices | default "" | quote }}
+
+    # snapshots:
+
+    # snapshotschecker:
+
+    # snapshotsdelete:
+
+    # snapshotmanual:
+
+    # snapshotsbackfill:
+    snapshots_backfill_indices_list: ""
+
+  osctlindicesconfig.yml: |-
+{{- if $osctlEnabled }}
+    ---
+{{ toYaml .Values.osctl | indent 4 }}
+{{- end }}
+  osctltenants.yml: |-
+{{- if and (.Values.security.multitenancy | default false) (hasKey .Values.security "tenants") }}
+    ---
+    tenants:
+{{ toYaml .Values.security.tenants | indent 4 }}
+{{- end }}
+
+{{- end }}

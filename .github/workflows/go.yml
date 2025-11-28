@@ -20,7 +20,7 @@ jobs:
 
     - name: Build
       run: |
-        versionflags="-X 'osctl/cmd/main.appVersion=${{ github.ref_name }}'"
+        versionflags="-X main.appVersion=${{ github.ref_name }}"
         for GOOS in linux; do
           for GOARCH in amd64 arm64; do
             export GOOS GOARCH

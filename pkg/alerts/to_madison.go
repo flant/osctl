@@ -65,7 +65,7 @@ func (c *Client) SendMadisonSnapshotMissingAlert(missingSnapshotIndicesList []st
 
 	summary := fmt.Sprintf("Снапшоты не найдены для индексов: %s", displayList)
 	fullList := strings.Join(missingSnapshotIndicesList, ",")
-	description := fmt.Sprintf("Снапшоты для индексов (%s) — не обнаружены, хотя ожидаются. Алерт одноразовый, просьба не закрывать без создания нужных снапшотов.", fullList)
+	description := fmt.Sprintf("Снапшоты для индексов (%s) — не обнаружены, хотя ожидаются. Надо проверить наличие соответствующего снапшота через GET _cat/snapshots/<s3 repo name>/<snapshot_name> и при необходимости запустить Job создания пропущенных снапшотов через kubectl -n <namespace> create job --from=cronjob/osctl-snapshotsbackfill osctl-snapshotsbackfill-<some_string> или создать его вручную. Алерт одноразовый, просьба не закрывать без создания нужных снапшотов.", fullList)
 
 	payload := Alert{
 		Labels: Labels{
@@ -135,7 +135,7 @@ func (c *Client) SendMadisonDanglingIndicesAlert(danglingIndices []string) (stri
 	}
 
 	summary := "Кластер содержит dangling индексы"
-	description := fmt.Sprintf("Кластер содержит dangling индексы. Проверьте индексы в %s GET _dangling?pretty", c.kibanaHost)
+	description := fmt.Sprintf("Кластер содержит dangling индексы. Проверьте индексы в %s GET _dangling?pretty и удалите их если они не нужны.", c.kibanaHost)
 
 	payload := Alert{
 		Labels: Labels{
@@ -193,7 +193,7 @@ func (c *Client) SendMadisonDanglingIndicesAlert(danglingIndices []string) (stri
 
 func (c *Client) SendMadisonSnapshotCreationFailedAlert(snapshotName, indexName string) (string, error) {
 	summary := fmt.Sprintf("Не удалось создать снапшот %s для индекса %s", snapshotName, indexName)
-	description := fmt.Sprintf("Снапшот %s для индекса %s не удалось создать после 5 попыток. Проверьте состояние кластера и доступность индекса.", snapshotName, indexName)
+	description := fmt.Sprintf("Снапшот %s для индекса %s не удалось создать после 5 попыток. Проверьте состояние кластера и доступность индекса. Также надо проверить наличие соответствующего снапшота через GET _cat/snapshots/<s3 repo name>/<snapshot_name> и при необходимости запустить Job создания пропущенных снапшотов через kubectl -n <namespace> create job --from=cronjob/osctl-snapshotsbackfill osctl-snapshotsbackfill-<some_string> или создать его вручную", snapshotName, indexName)
 
 	payload := Alert{
 		Labels: Labels{

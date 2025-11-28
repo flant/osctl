@@ -1,0 +1,268 @@
+opendistro:
+  enabled: true
+  s3_backup:
+    enabled: false
+
+
+recoverer:
+  enabled: false
+
+kibana:
+  multidomain:
+    enabled: false
+    #remote_crt:
+      #- '<path:services/data/opensearch#project.rootca.remoteproject.stage>'
+  index_patterns:
+    enabled: true
+    regex: '^([\w-]+)-([\w-]*)(\d{4}[\.-]\d{2}[\.-]\d{2}(?:[\.-]\d{2})*)$'
+
+retention:
+  enabled: false
+  threshold: 75
+  schedule: "*/15 * * * *"
+
+dereplicator:
+  enabled: false
+  schedule: "1 1 * * *"
+  days_count: 2
+  use_snapshot: true
+
+sharding:
+  enabled: true
+  # regex for sharding script, if index name matches this regex, sharding will not be done
+  # to exclude more than one name use "abc|edf" format
+  exclude_indices: ""
+  # request body for default-template index template creation
+  default_template_settings:
+    index_patterns:
+      - "*"
+    priority: "0"
+    template:
+      settings:
+        index:
+          number_of_shards: 3
+  schedule: "0 23 * * *"
+
+danglingChecker:
+  enabled: true
+  schedule: "15 3 * * *"
+
+snapshotsdelete:
+  schedule: "20 0 * * *"
+
+extracteddelete:
+  schedule: "33 23 * * *"
+
+indexpatterns:
+  schedule: "*/15 * * * *"
+
+indicesdelete:
+  schedule: "10 0 * * *"
+
+datasource:
+  schedule: "*/30 * * * *"
+
+snapshotschecker:
+  schedule: "55 23 * * *"
+
+snapshotsbackfill:
+  schedule: "00 12 * * *"
+
+osctl:
+  image:
+    repo: "docker-flant.art.lmru.tech/lmru/devops/opensearch--"
+    name: "osctl"
+    tag: "0.0.31"
+  date_format: "%Y.%m.%d"
+  ttlSecondsAfterFinished: 3600
+  activeDeadlineSeconds: 86400 # 24 hours - snapshots job only
+  # enabled: true
+  # schedule: 48 2 * * *
+  # s3_snapshots:
+  #   unit_count:
+  #     all: 60
+  #     unknown: 7
+  # unknown:
+  #   days_count: 7
+  #   snapshot: true
+  # indices:
+  #   - kind: prefix
+  #     value: filebeat
+  #     system: false
+  #     days_count: 5
+  #     snapshot: true
+  #   - kind: prefix
+  #     value: d8
+  #     system: false
+  #     days_count: 7
+  #     snapshot: true
+  #     snapshot_count_s3: 7
+  #   - kind: prefix
+  #     value: eventrouter
+  #     system: false
+  #     days_count: 7
+  #     snapshot: false
+  #   - kind: prefix
+  #     value: mongo
+  #     system: false
+  #     days_count: 5
+  #     snapshot: true
+  #   - kind: prefix
+  #     value: infra
+  #     system: false
+  #     days_count: 5
+  #     snapshot: true
+  #   - kind: prefix
+  #     value: opp-fix
+  #     system: false
+  #     days_count: 5
+  #     snapshot: true
+  #   - kind: prefix
+  #     value: pim
+  #     system: false
+  #     days_count: 5
+  #     snapshot: true
+  #   - kind: prefix
+  #     value: .opendistro-alerting-config
+  #     system: true
+  #     days_count: 30
+  #     snapshot: true
+  #   - kind: prefix
+  #     value: .kibana
+  #     system: true
+  #     days_count: 30
+  #     snapshot: true
+
+# filebeat:
+#   kubernetesyml: |-
+#     - type: container
+#       paths:
+#         - /var/log/containers/*.log
+#       exclude_files: ['^/var/log/containers/logstash.+.log$']
+#       multiline.pattern: '^(((([a-zA-Z\-0-9]+)_([a-zA-Z\-0-9]+)\s)|(([a-zA-Z\-0-9]+)\s)|(.{0}))(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}) \[)|^(\{\s{0,1}\")|^(\d{2}-\w{3}-\d{4}\s\d{2}:\d{2}:\d{2}\.{0,1}\d{2,3})\s(\w+)|^([A-Z][0-9]{0,4}\s\d{2}:\d{2}:\d{2}\.\d{0,6})|^(\d{2}.\d{2}.\d{2},\s\d{2}:\d{2})|(\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}\ \[\w{0,8}\])'
+#       multiline.negate: true
+#       multiline.match: after
+#       processors:
+#         - add_kubernetes_metadata:
+#             in_cluster: true
+#             matchers:
+#             - logs_path:
+#                 logs_path: "/var/log/containers/"
+#         - drop_event:
+#             when:
+#               or:
+#                 - equals:
+#                     kubernetes.namespace: "backup"
+#                 - equals:
+#                     kubernetes.namespace: "infra-sentry"
+#                 - regexp:
+#                     kubernetes.namespace: "kube-*"
+#                 - and:
+#                     - not.equals:
+#                         kubernetes.container.name: "osctl"
+#                     - not.equals:
+#                         kubernetes.container.name: "updater"
+#                     - regexp:
+#                         kubernetes.namespace: "infra-elklogs"
+#                 - and:
+#                     - not.equals:
+#                         kubernetes.namespace: "d8-ingress-nginx"
+#                     - not.equals:
+#                         kubernetes.namespace: "eventrouter"
+#                     - regexp:
+#                         kubernetes.namespace: "d8-*"
+#         - decode_json_fields:
+#             when:
+#               or:
+#                 - equals:
+#                     kubernetes.namespace: "d8-ingress-nginx"
+#             fields: ['message']
+#             target: 'ingress'
+#             max_depth: 1
+#         - decode_json_fields:
+#             when:
+#               or:
+#                 - equals:
+#                     kubernetes.namespace: "eventrouter"
+#             fields: ['message']
+#             target: 'k8sEvent'
+#             max_depth: 1
+#         - decode_json_fields:
+#             when:
+#               or:
+#                 - equals:
+#                     kubernetes.container.name: "osctl"
+#             fields: ['message']
+#             target: 'osctl'
+#             max_depth: 1
+#         - decode_json_fields:
+#             when:
+#               or:
+#                 - equals:
+#                     kubernetes.container.name: "updater"
+#             fields: ['message']
+#             target: 'updater'
+#             max_depth: 1
+
+# logstash:
+#   enabled: true
+#   filter: |-
+#     filter {
+#       grok {
+#         match => {
+#           "message" => [
+#             "(((?<brick>[a-zA-Z\-0-9]+)_(?<application>[a-zA-Z\-0-9]+)\s)|((?<application>[a-zA-Z\-0-9]+)\s)|(.{0}))(?<timestamp>%{YEAR}-%{MONTHNUM}-%{MONTHDAY} %{TIME}) \[(?<transaction>[A-Za-z0-9\-_\.]*),{0,1}(?<traceId>[A-Za-z0-9\-_\.]*),(?<spanId>[A-Za-z0-9\-_\.]*)\]\[%{GREEDYDATA:thread}\] %{LOGLEVEL:level}[ ]+%{NOTSPACE:class} - %{GREEDYDATA:text}",
+#             "(((?<brick>[a-zA-Z\-0-9]+)_(?<application>[a-zA-Z\-0-9]+)\s)|((?<application>[a-zA-Z\-0-9]+)\s)|(.{0}))(?<timestamp>%{YEAR}-%{MONTHNUM}-%{MONTHDAY} %{TIME}) %{LOGLEVEL:level} \[(?<transaction>[A-Za-z0-9\-_\.]*),{0,1}(?<traceId>[A-Za-z0-9\-_\.]*),(?<spanId>[A-Za-z0-9\-_\.]*),([A-Za-z0-9\-_\.]*)\] ([0-9]*) --- \[%{GREEDYDATA:thread}\] %{NOTSPACE:class}[ ]+: %{GREEDYDATA:text}",
+#             "(((?<brick>[a-zA-Z\-0-9]+)_(?<application>[a-zA-Z\-0-9]+)\s)|((?<application>[a-zA-Z\-0-9]+)\s)|(.{0}))(?<timestamp>%{YEAR}-%{MONTHNUM}-%{MONTHDAY} %{TIME}) \[(?<processId>[A-Za-z\-0-9]*),(?<solutionId>[A-Za-z0-9\-_\.]*),{0,1}(?<traceId>[A-Za-z0-9\-_\.]*),(?<spanId>[A-Za-z0-9\-_\.]*)\]\[%{GREEDYDATA:thread}\] %{LOGLEVEL:level}[ ]+%{NOTSPACE:class} - %{GREEDYDATA:text}",
+#             "(?<event>([A-Z][0-9]{0,4})) %{TIME:time}%{SPACE}%{NUMBER:n} (?<appsrc>%{WORD}\.%{WORD}:\d{1,})\] %{GREEDYDATA:msg}"
+#           ]
+#         }
+#       }
+
+#       mutate {
+#         rename => { "log" => "original_log" }
+#         rename => { "text" => "log" }
+#         remove_field => ["time"]
+#       }
+
+#       json {
+#         source => "log"
+#         skip_on_invalid_json => true
+#         target => "jsonLog"
+#       }
+
+#       if [message] =~ "\tat" {
+#         grok {
+#           match => ["message", "^(\tat)"]
+#           add_tag => ["stacktrace"]
+#         }
+#       }
+
+#       if [log] {
+#         mutate {
+#           remove_field => [ "message" ]
+#         }
+#       }
+
+#       date {
+#         match => ["timestamp", "yyyy-MM-dd HH:mm:ss.SSS", "ISO8601"]
+#       }
+
+#       if ![kubernetes][namespace] {
+#         mutate {
+#           add_field => { "[@metadata][target_index]" => "filebeat" }
+#         }
+#       } else {
+#         grok {
+#           match => { "[kubernetes][namespace]" => "(?<[@metadata][target_index]>^[^-]+)" }
+#         }
+#       }
+#       if [ingress][upstream_response_time] {
+#         mutate {
+#           convert => { "[ingress][upstream_response_time]" => "float" }
+#         }
+#       }
+#     }
+
+# security:
+#   multitenancy: false

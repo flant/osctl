@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"osctl/pkg/config"
 	"osctl/pkg/logging"
+	"osctl/pkg/opensearch"
 	"osctl/pkg/utils"
 	"strings"
 	"time"
@@ -32,8 +33,10 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 	}
 
 	unknownConfig := cfg.GetOsctlIndicesUnknownConfig()
+	s3Config := cfg.GetOsctlIndicesS3SnapshotsConfig()
+	checkSnapshots := cfg.GetIndicesDeleteCheckSnapshots()
 
-	logger.Info(fmt.Sprintf("Starting indices deletion indicesCount=%d unknownDays=%d", len(indicesConfig), unknownConfig.DaysCount))
+	logger.Info(fmt.Sprintf("Starting indices deletion indicesCount=%d unknownDays=%d checkSnapshots=%t", len(indicesConfig), unknownConfig.DaysCount, checkSnapshots))
 
 	client, err := utils.NewOSClientWithURL(cfg, cfg.GetOpenSearchURL())
 	if err != nil {
@@ -51,7 +54,8 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 		logger.Info("Found indices none")
 	}
 
-	var indicesToDelete []string
+	var indicesOlderThanRetentionPeriod []string
+	var indicesRequiringSnapshotCheck []string
 	var unknownIndices []string
 	var indicesWithoutDateForLog []string
 
@@ -73,8 +77,21 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 			}
 		} else {
 			if hasDateInName {
-				if utils.IsOlderThanCutoff(indexName, utils.FormatDate(time.Now().AddDate(0, 0, -indexConfig.DaysCount), cfg.GetDateFormat()), cfg.GetDateFormat()) {
-					indicesToDelete = append(indicesToDelete, indexName)
+				cutoffDateDaysCount := utils.FormatDate(time.Now().AddDate(0, 0, -indexConfig.DaysCount), cfg.GetDateFormat())
+				if utils.IsOlderThanCutoff(indexName, cutoffDateDaysCount, cfg.GetDateFormat()) {
+					indicesOlderThanRetentionPeriod = append(indicesOlderThanRetentionPeriod, indexName)
+
+					if indexConfig.Snapshot {
+						s3daysCount := s3Config.UnitCount.All
+						if indexConfig.SnapshotCountS3 > 0 {
+							s3daysCount = indexConfig.SnapshotCountS3
+						}
+						cutoffDateS3 := utils.FormatDate(time.Now().AddDate(0, 0, -s3daysCount), cfg.GetDateFormat())
+
+						if !utils.IsOlderThanCutoff(indexName, cutoffDateS3, cfg.GetDateFormat()) {
+							indicesRequiringSnapshotCheck = append(indicesRequiringSnapshotCheck, indexName)
+						}
+					}
 				}
 			} else {
 				indicesWithoutDateForLog = append(indicesWithoutDateForLog, indexName)
@@ -85,8 +102,17 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 	unknownIndices = utils.FilterUnknownIndices(unknownIndices)
 	if unknownConfig.DaysCount > 0 {
 		for _, indexName := range unknownIndices {
-			if utils.IsOlderThanCutoff(indexName, utils.FormatDate(time.Now().AddDate(0, 0, -unknownConfig.DaysCount), cfg.GetDateFormat()), cfg.GetDateFormat()) {
-				indicesToDelete = append(indicesToDelete, indexName)
+			cutoffDateDaysCount := utils.FormatDate(time.Now().AddDate(0, 0, -unknownConfig.DaysCount), cfg.GetDateFormat())
+			if utils.IsOlderThanCutoff(indexName, cutoffDateDaysCount, cfg.GetDateFormat()) {
+				indicesOlderThanRetentionPeriod = append(indicesOlderThanRetentionPeriod, indexName)
+
+				if unknownConfig.Snapshot {
+					cutoffDateS3 := utils.FormatDate(time.Now().AddDate(0, 0, -s3Config.UnitCount.Unknown), cfg.GetDateFormat())
+
+					if !utils.IsOlderThanCutoff(indexName, cutoffDateS3, cfg.GetDateFormat()) {
+						indicesRequiringSnapshotCheck = append(indicesRequiringSnapshotCheck, indexName)
+					}
+				}
 			}
 		}
 	}
@@ -95,13 +121,89 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 		logger.Info(fmt.Sprintf("Indices skipped (no date in name) count=%d list=%s", len(indicesWithoutDateForLog), strings.Join(indicesWithoutDateForLog, ", ")))
 	}
 
+	if len(indicesOlderThanRetentionPeriod) > 0 {
+		logger.Info(fmt.Sprintf("Indices older than retention period (days_count) count=%d list=%s", len(indicesOlderThanRetentionPeriod), strings.Join(indicesOlderThanRetentionPeriod, ", ")))
+	} else {
+		logger.Info("Indices older than retention period (days_count): none")
+	}
+
+	if len(indicesRequiringSnapshotCheck) > 0 {
+		logger.Info(fmt.Sprintf("Indices requiring snapshot check (older than days_count but not older than snapshot_count_s3) count=%d list=%s", len(indicesRequiringSnapshotCheck), strings.Join(indicesRequiringSnapshotCheck, ", ")))
+	} else {
+		logger.Info("Indices requiring snapshot check: none")
+	}
+
+	var snapshots []opensearch.Snapshot
+	var indicesWithoutSnapshot []string
+	var indicesToDeleteFinal []string
+
+	if len(indicesRequiringSnapshotCheck) > 0 {
+		snapRepo := cfg.GetSnapshotRepo()
+		if checkSnapshots {
+			if snapRepo == "" {
+				return fmt.Errorf("snap-repo is required when indicesdelete-check-snapshots is true")
+			}
+
+			logger.Info(fmt.Sprintf("Getting all snapshots from repository repo=%s", snapRepo))
+			snapshots, err = utils.GetSnapshotsIgnore404(client, snapRepo, "*")
+			if err != nil {
+				return fmt.Errorf("failed to get snapshots: %v", err)
+			}
+			if snapshots == nil {
+				snapshots = []opensearch.Snapshot{}
+			}
+
+			var snapshotNames []string
+			for _, s := range snapshots {
+				if s.State == "SUCCESS" {
+					snapshotNames = append(snapshotNames, s.Snapshot)
+				}
+			}
+			if len(snapshotNames) > 0 {
+				logger.Info(fmt.Sprintf("Found successful snapshots count=%d", len(snapshotNames)))
+			} else {
+				logger.Info("Found snapshots none")
+			}
+
+			for _, indexName := range indicesRequiringSnapshotCheck {
+				hasSnapshot := utils.HasValidSnapshot(indexName, snapshots)
+				if hasSnapshot {
+					logger.Info(fmt.Sprintf("Index has valid snapshot index=%s", indexName))
+					indicesToDeleteFinal = append(indicesToDeleteFinal, indexName)
+				} else {
+					logger.Warn(fmt.Sprintf("Index has no valid snapshot, skipping deletion index=%s", indexName))
+					indicesWithoutSnapshot = append(indicesWithoutSnapshot, indexName)
+				}
+			}
+
+			snapshotCheckSet := make(map[string]bool)
+			for _, idx := range indicesRequiringSnapshotCheck {
+				snapshotCheckSet[idx] = true
+			}
+
+			for _, indexName := range indicesOlderThanRetentionPeriod {
+				if !snapshotCheckSet[indexName] {
+					indicesToDeleteFinal = append(indicesToDeleteFinal, indexName)
+				}
+			}
+		} else {
+			indicesToDeleteFinal = indicesOlderThanRetentionPeriod
+		}
+	} else {
+		indicesToDeleteFinal = indicesOlderThanRetentionPeriod
+	}
+
+	if len(indicesWithoutSnapshot) > 0 {
+		logger.Warn(fmt.Sprintf("Indices skipped (no valid snapshot) count=%d list=%s", len(indicesWithoutSnapshot), strings.Join(indicesWithoutSnapshot, ", ")))
+	}
+
 	var successfulDeletions []string
 	var failedDeletions []string
 
-	if len(indicesToDelete) > 0 {
-		logger.Info(fmt.Sprintf("Indices to delete %s", strings.Join(indicesToDelete, ", ")))
-		logger.Info(fmt.Sprintf("Deleting indices count=%d", len(indicesToDelete)))
-		successful, failed, err := utils.BatchDeleteIndices(client, indicesToDelete, cfg.GetDryRun(), logger)
+	if len(indicesToDeleteFinal) > 0 {
+		logger.Info(fmt.Sprintf("Indices to delete (final list) count=%d list=%s", len(indicesToDeleteFinal), strings.Join(indicesToDeleteFinal, ", ")))
+		logger.Info(fmt.Sprintf("Deleting indices count=%d", len(indicesToDeleteFinal)))
+		successful, failed, err := utils.BatchDeleteIndices(client, indicesToDeleteFinal, cfg.GetDryRun(), logger)
 		if err != nil {
 			logger.Error(fmt.Sprintf("Failed to delete indices error=%v", err))
 		}
@@ -128,7 +230,14 @@ func runIndicesDelete(cmd *cobra.Command, args []string) error {
 				logger.Info(fmt.Sprintf("  ✗ %s", name))
 			}
 		}
-		if len(successfulDeletions) == 0 && len(failedDeletions) == 0 {
+		if len(indicesWithoutSnapshot) > 0 {
+			logger.Info("")
+			logger.Info(fmt.Sprintf("Skipped (no valid snapshot): %d indices", len(indicesWithoutSnapshot)))
+			for _, name := range indicesWithoutSnapshot {
+				logger.Info(fmt.Sprintf("  - %s", name))
+			}
+		}
+		if len(successfulDeletions) == 0 && len(failedDeletions) == 0 && len(indicesWithoutSnapshot) == 0 {
 			logger.Info("No indices were deleted")
 		}
 		logger.Info(strings.Repeat("=", 60))

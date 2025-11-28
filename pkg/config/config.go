@@ -29,6 +29,8 @@ type Config struct {
 	RetentionThreshold                 string
 	RetentionDaysCount                 string
 	RetentionCheckSnapshots            string
+	RetentionCheckNodesDown            string
+	IndicesDeleteCheckSnapshots        string
 	DereplicatorDaysCount              string
 	DereplicatorUseSnapshot            string
 	DataSourceName                     string
@@ -144,6 +146,8 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		RetentionThreshold:            getValue(cmd, "retention-threshold", "RETENTION_THRESHOLD", viper.GetString("retention_threshold")),
 		RetentionDaysCount:            getValue(cmd, "retention-days-count", "RETENTION_DAYS_COUNT", viper.GetString("retention_days_count")),
 		RetentionCheckSnapshots:       getValue(cmd, "retention-check-snapshots", "RETENTION_CHECK_SNAPSHOTS", viper.GetString("retention_check_snapshots")),
+		RetentionCheckNodesDown:       getValue(cmd, "retention-check-nodes-down", "RETENTION_CHECK_NODES_DOWN", viper.GetString("retention_check_nodes_down")),
+		IndicesDeleteCheckSnapshots:   getValue(cmd, "indicesdelete-check-snapshots", "INDICESDELETE_CHECK_SNAPSHOTS", viper.GetString("indicesdelete_check_snapshots")),
 		DereplicatorDaysCount:         getValue(cmd, "dereplicator-days-count", "DEREPLICATOR_DAYS", viper.GetString("dereplicator_days_count")),
 		DereplicatorUseSnapshot:       getValue(cmd, "dereplicator-use-snapshot", "DEREPLICATOR_USE_SNAPSHOT", viper.GetString("dereplicator_use_snapshot")),
 		HotCount:                      getValue(cmd, "hot-count", "HOT_COUNT", viper.GetString("hot_count")),
@@ -194,6 +198,12 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		if repoToUse == "" {
 			return fmt.Errorf("snap-repo is required (or set snapshot-manual-repo) for %s", commandName)
 		}
+	case "indexpatterns":
+		if parseBoolWithDefault(configInstance.IndexPatternsRefreshEnabled, "indexpatterns_refresh_enabled") {
+			if configInstance.KibanaUser == "" || configInstance.KibanaPass == "" {
+				return fmt.Errorf("kibana-user and kibana-pass are required when indexpatterns-refresh-enabled is true")
+			}
+		}
 	}
 
 	return nil
@@ -219,6 +229,8 @@ func setDefaults() {
 	viper.SetDefault("retention_threshold", 75.0)
 	viper.SetDefault("retention_days_count", 2)
 	viper.SetDefault("retention_check_snapshots", true)
+	viper.SetDefault("retention_check_nodes_down", true)
+	viper.SetDefault("indicesdelete_check_snapshots", true)
 	viper.SetDefault("dereplicator_days_count", 2)
 	viper.SetDefault("dereplicator_use_snapshot", false)
 	viper.SetDefault("hot_count", 4)
@@ -375,6 +387,14 @@ func (c *Config) GetRetentionDaysCount() int {
 
 func (c *Config) GetRetentionCheckSnapshots() bool {
 	return parseBoolWithDefault(c.RetentionCheckSnapshots, "retention_check_snapshots")
+}
+
+func (c *Config) GetRetentionCheckNodesDown() bool {
+	return parseBoolWithDefault(c.RetentionCheckNodesDown, "retention_check_nodes_down")
+}
+
+func (c *Config) GetIndicesDeleteCheckSnapshots() bool {
+	return parseBoolWithDefault(c.IndicesDeleteCheckSnapshots, "indicesdelete_check_snapshots")
 }
 
 func (c *Config) GetDereplicatorDaysCount() int {
@@ -590,6 +610,7 @@ var CommandFlags = map[string][]FlagDefinition{
 		{"retention-threshold", "int", 75, "Disk usage threshold percentage", []string{"min:0", "max:100"}},
 		{"retention-days-count", "int", 2, "Number of days to keep indices (indices newer than this will not be deleted). Minimum 2 days.", []string{"min:2", "max:365"}},
 		{"retention-check-snapshots", "bool", true, "Check for valid snapshots before deleting indices", []string{}},
+		{"retention-check-nodes-down", "bool", true, "Check if nodes are down before running retention", []string{}},
 		{"snap-repo", "string", "", "Snapshot repository name", []string{"required"}},
 		{"dry-run", "bool", false, "Show what would be deleted without actually deleting", []string{}},
 	},
@@ -633,6 +654,8 @@ var CommandFlags = map[string][]FlagDefinition{
 		{"dry-run", "bool", false, "Show what would be deleted without actually deleting", []string{}},
 	},
 	"indicesdelete": {
+		{"indicesdelete-check-snapshots", "bool", true, "Check for valid snapshots before deleting indices that should have snapshots. If true and snapshots cannot be retrieved or snap-repo is not configured, job exits with error.", []string{}},
+		{"snap-repo", "string", "", "Snapshot repository name (required if indicesdelete-check-snapshots is true)", []string{}},
 		// Uses --osctl-indices-config for configuration
 		{"dry-run", "bool", false, "Show what would be deleted without actually deleting", []string{}},
 	},

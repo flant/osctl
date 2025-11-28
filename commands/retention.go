@@ -6,7 +6,6 @@ import (
 	"osctl/pkg/logging"
 	"osctl/pkg/opensearch"
 	"osctl/pkg/utils"
-	"strconv"
 	"strings"
 	"time"
 
@@ -31,8 +30,10 @@ func runRetention(cmd *cobra.Command, args []string) error {
 	threshold := cfg.GetRetentionThreshold()
 	retentionDaysCount := cfg.GetRetentionDaysCount()
 	checkSnapshots := cfg.GetRetentionCheckSnapshots()
+	checkNodesDown := cfg.GetRetentionCheckNodesDown()
 	snapRepo := cfg.GetSnapshotRepo()
 	dateFormat := cfg.GetDateFormat()
+	kubeNamespace := cfg.GetKubeNamespace()
 
 	if snapRepo == "" {
 		return fmt.Errorf("snap-repo parameter is required")
@@ -43,7 +44,7 @@ func runRetention(cmd *cobra.Command, args []string) error {
 	}
 
 	logger := logging.NewLogger()
-	logger.Info(fmt.Sprintf("Starting retention process threshold=%.2f retentionDaysCount=%d checkSnapshots=%t snapRepo=%s dryRun=%t", threshold, retentionDaysCount, checkSnapshots, snapRepo, cfg.GetDryRun()))
+	logger.Info(fmt.Sprintf("Starting retention process threshold=%.2f retentionDaysCount=%d checkSnapshots=%t checkNodesDown=%t snapRepo=%s dryRun=%t", threshold, retentionDaysCount, checkSnapshots, checkNodesDown, snapRepo, cfg.GetDryRun()))
 
 	client, err := utils.NewOSClientWithURL(cfg, cfg.GetOpenSearchURL())
 	if err != nil {
@@ -51,11 +52,26 @@ func runRetention(cmd *cobra.Command, args []string) error {
 	}
 
 	logger.Info("Getting average disk utilization")
-	avgUtil, err := getAverageUtilization(client)
+	avgUtil, err := utils.GetAverageUtilization(client, logger, true)
 	if err != nil {
 		return fmt.Errorf("failed to get utilization: %v", err)
 	}
 	logger.Info(fmt.Sprintf("Current disk utilization utilization=%d threshold=%.2f", avgUtil, threshold))
+
+	var nodesDiff int
+	nodesDiff, err = utils.CheckNodesDown(client, logger, checkNodesDown, kubeNamespace, true)
+	if err != nil {
+		if checkNodesDown {
+			return fmt.Errorf("failed to check nodes: %v", err)
+		} else {
+			logger.Warn(fmt.Sprintf("Failed to check nodes (check disabled) error=%v", err))
+		}
+	}
+
+	if checkNodesDown && nodesDiff != 0 {
+		logger.Info(fmt.Sprintf("Cannot run retention: nodes are down (difference=%d)", nodesDiff))
+		return nil
+	}
 
 	if float64(avgUtil) <= threshold {
 		logger.Info("Utilization below threshold, nothing to do")
@@ -183,15 +199,30 @@ func runRetention(cmd *cobra.Command, args []string) error {
 
 		time.Sleep(15 * time.Second)
 
-		avgUtil, err = getAverageUtilization(client)
+		avgUtil, err = utils.GetAverageUtilization(client, logger, false)
 		if err != nil {
 			logger.Error(fmt.Sprintf("Failed to get utilization after deletion error=%v", err))
 			break
 		}
+		logger.Info(fmt.Sprintf("Current disk utilization after deletion utilization=%d threshold=%.2f", avgUtil, threshold))
 
-		logger.Info(fmt.Sprintf("Updated utilization utilization=%d", avgUtil))
+		nodesDiff, err = utils.CheckNodesDown(client, logger, checkNodesDown, kubeNamespace, false)
+		if err != nil {
+			if checkNodesDown {
+				logger.Error(fmt.Sprintf("Failed to check nodes after deletion error=%v", err))
+				break
+			} else {
+				logger.Warn(fmt.Sprintf("Failed to check nodes after deletion (check disabled) error=%v", err))
+			}
+		}
+
+		if checkNodesDown && nodesDiff != 0 {
+			logger.Info(fmt.Sprintf("Cannot continue retention: nodes are down (difference=%d)", nodesDiff))
+			break
+		}
 
 		if float64(avgUtil) <= threshold {
+			logger.Info("Utilization below threshold after deletion, stopping")
 			break
 		}
 	}
@@ -223,24 +254,4 @@ func runRetention(cmd *cobra.Command, args []string) error {
 
 	logger.Info(fmt.Sprintf("Retention completed finalUtilization=%d", avgUtil))
 	return nil
-}
-
-func getAverageUtilization(client *opensearch.Client) (int, error) {
-	allocation, err := client.GetAllocation()
-	if err != nil {
-		return 0, err
-	}
-
-	if len(allocation) == 0 {
-		return 0, fmt.Errorf("no allocation data")
-	}
-
-	sum := 0
-	for _, alloc := range allocation {
-		if percent, err := strconv.ParseFloat(alloc.Dup, 64); err == nil {
-			sum += int(percent)
-		}
-	}
-
-	return sum / len(allocation), nil
 }

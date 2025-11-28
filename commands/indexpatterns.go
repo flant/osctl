@@ -43,27 +43,30 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}
-	existing, existingTitles, existingIdsTitiles, err := getExistingIndexPatternTitles(osClient, ".kibana*")
-	if err != nil {
-		return err
-	}
 
 	if cfg.GetIndexPatternsRefreshEnabled() {
 
 		user := cfg.GetKibanaUser()
 		pass := cfg.GetKibanaPass()
+		existing, _, existingIdsTitiles, err := getExistingIndexPatternTitles(osClient, ".kibana*")
+		if err != nil {
+			return err
+		}
 		kb := kibana.NewClient(utils.NormalizeURL(cfg.GetOSDURL()), user, pass, cfg.GetTimeout())
 		logger.Info(fmt.Sprintf("Will refresh %d existing index-patterns", len(existing)))
 		for ip_id, ip_title := range existingIdsTitiles {
 			if cfg.GetDryRun() {
-				logger.Info(fmt.Sprintf("DRY RUN: Start refreshing index-pattern %s:%s", ip_id, ip_title))
-				refreshedPatterns = append(refreshedPatterns, ip_title)
-			} else if err := kb.RefreshIndexPattern(ip_id, ip_title); err == nil {
-				logger.Info(fmt.Sprintf("Start refreshing index-pattern %s:%s", ip_id, ip_title))
+				logger.Info(fmt.Sprintf("DRY RUN: Would refresh index-pattern %s:%s", ip_id, ip_title))
 				refreshedPatterns = append(refreshedPatterns, ip_title)
 			} else {
-				logger.Error(fmt.Sprintf("Refreshing index-pattern %s:%s failed with %s", ip_id, ip_title, err))
-				failedRefreshedPatterns = append(failedRefreshedPatterns, ip_title)
+				logger.Info(fmt.Sprintf("Refreshing index-pattern %s:%s", ip_id, ip_title))
+				if err := kb.RefreshIndexPattern(ip_id, ip_title); err == nil {
+					logger.Info(fmt.Sprintf("Successfully refreshed index-pattern %s:%s", ip_id, ip_title))
+					refreshedPatterns = append(refreshedPatterns, ip_title)
+				} else {
+					logger.Error(fmt.Sprintf("Failed to refresh index-pattern %s:%s: %s", ip_id, ip_title, err))
+					failedRefreshedPatterns = append(failedRefreshedPatterns, ip_title)
+				}
 			}
 		}
 
@@ -172,7 +175,7 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 		}
 
 		logger.Info(fmt.Sprintf("Required patterns (%d): %s", len(needed), strings.Join(needed, ", ")))
-		//existing, existingTitles, _, err := getExistingIndexPatternTitles(osClient, ".kibana")
+		existing, existingTitles, _, err := getExistingIndexPatternTitles(osClient, ".kibana")
 		if err != nil {
 			return err
 		}
@@ -311,24 +314,3 @@ func getExistingIndexPatternTitles(osClient *opensearch.Client, index string) (m
 	}
 	return existing, titles, exist_map_id_title, nil
 }
-
-/*
-func getExistingIndexPatternIds(osClient *opensearch.Client, index string) (map[string]string, error) {
-	sr, err := osClient.Search(index, "q=type:index-pattern&size=1000")
-	if err != nil {
-		return nil, err
-	}
-	existing := map[string]string{}
-	for _, h := range sr.Hits.Hits {
-		if src, ok := h.Source["index-pattern"].(map[string]any); ok {
-			if t, ok := src["title"].(string); ok {
-				if _, seen := existing[h.ID]; !seen {
-					p_id := strings.Split(h.ID, ":")
-					existing[p_id[1]] = t
-				}
-			}
-		}
-	}
-	return existing, nil
-}
-*/
