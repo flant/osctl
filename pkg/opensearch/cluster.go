@@ -8,7 +8,9 @@ import (
 )
 
 type AllocationInfo struct {
-	Dup string `json:"dup"`
+	Name            string `json:"name"`
+	NodeRole        string `json:"node.role"`
+	DiskUsedPercent string `json:"diskUsedPercent"`
 }
 
 type NodesResponse struct {
@@ -23,7 +25,7 @@ type AliasInfo struct {
 }
 
 func (c *Client) GetAllocation() ([]AllocationInfo, error) {
-	url := fmt.Sprintf("%s/_cat/nodes?h=dup&format=json", c.baseURL)
+	url := fmt.Sprintf("%s/_cat/nodes?h=name,node.role,diskUsedPercent&format=json", c.baseURL)
 
 	var allocation []AllocationInfo
 	if err := c.getJSON(url, &allocation); err != nil {

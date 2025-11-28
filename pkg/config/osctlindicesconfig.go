@@ -57,6 +57,43 @@ func LoadOsctlIndicesConfig(path string) (*OsctlIndicesConfig, error) {
 		return nil, fmt.Errorf("failed to unmarshal osctl indices config: %w", err)
 	}
 
+	hasIndicesOrUnknown := len(config.Indices) > 0 || config.Unknown.DaysCount > 0
+	if hasIndicesOrUnknown {
+		hasSnapshotEnabled := config.Unknown.Snapshot
+		if !hasSnapshotEnabled {
+			for _, idx := range config.Indices {
+				if idx.Snapshot {
+					hasSnapshotEnabled = true
+					break
+				}
+			}
+		}
+
+		if hasSnapshotEnabled && config.S3Snapshots.UnitCount.All < 1 {
+			return nil, fmt.Errorf("s3_snapshots.unit_count.all must be >= 1 when indices or unknown config is present")
+		}
+
+		if config.Unknown.DaysCount < 1 && config.Unknown.DaysCount != 0 {
+			return nil, fmt.Errorf("unknown.days_count must be >= 1 or 0 (not set)")
+		}
+
+		for i := range config.Indices {
+			if config.Indices[i].DaysCount < 1 {
+				return nil, fmt.Errorf("index config #%d: days_count must be >= 1", i+1)
+			}
+			if config.Indices[i].SnapshotCountS3 < 0 {
+				return nil, fmt.Errorf("index config #%d: snapshot_count_s3 must be >= 0 (or not set)", i+1)
+			}
+			if config.Indices[i].SnapshotCountS3 == 0 && config.Indices[i].Snapshot {
+				config.Indices[i].SnapshotCountS3 = config.S3Snapshots.UnitCount.All
+			}
+		}
+	}
+
+	if config.S3Snapshots.UnitCount.Unknown == 0 && config.S3Snapshots.UnitCount.All > 0 {
+		config.S3Snapshots.UnitCount.Unknown = config.S3Snapshots.UnitCount.All
+	}
+
 	return &config, nil
 }
 
@@ -108,10 +145,7 @@ func (c *Config) GetOsctlIndices() ([]IndexConfig, error) {
 
 func (c *Config) GetOsctlIndicesUnknownConfig() UnknownConfig {
 	if c.OsctlIndicesConfig == nil {
-		return UnknownConfig{
-			DaysCount: 7,
-			Snapshot:  true,
-		}
+		return UnknownConfig{}
 	}
 
 	return c.OsctlIndicesConfig.Unknown
@@ -119,15 +153,15 @@ func (c *Config) GetOsctlIndicesUnknownConfig() UnknownConfig {
 
 func (c *Config) GetOsctlIndicesS3SnapshotsConfig() S3SnapshotsConfig {
 	if c.OsctlIndicesConfig == nil {
-		return S3SnapshotsConfig{
-			UnitCount: UnitCountConfig{
-				All:     60,
-				Unknown: 7,
-			},
-		}
+		return S3SnapshotsConfig{}
 	}
 
-	return c.OsctlIndicesConfig.S3Snapshots
+	s3Config := c.OsctlIndicesConfig.S3Snapshots
+	if s3Config.UnitCount.Unknown == 0 && s3Config.UnitCount.All > 0 {
+		s3Config.UnitCount.Unknown = s3Config.UnitCount.All
+	}
+
+	return s3Config
 }
 
 func (c *Config) IsOsctlIndicesMode() bool {

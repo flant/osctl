@@ -1,0 +1,40 @@
+{{- if .Values.danglingChecker.enabled }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: osctl-dangling-checker
+  labels:
+    job: osctl-dangling-checker
+spec:
+  schedule: {{ .Values.danglingChecker.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  jobTemplate:
+    metadata:
+      labels:
+        job: osctl-dangling-checker
+    spec:
+      template:
+        metadata:
+          labels:
+            job: osctl-dangling-checker
+        spec:
+{{- include "toleration_common" . | indent 10 }}
+          affinity:
+{{- include "nodeselector_common" . | indent 10 }}
+          volumes:
+{{- include "osctl_volumes" . | indent 10 }}
+          containers:
+          - name: osctl
+            image: {{ printf "%s%s:%s" .Values.osctl.image.repo .Values.osctl.image.name .Values.osctl.image.tag }}
+            imagePullPolicy: {{ .Values.imagePullPolicy }}
+            command:
+            - /app/osctl
+            args:
+            - danglingchecker
+            workingDir: /app
+            volumeMounts:
+{{- include "osctl_volume_mounts" . | indent 12 }}
+          restartPolicy: Never
+{{- end }}

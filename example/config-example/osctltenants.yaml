@@ -1,10 +1,10 @@
 tenants:
   - name: flant
-    patterns:
+    indices:
       - "filebeat-*"
       - "infra-*"
       - "d8-*"
   - name: itop-nginx
-    patterns:
+    indices:
       - "common-access-*"
       - "common-error-*"

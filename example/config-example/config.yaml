@@ -16,9 +16,6 @@ retry_attempts: 3
 date_format: "%Y.%m.%d"
 dry_run: false
 snapshot_repo: "s3-backup"
-kube_namespace: "infra-elklogs"
-kibana_user: ""
-kibana_pass: ""
 
 # madison alerts settings
 madison_url: "https://madison.flant.com/api/events/custom/"
@@ -36,6 +33,9 @@ hot_count: 4
 # datasource
 datasource_name: "recoverer"
 datasource_endpoint: "https://opendistro-recoverer:9200"
+kube_namespace: "infra-elklogs"
+kibana_user: ""
+kibana_pass: ""
 datasource_kibana_multitenancy: false
 datasource_kibana_multidomain_enabled: false
 datasource_remote_crt: ""
@@ -55,7 +55,6 @@ recoverer_date_format: "%d-%m-%Y"
 kibana_index_regex: '^([\w-]+)-([\w-]*)(\d{4}[\.-]\d{2}[\.-]\d{2}(?:[\.-]\d{2})*)$'
 indexpatterns_kibana_multitenancy: false
 indexpatterns_recoverer_enabled: true
-indexpatterns_refresh_enabled: false
 
 # indicesdelete:
 indicesdelete_check_snapshots: true
