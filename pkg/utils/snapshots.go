@@ -238,7 +238,7 @@ func CheckIndicesExist(client *opensearch.Client, indicesStr string, logger *log
 	return existingIndices, nil
 }
 
-func CreateSnapshotWithRetry(client *opensearch.Client, snapshotName, indexName, snapRepo string, madisonClient interface{}, logger *logging.Logger, pollInterval time.Duration) error {
+func CreateSnapshotWithRetry(client *opensearch.Client, snapshotName, indexName, snapRepo, namespace, dateStr string, madisonClient interface{}, logger *logging.Logger, pollInterval time.Duration) error {
 	const maxRetries = 7
 
 	existingIndices, err := CheckIndicesExist(client, indexName, logger)
@@ -292,7 +292,7 @@ retryLoop:
 				fmt.Sprintf("Snapshot %s for index %s failed to create after %d retries", snapshotName, indexName, maxRetries)))
 			if madisonClient != nil {
 				if client, ok := madisonClient.(*alerts.Client); ok {
-					response, err := client.SendMadisonSnapshotCreationFailedAlert(snapshotName, indexName)
+					response, err := client.SendMadisonSnapshotCreationFailedAlert(snapshotName, indexName, snapRepo, namespace, dateStr)
 					if err != nil {
 						logger.Error(fmt.Sprintf("Failed to send Madison alert error=%v", err))
 					} else {
@@ -381,7 +381,7 @@ retryLoop:
 		fmt.Sprintf("Snapshot %s for index %s failed to create after %d retries", snapshotName, indexName, maxRetries)))
 	if madisonClient != nil {
 		if client, ok := madisonClient.(*alerts.Client); ok {
-			response, err := client.SendMadisonSnapshotCreationFailedAlert(snapshotName, indexName)
+			response, err := client.SendMadisonSnapshotCreationFailedAlert(snapshotName, indexName, snapRepo, namespace, dateStr)
 			if err != nil {
 				logger.Error(fmt.Sprintf("Failed to send Madison alert error=%v", err))
 			} else {
