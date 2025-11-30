@@ -116,6 +116,7 @@ data:
     exclude_sharding: {{ .Values.sharding.exclude_indices | default "" | quote }}
 
     # snapshots:
+    max_concurrent_snapshots: {{ .Values.snapshots.max_concurrent_snapshots | default 3 | quote }}
 
     # snapshotschecker:
 
