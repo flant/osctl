@@ -66,6 +66,7 @@ type Config struct {
 	IndexPatternsKibanaTenantsConfig   string
 	IndexPatternsRecovererEnabled      string
 	SnapshotsBackfillIndicesList       string
+	MaxConcurrentSnapshots             string
 }
 
 type CommandConfig = Config
@@ -181,6 +182,7 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		IndexPatternsKibanaTenantsConfig:   getValue(cmd, "indexpatterns-kibana-tenants-config", "INDEXPATTERNS_KIBANA_TENANTS_CONFIG", viper.GetString("indexpatterns_kibana_tenants_config")),
 		IndexPatternsRecovererEnabled:      getValue(cmd, "indexpatterns-recoverer-enabled", "INDEXPATTERNS_RECOVERER_ENABLED", viper.GetString("indexpatterns_recoverer_enabled")),
 		SnapshotsBackfillIndicesList:       getValue(cmd, "indices-list", "SNAPSHOTS_BACKFILL_INDICES_LIST", viper.GetString("snapshots_backfill_indices_list")),
+		MaxConcurrentSnapshots:             getValue(cmd, "max-concurrent-snapshots", "MAX_CONCURRENT_SNAPSHOTS", viper.GetString("max_concurrent_snapshots")),
 	}
 
 	switch commandName {
@@ -248,6 +250,7 @@ func setDefaults() {
 	viper.SetDefault("kibana_multidomain_enabled", false)
 	viper.SetDefault("datasource_name", "recoverer")
 	viper.SetDefault("datasource_endpoint", "https://opendistro-recoverer:9200")
+	viper.SetDefault("max_concurrent_snapshots", 3)
 }
 
 func GetAvailableActions() []string {
@@ -569,6 +572,10 @@ func (c *Config) GetSnapshotsBackfillIndicesList() string {
 	return c.SnapshotsBackfillIndicesList
 }
 
+func (c *Config) GetMaxConcurrentSnapshots() int {
+	return parseIntWithDefault(c.MaxConcurrentSnapshots, "max_concurrent_snapshots")
+}
+
 type FlagDefinition struct {
 	Name        string
 	Type        string
@@ -580,6 +587,7 @@ type FlagDefinition struct {
 var CommandFlags = map[string][]FlagDefinition{
 	"common": {
 		{"osctl-indices-config", "string", "", "Path to osctl indices configuration file", []string{}},
+		{"max-concurrent-snapshots", "int", 3, "Maximum number of snapshots to create simultaneously", []string{"min:1", "max:10"}},
 	},
 	"snapshots": {
 		{"dry-run", "bool", false, "Show what would be created without actually creating", []string{}},

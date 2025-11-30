@@ -7,7 +7,9 @@ import (
 	"osctl/pkg/config"
 	"osctl/pkg/logging"
 	"osctl/pkg/opensearch"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -146,62 +148,91 @@ func WaitForSnapshotCompletion(client *opensearch.Client, logger *logging.Logger
 	return nil
 }
 
-func WaitForSnapshotTasks(client *opensearch.Client, logger *logging.Logger, targetSnapshot string, targetRepo string) error {
+func GetActiveSnapshotCount(client *opensearch.Client) (int, error) {
+	status, err := client.GetSnapshotStatus()
+	if err != nil {
+		return 0, err
+	}
+	return len(status.Snapshots), nil
+}
+
+type SnapshotTask struct {
+	SnapshotName string
+	IndicesStr   string
+	Repo         string
+	Namespace    string
+	DateStr      string
+	PollInterval time.Duration
+	Size         int64
+}
+
+func CreateSnapshotsInParallel(client *opensearch.Client, tasks []SnapshotTask, maxConcurrent int, madisonClient interface{}, logger *logging.Logger) ([]string, []string) {
+	var successful []string
+	var failed []string
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	sortedTasks := make([]SnapshotTask, len(tasks))
+	copy(sortedTasks, tasks)
+	sort.Slice(sortedTasks, func(i, j int) bool {
+		return sortedTasks[i].Size > sortedTasks[j].Size
+	})
+
+	taskChan := make(chan SnapshotTask, len(sortedTasks))
+
+	for _, task := range sortedTasks {
+		taskChan <- task
+	}
+	close(taskChan)
+
+	for i := 0; i < maxConcurrent; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			for task := range taskChan {
+				logger.Info(fmt.Sprintf("Creating snapshot snapshot=%s repo=%s", task.SnapshotName, task.Repo))
+				logger.Info(fmt.Sprintf("Snapshot indices %s", task.IndicesStr))
+
+				err := CreateSnapshotWithRetry(client, task.SnapshotName, task.IndicesStr, task.Repo, task.Namespace, task.DateStr, madisonClient, logger, task.PollInterval, maxConcurrent)
+
+				mu.Lock()
+				snapshotName := task.SnapshotName
+				if task.Repo != "" {
+					snapshotName = fmt.Sprintf("%s (repo=%s)", task.SnapshotName, task.Repo)
+				}
+				if err != nil {
+					logger.Error(fmt.Sprintf("Failed to create snapshot after retries snapshot=%s error=%v", task.SnapshotName, err))
+					failed = append(failed, snapshotName)
+				} else {
+					successful = append(successful, snapshotName)
+				}
+				mu.Unlock()
+			}
+		}()
+	}
+
+	wg.Wait()
+	return successful, failed
+}
+
+func WaitForSnapshotSlot(client *opensearch.Client, logger *logging.Logger, maxConcurrent int, waitInterval time.Duration) error {
 	for {
-		tasks, err := client.GetTasks()
+		activeCount, err := GetActiveSnapshotCount(client)
 		if err != nil {
-			logger.Error(fmt.Sprintf("Failed to get tasks error=%v", err))
-			time.Sleep(60 * time.Second)
+			logger.Warn(fmt.Sprintf("Failed to get active snapshot count, retrying error=%v", err))
+			time.Sleep(waitInterval)
 			continue
 		}
 
-		hasSnapshotTasks := false
-		jobDescriptions := []string{}
-		for _, node := range tasks.Nodes {
-			for _, task := range node.Tasks {
-				if strings.Contains(task.Action, "snapshot") {
-					desc := task.Description
-					if desc == "" {
-						desc = task.Action
-					}
-					if targetRepo != "" || targetSnapshot != "" {
-						match := false
-						if targetRepo != "" && strings.Contains(desc, targetRepo+"/") {
-							match = true
-						}
-						if targetSnapshot != "" && strings.Contains(desc, targetSnapshot) {
-							match = true
-						}
-						if !match {
-							continue
-						}
-					}
-					hasSnapshotTasks = true
-					jobDescriptions = append(jobDescriptions, desc)
-				}
-			}
+		if activeCount < maxConcurrent {
+			logger.Info(fmt.Sprintf("Snapshot slot available active=%d max=%d", activeCount, maxConcurrent))
+			return nil
 		}
 
-		if !hasSnapshotTasks {
-			break
-		}
-
-		if len(jobDescriptions) > 0 {
-			if targetSnapshot != "" {
-				logger.Info(fmt.Sprintf("Waiting for snapshot tasks to complete jobs=%v target=%s", jobDescriptions, targetSnapshot))
-			} else {
-				logger.Info(fmt.Sprintf("Waiting for snapshot tasks to complete jobs=%v", jobDescriptions))
-			}
-		} else {
-			if targetSnapshot != "" {
-				logger.Info(fmt.Sprintf("Waiting for snapshot tasks to complete target=%s", targetSnapshot))
-			} else {
-				logger.Info("Waiting for snapshot tasks to complete")
-			}
-		}
-		time.Sleep(60 * time.Second)
+		logger.Info(fmt.Sprintf("Waiting for snapshot slot active=%d max=%d", activeCount, maxConcurrent))
+		time.Sleep(waitInterval)
 	}
-	return nil
 }
 
 func CheckIndicesExist(client *opensearch.Client, indicesStr string, logger *logging.Logger) ([]string, error) {
@@ -238,7 +269,7 @@ func CheckIndicesExist(client *opensearch.Client, indicesStr string, logger *log
 	return existingIndices, nil
 }
 
-func CreateSnapshotWithRetry(client *opensearch.Client, snapshotName, indexName, snapRepo, namespace, dateStr string, madisonClient interface{}, logger *logging.Logger, pollInterval time.Duration) error {
+func CreateSnapshotWithRetry(client *opensearch.Client, snapshotName, indexName, snapRepo, namespace, dateStr string, madisonClient interface{}, logger *logging.Logger, pollInterval time.Duration, maxConcurrent int) error {
 	const maxRetries = 7
 
 	existingIndices, err := CheckIndicesExist(client, indexName, logger)
@@ -262,14 +293,12 @@ retryLoop:
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		logger.Info(fmt.Sprintf("Creating snapshot attempt snapshot=%s attempt=%d maxRetries=%d", snapshotName, attempt, maxRetries))
 
-		err := WaitForSnapshotCompletion(client, logger, "", snapRepo)
-		if err != nil {
-			logger.Warn(fmt.Sprintf("Failed to wait for snapshot completion error=%v", err))
-		}
-
-		err = WaitForSnapshotTasks(client, logger, "", snapRepo)
-		if err != nil {
-			logger.Warn(fmt.Sprintf("Failed to wait for snapshot tasks error=%v", err))
+		if maxConcurrent > 0 {
+			err := WaitForSnapshotSlot(client, logger, maxConcurrent, pollInterval)
+			if err != nil {
+				logger.Error(fmt.Sprintf("Failed to wait for snapshot slot snapshot=%s error=%v", snapshotName, err))
+				return err
+			}
 		}
 
 		snapshotRequest := map[string]any{

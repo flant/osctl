@@ -132,11 +132,6 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to wait for snapshot completion: %v", err)
 	}
 
-	err = utils.WaitForSnapshotTasks(client, logger, "", repoToUse)
-	if err != nil {
-		return fmt.Errorf("failed to wait for snapshot tasks: %v", err)
-	}
-
 	allSnapshots, err := utils.GetSnapshotsIgnore404(client, repoToUse, "*"+today+"*")
 	if err != nil {
 		return fmt.Errorf("failed to get snapshots: %v", err)
@@ -166,7 +161,7 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 	indicesStr := strings.Join(matchingIndices, ",")
 	logger.Info(fmt.Sprintf("Creating snapshot %s", snapshotName))
 	logger.Info(fmt.Sprintf("Snapshot indices %s", indicesStr))
-	err = utils.CreateSnapshotWithRetry(client, snapshotName, indicesStr, repoToUse, cfg.GetKubeNamespace(), today, madisonClient, logger, 60*time.Second)
+	err = utils.CreateSnapshotWithRetry(client, snapshotName, indicesStr, repoToUse, cfg.GetKubeNamespace(), today, madisonClient, logger, 60*time.Second, cfg.GetMaxConcurrentSnapshots())
 	if err != nil {
 		logger.Error(fmt.Sprintf("Failed to create snapshot after retries snapshot=%s error=%v", snapshotName, err))
 		return err

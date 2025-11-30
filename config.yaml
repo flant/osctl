@@ -70,7 +70,8 @@ retention_check_nodes_down: true
 sharding_target_size_gib: 25
 exclude_sharding: ""
 
-# snapshots:
+snapshots:
+max_concurrent_snapshots: 3
 # Uses osctl-indices-config for detailed configuration
 
 # snapshotschecker:

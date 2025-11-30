@@ -278,6 +278,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 			logger.Info("Existing snapshots today none")
 		}
 
+		var snapshotTasks []utils.SnapshotTask
 		for _, group := range snapshotGroups {
 			if state, ok, err := utils.CheckSnapshotStateInRepo(client, defaultRepo, group.SnapshotName); err == nil && ok {
 				if state == "SUCCESS" {
@@ -311,15 +312,19 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 						newSnapshotName := baseName + "-" + randomSuffix + "-" + datePart
 						logger.Info(fmt.Sprintf("Some indices missing in existing snapshot, creating additional snapshot original=%s new=%s missingIndicesCount=%d", group.SnapshotName, newSnapshotName, len(missingIndices)))
 						indicesStr := strings.Join(missingIndices, ",")
-						logger.Info(fmt.Sprintf("Creating snapshot %s", newSnapshotName))
-						logger.Info(fmt.Sprintf("Snapshot indices %s", indicesStr))
-						err = utils.CreateSnapshotWithRetry(client, newSnapshotName, indicesStr, defaultRepo, cfg.GetKubeNamespace(), today, madisonClient, logger, 60*time.Second)
-						if err != nil {
-							logger.Error(fmt.Sprintf("Failed to create snapshot after retries snapshot=%s error=%v", newSnapshotName, err))
-							failedSnapshots = append(failedSnapshots, newSnapshotName)
-						} else {
-							successfulSnapshots = append(successfulSnapshots, newSnapshotName)
+						var totalSize int64
+						for _, idx := range missingIndices {
+							totalSize += indexSizes[idx]
 						}
+						snapshotTasks = append(snapshotTasks, utils.SnapshotTask{
+							SnapshotName: newSnapshotName,
+							IndicesStr:   indicesStr,
+							Repo:         defaultRepo,
+							Namespace:    cfg.GetKubeNamespace(),
+							DateStr:      today,
+							PollInterval: 60 * time.Second,
+							Size:         totalSize,
+						})
 					}
 					continue
 				}
@@ -341,15 +346,25 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 			}
 
 			indicesStr := strings.Join(group.Indices, ",")
-			logger.Info(fmt.Sprintf("Creating snapshot %s", group.SnapshotName))
-			logger.Info(fmt.Sprintf("Snapshot indices %s", indicesStr))
-			err = utils.CreateSnapshotWithRetry(client, group.SnapshotName, indicesStr, defaultRepo, cfg.GetKubeNamespace(), today, madisonClient, logger, 60*time.Second)
-			if err != nil {
-				logger.Error(fmt.Sprintf("Failed to create snapshot after retries snapshot=%s error=%v", group.SnapshotName, err))
-				failedSnapshots = append(failedSnapshots, group.SnapshotName)
-				continue
+			var totalSize int64
+			for _, idx := range group.Indices {
+				totalSize += indexSizes[idx]
 			}
-			successfulSnapshots = append(successfulSnapshots, group.SnapshotName)
+			snapshotTasks = append(snapshotTasks, utils.SnapshotTask{
+				SnapshotName: group.SnapshotName,
+				IndicesStr:   indicesStr,
+				Repo:         defaultRepo,
+				Namespace:    cfg.GetKubeNamespace(),
+				DateStr:      today,
+				PollInterval: 60 * time.Second,
+				Size:         totalSize,
+			})
+		}
+
+		if len(snapshotTasks) > 0 {
+			successful, failed := utils.CreateSnapshotsInParallel(client, snapshotTasks, cfg.GetMaxConcurrentSnapshots(), madisonClient, logger)
+			successfulSnapshots = append(successfulSnapshots, successful...)
+			failedSnapshots = append(failedSnapshots, failed...)
 		}
 
 		if len(repoGroups) > 0 {
@@ -359,6 +374,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 				repo := parts[0]
 				perRepo[repo] = append(perRepo[repo], g)
 			}
+			var repoSnapshotTasks []utils.SnapshotTask
 			for repo, groups := range perRepo {
 				sort.Slice(groups, func(i, j int) bool {
 					var sizeI, sizeJ int64
@@ -411,15 +427,19 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 								newSnapshotName := baseName + "-" + randomSuffix + "-" + datePart
 								logger.Info(fmt.Sprintf("Some indices missing in existing snapshot, creating additional snapshot repo=%s original=%s new=%s missingIndicesCount=%d", repo, g.SnapshotName, newSnapshotName, len(missingIndices)))
 								indicesStr := strings.Join(missingIndices, ",")
-								logger.Info(fmt.Sprintf("Creating snapshot repo=%s snapshot=%s", repo, newSnapshotName))
-								logger.Info(fmt.Sprintf("Snapshot indices %s", indicesStr))
-								err = utils.CreateSnapshotWithRetry(client, newSnapshotName, indicesStr, repo, cfg.GetKubeNamespace(), today, madisonClient, logger, 60*time.Second)
-								if err != nil {
-									logger.Error(fmt.Sprintf("Failed to create snapshot after retries repo=%s snapshot=%s error=%v", repo, newSnapshotName, err))
-									failedSnapshots = append(failedSnapshots, fmt.Sprintf("%s (repo=%s)", newSnapshotName, repo))
-								} else {
-									successfulSnapshots = append(successfulSnapshots, fmt.Sprintf("%s (repo=%s)", newSnapshotName, repo))
+								var totalSize int64
+								for _, idx := range missingIndices {
+									totalSize += indexSizes[idx]
 								}
+								repoSnapshotTasks = append(repoSnapshotTasks, utils.SnapshotTask{
+									SnapshotName: newSnapshotName,
+									IndicesStr:   indicesStr,
+									Repo:         repo,
+									Namespace:    cfg.GetKubeNamespace(),
+									DateStr:      today,
+									PollInterval: 60 * time.Second,
+									Size:         totalSize,
+								})
 							}
 							continue
 						}
@@ -438,16 +458,25 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 						continue
 					}
 					indicesStr := strings.Join(g.Indices, ",")
-					logger.Info(fmt.Sprintf("Creating snapshot repo=%s snapshot=%s", repo, g.SnapshotName))
-					logger.Info(fmt.Sprintf("Snapshot indices %s", indicesStr))
-					err = utils.CreateSnapshotWithRetry(client, g.SnapshotName, indicesStr, repo, cfg.GetKubeNamespace(), today, madisonClient, logger, 60*time.Second)
-					if err != nil {
-						logger.Error(fmt.Sprintf("Failed to create snapshot after retries repo=%s snapshot=%s error=%v", repo, g.SnapshotName, err))
-						failedSnapshots = append(failedSnapshots, fmt.Sprintf("%s (repo=%s)", g.SnapshotName, repo))
-						continue
+					var totalSize int64
+					for _, idx := range g.Indices {
+						totalSize += indexSizes[idx]
 					}
-					successfulSnapshots = append(successfulSnapshots, fmt.Sprintf("%s (repo=%s)", g.SnapshotName, repo))
+					repoSnapshotTasks = append(repoSnapshotTasks, utils.SnapshotTask{
+						SnapshotName: g.SnapshotName,
+						IndicesStr:   indicesStr,
+						Repo:         repo,
+						Namespace:    cfg.GetKubeNamespace(),
+						DateStr:      today,
+						PollInterval: 60 * time.Second,
+						Size:         totalSize,
+					})
 				}
+			}
+			if len(repoSnapshotTasks) > 0 {
+				successful, failed := utils.CreateSnapshotsInParallel(client, repoSnapshotTasks, cfg.GetMaxConcurrentSnapshots(), madisonClient, logger)
+				successfulSnapshots = append(successfulSnapshots, successful...)
+				failedSnapshots = append(failedSnapshots, failed...)
 			}
 		}
 	}
