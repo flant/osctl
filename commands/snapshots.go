@@ -8,6 +8,8 @@ import (
 	"osctl/pkg/logging"
 	"osctl/pkg/opensearch"
 	"osctl/pkg/utils"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -55,6 +57,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 	var indicesToSnapshot []string
 	repoGroups := map[string]utils.SnapshotGroup{}
 	var unknownIndices []string
+	indexSizes := make(map[string]int64)
 
 	systemConfigs := make([]config.IndexConfig, 0)
 	regularConfigs := make([]config.IndexConfig, 0)
@@ -81,6 +84,9 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 
 		for _, idx := range allSystemIndices {
 			indexName := idx.Index
+			if size, err := strconv.ParseInt(idx.Size, 10, 64); err == nil {
+				indexSizes[indexName] = size
+			}
 			indexConfig := utils.FindMatchingIndexConfig(indexName, systemConfigs)
 			if indexConfig != nil && indexConfig.Snapshot && !indexConfig.ManualSnapshot {
 				utils.AddIndexToSnapshotGroups(indexName, *indexConfig, today, repoGroups, &indicesToSnapshot)
@@ -102,6 +108,9 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 
 		for _, idx := range allRegularIndices {
 			indexName := idx.Index
+			if size, err := strconv.ParseInt(idx.Size, 10, 64); err == nil {
+				indexSizes[indexName] = size
+			}
 			indexConfig := utils.FindMatchingIndexConfig(indexName, regularConfigs)
 			if indexConfig != nil && indexConfig.Snapshot && !indexConfig.ManualSnapshot {
 				utils.AddIndexToSnapshotGroups(indexName, *indexConfig, today, repoGroups, &indicesToSnapshot)
@@ -135,6 +144,17 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 			Kind:         "unknown",
 		})
 	}
+
+	sort.Slice(snapshotGroups, func(i, j int) bool {
+		var sizeI, sizeJ int64
+		for _, idx := range snapshotGroups[i].Indices {
+			sizeI += indexSizes[idx]
+		}
+		for _, idx := range snapshotGroups[j].Indices {
+			sizeJ += indexSizes[idx]
+		}
+		return sizeI > sizeJ
+	})
 
 	if cfg.GetDryRun() {
 		existingMain, err := utils.GetSnapshotsIgnore404(client, defaultRepo, "*"+today+"*")
@@ -340,6 +360,16 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 				perRepo[repo] = append(perRepo[repo], g)
 			}
 			for repo, groups := range perRepo {
+				sort.Slice(groups, func(i, j int) bool {
+					var sizeI, sizeJ int64
+					for _, idx := range groups[i].Indices {
+						sizeI += indexSizes[idx]
+					}
+					for _, idx := range groups[j].Indices {
+						sizeJ += indexSizes[idx]
+					}
+					return sizeI > sizeJ
+				})
 				existing, err := utils.GetSnapshotsIgnore404(client, repo, "*"+today+"*")
 				if err != nil {
 					logger.Error(fmt.Sprintf("Failed to get snapshots from repo repo=%s error=%v", repo, err))

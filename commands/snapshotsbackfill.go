@@ -9,6 +9,7 @@ import (
 	"osctl/pkg/opensearch"
 	"osctl/pkg/utils"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -195,6 +196,7 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 			indicesSet[idx] = true
 		}
 
+		indexSizes := make(map[string]int64)
 		pattern := "*" + dateKey + "*"
 		indicesWithSize, err := client.GetIndicesWithFields(pattern, "index,ss", "ss:asc")
 		if err != nil {
@@ -202,6 +204,9 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 		} else {
 			var sortedIndices []string
 			for _, idx := range indicesWithSize {
+				if size, err := strconv.ParseInt(idx.Size, 10, 64); err == nil {
+					indexSizes[idx.Index] = size
+				}
 				if indicesSet[idx.Index] {
 					sortedIndices = append(sortedIndices, idx.Index)
 					delete(indicesSet, idx.Index)
@@ -312,6 +317,17 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 				Kind:         "unknown",
 			})
 		}
+
+		sort.Slice(snapshotGroups, func(i, j int) bool {
+			var sizeI, sizeJ int64
+			for _, idx := range snapshotGroups[i].Indices {
+				sizeI += indexSizes[idx]
+			}
+			for _, idx := range snapshotGroups[j].Indices {
+				sizeJ += indexSizes[idx]
+			}
+			return sizeI < sizeJ
+		})
 		if len(snapshotGroups) == 0 && len(repoGroups) == 0 {
 			logger.Info(fmt.Sprintf("No snapshots to create for date date=%s", dateKey))
 			continue
@@ -382,6 +398,16 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 			filteredPerRepo := map[string][]utils.SnapshotGroup{}
 			inProgressPerRepo := make([]string, 0)
 			for repo, groups := range perRepo {
+				sort.Slice(groups, func(i, j int) bool {
+					var sizeI, sizeJ int64
+					for _, idx := range groups[i].Indices {
+						sizeI += indexSizes[idx]
+					}
+					for _, idx := range groups[j].Indices {
+						sizeJ += indexSizes[idx]
+					}
+					return sizeI < sizeJ
+				})
 				existing, err := utils.GetSnapshotsIgnore404(client, repo, "*"+snapshotDate+"*")
 				if err != nil {
 					existing = nil
@@ -598,6 +624,16 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 					perRepo[repo] = append(perRepo[repo], g)
 				}
 				for repo, groups := range perRepo {
+					sort.Slice(groups, func(i, j int) bool {
+						var sizeI, sizeJ int64
+						for _, idx := range groups[i].Indices {
+							sizeI += indexSizes[idx]
+						}
+						for _, idx := range groups[j].Indices {
+							sizeJ += indexSizes[idx]
+						}
+						return sizeI < sizeJ
+					})
 					existing, err := utils.GetSnapshotsIgnore404(client, repo, "*"+snapshotDate+"*")
 					if err != nil {
 						logger.Error(fmt.Sprintf("Failed to get snapshots from repo repo=%s error=%v", repo, err))
