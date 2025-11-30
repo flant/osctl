@@ -166,7 +166,7 @@ type SnapshotTask struct {
 	Size         int64
 }
 
-func CreateSnapshotsInParallel(client *opensearch.Client, tasks []SnapshotTask, maxConcurrent int, madisonClient interface{}, logger *logging.Logger) ([]string, []string) {
+func CreateSnapshotsInParallel(client *opensearch.Client, tasks []SnapshotTask, maxConcurrent int, madisonClient interface{}, logger *logging.Logger, sortDescending bool) ([]string, []string) {
 	var successful []string
 	var failed []string
 	var mu sync.Mutex
@@ -175,7 +175,10 @@ func CreateSnapshotsInParallel(client *opensearch.Client, tasks []SnapshotTask, 
 	sortedTasks := make([]SnapshotTask, len(tasks))
 	copy(sortedTasks, tasks)
 	sort.Slice(sortedTasks, func(i, j int) bool {
-		return sortedTasks[i].Size > sortedTasks[j].Size
+		if sortDescending {
+			return sortedTasks[i].Size > sortedTasks[j].Size
+		}
+		return sortedTasks[i].Size < sortedTasks[j].Size
 	})
 
 	taskChan := make(chan SnapshotTask, len(sortedTasks))

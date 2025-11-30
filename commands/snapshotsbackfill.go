@@ -621,7 +621,7 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 			}
 
 			if len(snapshotTasks) > 0 {
-				successful, failed := utils.CreateSnapshotsInParallel(client, snapshotTasks, cfg.GetMaxConcurrentSnapshots(), madisonClient, logger)
+				successful, failed := utils.CreateSnapshotsInParallel(client, snapshotTasks, cfg.GetMaxConcurrentSnapshots(), madisonClient, logger, false)
 				successfulSnapshots = append(successfulSnapshots, successful...)
 				failedSnapshots = append(failedSnapshots, failed...)
 			}
@@ -733,7 +733,7 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 					}
 				}
 				if len(repoSnapshotTasks) > 0 {
-					successful, failed := utils.CreateSnapshotsInParallel(client, repoSnapshotTasks, cfg.GetMaxConcurrentSnapshots(), madisonClient, logger)
+					successful, failed := utils.CreateSnapshotsInParallel(client, repoSnapshotTasks, cfg.GetMaxConcurrentSnapshots(), madisonClient, logger, false)
 					successfulSnapshots = append(successfulSnapshots, successful...)
 					failedSnapshots = append(failedSnapshots, failed...)
 				}
