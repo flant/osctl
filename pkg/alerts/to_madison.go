@@ -193,7 +193,7 @@ func (c *Client) SendMadisonDanglingIndicesAlert(danglingIndices []string) (stri
 
 func (c *Client) SendMadisonSnapshotCreationFailedAlert(snapshotName, indexName, snapRepo, namespace, dateStr string) (string, error) {
 	summary := fmt.Sprintf("Не удалось создать снапшот %s для индекса %s", snapshotName, indexName)
-	description := fmt.Sprintf("Снапшот %s для индекса %s не удалось создать после 7 попыток. Надо проверить наличие соответствующего снапшота через GET _cat/snapshots/%s/%s - возможно его уже создала джоба snapshotsbackfill, но если его нет - сначала попробуйте запустить Job создания пропущенных снапшотов через kubectl -n %s create job --from=cronjob/osctl-snapshotsbackfill osctl-snapshotsbackfill-%s или ещё вариант - создать его вручную", snapshotName, indexName, snapRepo, snapshotName, namespace, dateStr)
+	description := fmt.Sprintf("Снапшот %s для индекса %s не удалось создать после 7 попыток. Надо проверить наличие соответствующего снапшота через GET _cat/snapshots/%s/%s - возможно его уже создала джоба snapshotsbackfill, но если его нет - сначала попробуйте запустить Job создания пропущенных снапшотов через kubectl -n %s create job --from=cronjob/osctl-snapshotsbackfill osctl-snapshotsbackfill-%s или ещё вариант - создать его вручную. Ещё возможна ситуация, когда снапшот принципиально не создается - например если у него есть повреждения в индексе. Это нужно обязателно проверить по логам. Характерный признак - все 7 раз создавались PARTIAL снапшоты. В этом случае индекс надо удалять, поскольку он поврежденный.", snapshotName, indexName, snapRepo, snapshotName, namespace, dateStr)
 
 	payload := Alert{
 		Labels: Labels{
