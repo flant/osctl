@@ -52,7 +52,7 @@ func CheckAndCleanSnapshot(snapshotName string, indexName string, snapshots []op
 			}
 			if snapshot.State == "PARTIAL" || snapshot.State == "FAILED" {
 				logger.Info(fmt.Sprintf("Deleting PARTIAL/FAILED snapshot snapshot=%s state=%s", snapshotName, snapshot.State))
-				err := client.DeleteSnapshots(snapRepo, []string{snapshotName})
+				err := DeleteSnapshotsWithRetry(client, snapRepo, []string{snapshotName}, logger)
 				if err != nil {
 					logger.Error(fmt.Sprintf("Failed to delete PARTIAL/FAILED snapshot snapshot=%s error=%v", snapshotName, err))
 					return false, err
@@ -352,7 +352,7 @@ retryLoop:
 				duration := time.Since(startTime)
 				durationStr := formatDuration(duration)
 				logger.Warn(fmt.Sprintf("Snapshot is PARTIAL/FAILED, deleting and retrying snapshot=%s state=%s duration=%s attempt=%d", snapshotName, snapshot.State, durationStr, attempt))
-				err := client.DeleteSnapshots(snapRepo, []string{snapshotName})
+				err := DeleteSnapshotsWithRetry(client, snapRepo, []string{snapshotName}, logger)
 				if err != nil {
 					logger.Error(fmt.Sprintf("Failed to delete PARTIAL/FAILED snapshot snapshot=%s error=%v", snapshotName, err))
 				} else {
@@ -477,6 +477,60 @@ func BatchDeleteSnapshots(client *opensearch.Client, snapshots []string, snapRep
 	}
 
 	return successful, failed, nil
+}
+
+func DeleteSnapshotsWithRetry(client *opensearch.Client, snapRepo string, snapshotNames []string, logger *logging.Logger) error {
+	const maxRetries = 15
+
+	if len(snapshotNames) == 0 {
+		return nil
+	}
+
+	var lastErr error
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		existingSnapshots := make([]string, 0)
+		for _, snapshotName := range snapshotNames {
+			snapshots, err := GetSnapshotsIgnore404(client, snapRepo, snapshotName)
+			if err != nil {
+				logger.Warn(fmt.Sprintf("Failed to check snapshot existence snapshot=%s error=%v, will try to delete", snapshotName, err))
+				existingSnapshots = append(existingSnapshots, snapshotName)
+				continue
+			}
+			if len(snapshots) > 0 {
+				existingSnapshots = append(existingSnapshots, snapshotName)
+			} else {
+				logger.Info(fmt.Sprintf("Snapshot already deleted, skipping snapshot=%s", snapshotName))
+			}
+		}
+
+		if len(existingSnapshots) == 0 {
+			logger.Info(fmt.Sprintf("All snapshots already deleted attempt=%d snapshots=%v", attempt, snapshotNames))
+			return nil
+		}
+
+		logger.Info(fmt.Sprintf("Deleting snapshots attempt=%d maxRetries=%d snapshots=%v", attempt, maxRetries, existingSnapshots))
+
+		err := client.DeleteSnapshots(snapRepo, existingSnapshots)
+		if err != nil {
+			lastErr = err
+			logger.Error(fmt.Sprintf("Failed to delete snapshots attempt=%d snapshots=%v error=%v", attempt, existingSnapshots, err))
+			if attempt < maxRetries {
+				logger.Info(fmt.Sprintf("Waiting 1 minute before retry attempt=%d", attempt+1))
+				time.Sleep(1 * time.Minute)
+				continue
+			}
+		} else {
+			logger.Info(fmt.Sprintf("Snapshots deleted successfully attempt=%d snapshots=%v", attempt, existingSnapshots))
+			return nil
+		}
+	}
+
+	if lastErr != nil {
+		logger.Error(fmt.Sprintf("Failed to delete snapshots after all retries maxRetries=%d snapshots=%v error=%v", maxRetries, snapshotNames, lastErr))
+		return lastErr
+	}
+
+	return nil
 }
 
 type SnapshotGroup struct {
