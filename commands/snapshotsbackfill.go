@@ -173,7 +173,7 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 	for k := range dateGroups {
 		dateKeys = append(dateKeys, k)
 	}
-	sort.Sort(sort.Reverse(sort.StringSlice(dateKeys)))
+	sort.Strings(dateKeys)
 
 	logger.Info(fmt.Sprintf("Grouped indices by date groups=%d", len(dateGroups)))
 	for _, dateKey := range dateKeys {
@@ -189,6 +189,31 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 	for _, dateKey := range dateKeys {
 		indicesForDate := dateGroups[dateKey]
 		logger.Info(fmt.Sprintf("Processing date group date=%s indicesCount=%d", dateKey, len(indicesForDate)))
+
+		indicesSet := make(map[string]bool)
+		for _, idx := range indicesForDate {
+			indicesSet[idx] = true
+		}
+
+		pattern := "*" + dateKey + "*"
+		indicesWithSize, err := client.GetIndicesWithFields(pattern, "index,ss", "ss:asc")
+		if err != nil {
+			logger.Warn(fmt.Sprintf("Failed to get indices with size for date date=%s error=%v, using unsorted list", dateKey, err))
+		} else {
+			var sortedIndices []string
+			for _, idx := range indicesWithSize {
+				if indicesSet[idx.Index] {
+					sortedIndices = append(sortedIndices, idx.Index)
+					delete(indicesSet, idx.Index)
+				}
+			}
+			for idx := range indicesSet {
+				sortedIndices = append(sortedIndices, idx)
+			}
+			if len(sortedIndices) > 0 {
+				indicesForDate = sortedIndices
+			}
+		}
 
 		goFormat := utils.ConvertDateFormat(cfg.GetDateFormat())
 		parsedDate, err := time.Parse(goFormat, dateKey)
