@@ -161,7 +161,7 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 	indicesStr := strings.Join(matchingIndices, ",")
 	logger.Info(fmt.Sprintf("Creating snapshot %s", snapshotName))
 	logger.Info(fmt.Sprintf("Snapshot indices %s", indicesStr))
-	err = utils.CreateSnapshotWithRetry(client, snapshotName, indicesStr, repoToUse, cfg.GetKubeNamespace(), today, madisonClient, logger, 60*time.Second, cfg.GetMaxConcurrentSnapshots())
+	err = utils.CreateSnapshotWithRetry(client, snapshotName, indicesStr, repoToUse, cfg.GetKubeNamespace(), today, madisonClient, logger, 60*time.Second, cfg.GetMaxConcurrentSnapshots(), 0)
 	if err != nil {
 		logger.Error(fmt.Sprintf("Failed to create snapshot after retries snapshot=%s error=%v", snapshotName, err))
 		return err

@@ -220,7 +220,7 @@ func CreateSnapshotsInParallel(client *opensearch.Client, tasks []SnapshotTask, 
 				logger.Info(fmt.Sprintf("Worker %d: Starting snapshot creation snapshot=%s repo=%s", id, task.SnapshotName, task.Repo))
 				logger.Info(fmt.Sprintf("Worker %d: Snapshot indices %s", id, task.IndicesStr))
 
-				err := CreateSnapshotWithRetry(client, task.SnapshotName, task.IndicesStr, task.Repo, task.Namespace, task.DateStr, madisonClient, logger, task.PollInterval, maxConcurrent)
+				err := CreateSnapshotWithRetry(client, task.SnapshotName, task.IndicesStr, task.Repo, task.Namespace, task.DateStr, madisonClient, logger, task.PollInterval, maxConcurrent, id)
 
 				mu.Lock()
 				snapshotName := task.SnapshotName
@@ -244,11 +244,15 @@ func CreateSnapshotsInParallel(client *opensearch.Client, tasks []SnapshotTask, 
 	return successful, failed
 }
 
-func WaitForSnapshotSlot(client *opensearch.Client, logger *logging.Logger, maxConcurrent int, waitInterval time.Duration, waitingForSnapshot string) error {
+func WaitForSnapshotSlot(client *opensearch.Client, logger *logging.Logger, maxConcurrent int, waitInterval time.Duration, waitingForSnapshot string, workerID int) error {
 	for {
 		activeSnapshots, err := GetActiveSnapshots(client)
 		if err != nil {
-			logger.Warn(fmt.Sprintf("Failed to get active snapshot status, retrying error=%v", err))
+			if workerID > 0 {
+				logger.Warn(fmt.Sprintf("Worker %d: Failed to get active snapshot status, retrying error=%v", workerID, err))
+			} else {
+				logger.Warn(fmt.Sprintf("Failed to get active snapshot status, retrying error=%v", err))
+			}
 			time.Sleep(waitInterval)
 			continue
 		}
@@ -256,9 +260,17 @@ func WaitForSnapshotSlot(client *opensearch.Client, logger *logging.Logger, maxC
 		activeCount := len(activeSnapshots)
 		if activeCount < maxConcurrent {
 			if waitingForSnapshot != "" {
-				logger.Info(fmt.Sprintf("Snapshot slot available for snapshot=%s active=%d max=%d", waitingForSnapshot, activeCount, maxConcurrent))
+				if workerID > 0 {
+					logger.Info(fmt.Sprintf("Worker %d: Snapshot slot available for snapshot=%s active=%d max=%d", workerID, waitingForSnapshot, activeCount, maxConcurrent))
+				} else {
+					logger.Info(fmt.Sprintf("Snapshot slot available for snapshot=%s active=%d max=%d", waitingForSnapshot, activeCount, maxConcurrent))
+				}
 			} else {
-				logger.Info(fmt.Sprintf("Snapshot slot available active=%d max=%d", activeCount, maxConcurrent))
+				if workerID > 0 {
+					logger.Info(fmt.Sprintf("Worker %d: Snapshot slot available active=%d max=%d", workerID, activeCount, maxConcurrent))
+				} else {
+					logger.Info(fmt.Sprintf("Snapshot slot available active=%d max=%d", activeCount, maxConcurrent))
+				}
 			}
 			return nil
 		}
@@ -272,9 +284,17 @@ func WaitForSnapshotSlot(client *opensearch.Client, logger *logging.Logger, maxC
 			}
 		}
 		if waitingForSnapshot != "" {
-			logger.Info(fmt.Sprintf("Waiting for snapshot slot snapshot=%s active=%d max=%d activeSnapshots=[%s] waitInterval=%v", waitingForSnapshot, activeCount, maxConcurrent, strings.Join(activeNames, ", "), waitInterval))
+			if workerID > 0 {
+				logger.Info(fmt.Sprintf("Worker %d: Waiting for snapshot slot snapshot=%s active=%d max=%d activeSnapshots=[%s] waitInterval=%v", workerID, waitingForSnapshot, activeCount, maxConcurrent, strings.Join(activeNames, ", "), waitInterval))
+			} else {
+				logger.Info(fmt.Sprintf("Waiting for snapshot slot snapshot=%s active=%d max=%d activeSnapshots=[%s] waitInterval=%v", waitingForSnapshot, activeCount, maxConcurrent, strings.Join(activeNames, ", "), waitInterval))
+			}
 		} else {
-			logger.Info(fmt.Sprintf("Waiting for snapshot slot active=%d max=%d activeSnapshots=[%s] waitInterval=%v", activeCount, maxConcurrent, strings.Join(activeNames, ", "), waitInterval))
+			if workerID > 0 {
+				logger.Info(fmt.Sprintf("Worker %d: Waiting for snapshot slot active=%d max=%d activeSnapshots=[%s] waitInterval=%v", workerID, activeCount, maxConcurrent, strings.Join(activeNames, ", "), waitInterval))
+			} else {
+				logger.Info(fmt.Sprintf("Waiting for snapshot slot active=%d max=%d activeSnapshots=[%s] waitInterval=%v", activeCount, maxConcurrent, strings.Join(activeNames, ", "), waitInterval))
+			}
 		}
 		time.Sleep(waitInterval)
 	}
@@ -314,35 +334,59 @@ func CheckIndicesExist(client *opensearch.Client, indicesStr string, logger *log
 	return existingIndices, nil
 }
 
-func CreateSnapshotWithRetry(client *opensearch.Client, snapshotName, indexName, snapRepo, namespace, dateStr string, madisonClient interface{}, logger *logging.Logger, pollInterval time.Duration, maxConcurrent int) error {
+func CreateSnapshotWithRetry(client *opensearch.Client, snapshotName, indexName, snapRepo, namespace, dateStr string, madisonClient interface{}, logger *logging.Logger, pollInterval time.Duration, maxConcurrent int, workerID int) error {
 	const maxRetries = 7
 
 	existingIndices, err := CheckIndicesExist(client, indexName, logger)
 	if err != nil {
-		logger.Error(fmt.Sprintf("Failed to check indices existence snapshot=%s error=%v", snapshotName, err))
+		if workerID > 0 {
+			logger.Error(fmt.Sprintf("Worker %d: Failed to check indices existence snapshot=%s error=%v", workerID, snapshotName, err))
+		} else {
+			logger.Error(fmt.Sprintf("Failed to check indices existence snapshot=%s error=%v", snapshotName, err))
+		}
 		return err
 	}
 
 	if len(existingIndices) == 0 {
-		logger.Warn(fmt.Sprintf("No existing indices found, skipping snapshot creation snapshot=%s indices=%s", snapshotName, indexName))
+		if workerID > 0 {
+			logger.Warn(fmt.Sprintf("Worker %d: No existing indices found, skipping snapshot creation snapshot=%s indices=%s", workerID, snapshotName, indexName))
+		} else {
+			logger.Warn(fmt.Sprintf("No existing indices found, skipping snapshot creation snapshot=%s indices=%s", snapshotName, indexName))
+		}
 		return fmt.Errorf("no existing indices to snapshot")
 	}
 
 	existingIndicesStr := strings.Join(existingIndices, ",")
 	if existingIndicesStr != indexName {
-		logger.Info(fmt.Sprintf("Some indices were removed, using only existing indices snapshot=%s existing=%s original=%s", snapshotName, existingIndicesStr, indexName))
+		if workerID > 0 {
+			logger.Info(fmt.Sprintf("Worker %d: Some indices were removed, using only existing indices snapshot=%s existing=%s original=%s", workerID, snapshotName, existingIndicesStr, indexName))
+		} else {
+			logger.Info(fmt.Sprintf("Some indices were removed, using only existing indices snapshot=%s existing=%s original=%s", snapshotName, existingIndicesStr, indexName))
+		}
 		indexName = existingIndicesStr
 	}
 
 retryLoop:
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		logger.Info(fmt.Sprintf("Creating snapshot attempt snapshot=%s attempt=%d maxRetries=%d", snapshotName, attempt, maxRetries))
+		if workerID > 0 {
+			logger.Info(fmt.Sprintf("Worker %d: Creating snapshot attempt snapshot=%s attempt=%d maxRetries=%d", workerID, snapshotName, attempt, maxRetries))
+		} else {
+			logger.Info(fmt.Sprintf("Creating snapshot attempt snapshot=%s attempt=%d maxRetries=%d", snapshotName, attempt, maxRetries))
+		}
 
 		if maxConcurrent > 0 {
-			logger.Info(fmt.Sprintf("Waiting for snapshot slot before creating snapshot=%s attempt=%d", snapshotName, attempt))
-			err := WaitForSnapshotSlot(client, logger, maxConcurrent, pollInterval, snapshotName)
+			if workerID > 0 {
+				logger.Info(fmt.Sprintf("Worker %d: Waiting for snapshot slot before creating snapshot=%s attempt=%d", workerID, snapshotName, attempt))
+			} else {
+				logger.Info(fmt.Sprintf("Waiting for snapshot slot before creating snapshot=%s attempt=%d", snapshotName, attempt))
+			}
+			err := WaitForSnapshotSlot(client, logger, maxConcurrent, pollInterval, snapshotName, workerID)
 			if err != nil {
-				logger.Error(fmt.Sprintf("Failed to wait for snapshot slot snapshot=%s error=%v", snapshotName, err))
+				if workerID > 0 {
+					logger.Error(fmt.Sprintf("Worker %d: Failed to wait for snapshot slot snapshot=%s error=%v", workerID, snapshotName, err))
+				} else {
+					logger.Error(fmt.Sprintf("Failed to wait for snapshot slot snapshot=%s error=%v", snapshotName, err))
+				}
 				return err
 			}
 		}
@@ -357,28 +401,50 @@ retryLoop:
 
 		err = client.CreateSnapshot(snapRepo, snapshotName, snapshotRequest)
 		if err != nil {
-			logger.Error(fmt.Sprintf("Failed to create snapshot snapshot=%s attempt=%d error=%v", snapshotName, attempt, err))
+			if workerID > 0 {
+				logger.Error(fmt.Sprintf("Worker %d: Failed to create snapshot snapshot=%s attempt=%d error=%v", workerID, snapshotName, attempt, err))
+			} else {
+				logger.Error(fmt.Sprintf("Failed to create snapshot snapshot=%s attempt=%d error=%v", snapshotName, attempt, err))
+			}
 			if attempt < maxRetries {
 				time.Sleep(pollInterval)
 				continue
 			}
-			logger.Error(fmt.Sprintf("Snapshot creation failed after all retries snapshot=%s maxRetries=%d", snapshotName, maxRetries))
-			logger.Error(fmt.Sprintf("SENDING ALERT: Snapshot creation failed snapshot=%s index=%s message=%s", snapshotName, indexName,
-				fmt.Sprintf("Snapshot %s for index %s failed to create after %d retries", snapshotName, indexName, maxRetries)))
+			if workerID > 0 {
+				logger.Error(fmt.Sprintf("Worker %d: Snapshot creation failed after all retries snapshot=%s maxRetries=%d", workerID, snapshotName, maxRetries))
+				logger.Error(fmt.Sprintf("Worker %d: SENDING ALERT: Snapshot creation failed snapshot=%s index=%s message=%s", workerID, snapshotName, indexName,
+					fmt.Sprintf("Snapshot %s for index %s failed to create after %d retries", snapshotName, indexName, maxRetries)))
+			} else {
+				logger.Error(fmt.Sprintf("Snapshot creation failed after all retries snapshot=%s maxRetries=%d", snapshotName, maxRetries))
+				logger.Error(fmt.Sprintf("SENDING ALERT: Snapshot creation failed snapshot=%s index=%s message=%s", snapshotName, indexName,
+					fmt.Sprintf("Snapshot %s for index %s failed to create after %d retries", snapshotName, indexName, maxRetries)))
+			}
 			if madisonClient != nil {
 				if client, ok := madisonClient.(*alerts.Client); ok {
 					response, err := client.SendMadisonSnapshotCreationFailedAlert(snapshotName, indexName, snapRepo, namespace, dateStr)
 					if err != nil {
-						logger.Error(fmt.Sprintf("Failed to send Madison alert error=%v", err))
+						if workerID > 0 {
+							logger.Error(fmt.Sprintf("Worker %d: Failed to send Madison alert error=%v", workerID, err))
+						} else {
+							logger.Error(fmt.Sprintf("Failed to send Madison alert error=%v", err))
+						}
 					} else {
-						logger.Info(fmt.Sprintf("Madison alert sent successfully: type=SnapshotCreationFailed response=%s", response))
+						if workerID > 0 {
+							logger.Info(fmt.Sprintf("Worker %d: Madison alert sent successfully: type=SnapshotCreationFailed response=%s", workerID, response))
+						} else {
+							logger.Info(fmt.Sprintf("Madison alert sent successfully: type=SnapshotCreationFailed response=%s", response))
+						}
 					}
 				}
 			}
 			return err
 		}
 
-		logger.Info(fmt.Sprintf("Waiting for snapshot completion snapshot=%s", snapshotName))
+		if workerID > 0 {
+			logger.Info(fmt.Sprintf("Worker %d: Waiting for snapshot completion snapshot=%s", workerID, snapshotName))
+		} else {
+			logger.Info(fmt.Sprintf("Waiting for snapshot completion snapshot=%s", snapshotName))
+		}
 
 		const maxWaitForVisibility = 15 * time.Minute
 		visibilityDeadline := startTime.Add(maxWaitForVisibility)
@@ -387,32 +453,52 @@ retryLoop:
 			snapshots, err := client.GetSnapshots(snapRepo, snapshotName)
 			if err != nil {
 				if time.Now().After(visibilityDeadline) {
-					logger.Error(fmt.Sprintf("Error getting snapshot after creation timeout snapshot=%s timeout=%v attempt=%d error=%v", snapshotName, maxWaitForVisibility, attempt, err))
+					if workerID > 0 {
+						logger.Error(fmt.Sprintf("Worker %d: Error getting snapshot after creation timeout snapshot=%s timeout=%v attempt=%d error=%v", workerID, snapshotName, maxWaitForVisibility, attempt, err))
+					} else {
+						logger.Error(fmt.Sprintf("Error getting snapshot after creation timeout snapshot=%s timeout=%v attempt=%d error=%v", snapshotName, maxWaitForVisibility, attempt, err))
+					}
 					if attempt < maxRetries {
 						continue retryLoop
 					}
 					return fmt.Errorf("snapshot %s error after creation timeout: %v, attempt=%d", snapshotName, err, attempt)
 				}
-				logger.Error(fmt.Sprintf("Failed to get snapshots snapshot=%s error=%v attempt=%d, error might be transient, wait a bit and retry", snapshotName, err, attempt))
+				if workerID > 0 {
+					logger.Error(fmt.Sprintf("Worker %d: Failed to get snapshots snapshot=%s error=%v attempt=%d, error might be transient, wait a bit and retry", workerID, snapshotName, err, attempt))
+				} else {
+					logger.Error(fmt.Sprintf("Failed to get snapshots snapshot=%s error=%v attempt=%d, error might be transient, wait a bit and retry", snapshotName, err, attempt))
+				}
 				time.Sleep(pollInterval)
 				continue
 			}
 			if len(snapshots) == 0 {
 				if time.Now().After(visibilityDeadline) {
-					logger.Error(fmt.Sprintf("Snapshot not found in list after creation timeout snapshot=%s timeout=%v attempt=%d", snapshotName, maxWaitForVisibility, attempt))
+					if workerID > 0 {
+						logger.Error(fmt.Sprintf("Worker %d: Snapshot not found in list after creation timeout snapshot=%s timeout=%v attempt=%d", workerID, snapshotName, maxWaitForVisibility, attempt))
+					} else {
+						logger.Error(fmt.Sprintf("Snapshot not found in list after creation timeout snapshot=%s timeout=%v attempt=%d", snapshotName, maxWaitForVisibility, attempt))
+					}
 					if attempt < maxRetries {
 						continue retryLoop
 					}
 					return fmt.Errorf("snapshot %s not found in list after creation", snapshotName)
 				}
-				logger.Info(fmt.Sprintf("Waiting for snapshot visibility snapshot=%s attempt=%d", snapshotName, attempt))
+				if workerID > 0 {
+					logger.Info(fmt.Sprintf("Worker %d: Waiting for snapshot visibility snapshot=%s attempt=%d", workerID, snapshotName, attempt))
+				} else {
+					logger.Info(fmt.Sprintf("Waiting for snapshot visibility snapshot=%s attempt=%d", snapshotName, attempt))
+				}
 				time.Sleep(pollInterval)
 				continue
 			}
 
 			snapshot := snapshots[0]
 			if snapshot.State == "IN_PROGRESS" {
-				logger.Info(fmt.Sprintf("Snapshot still in progress snapshot=%s", snapshotName))
+				if workerID > 0 {
+					logger.Info(fmt.Sprintf("Worker %d: Snapshot still in progress snapshot=%s", workerID, snapshotName))
+				} else {
+					logger.Info(fmt.Sprintf("Snapshot still in progress snapshot=%s", snapshotName))
+				}
 				time.Sleep(pollInterval)
 				continue
 			}
@@ -421,28 +507,56 @@ retryLoop:
 			case "SUCCESS":
 				duration := time.Since(startTime)
 				durationStr := formatDuration(duration)
-				logger.Info(fmt.Sprintf("Snapshot created successfully snapshot=%s duration=%s attempt=%d", snapshotName, durationStr, attempt))
+				if workerID > 0 {
+					logger.Info(fmt.Sprintf("Worker %d: Snapshot created successfully snapshot=%s duration=%s attempt=%d", workerID, snapshotName, durationStr, attempt))
+				} else {
+					logger.Info(fmt.Sprintf("Snapshot created successfully snapshot=%s duration=%s attempt=%d", snapshotName, durationStr, attempt))
+				}
 				return nil
 			case "PARTIAL", "FAILED":
 				duration := time.Since(startTime)
 				durationStr := formatDuration(duration)
-				logger.Warn(fmt.Sprintf("Snapshot is PARTIAL/FAILED, deleting and retrying snapshot=%s state=%s duration=%s attempt=%d", snapshotName, snapshot.State, durationStr, attempt))
+				if workerID > 0 {
+					logger.Warn(fmt.Sprintf("Worker %d: Snapshot is PARTIAL/FAILED, deleting and retrying snapshot=%s state=%s duration=%s attempt=%d", workerID, snapshotName, snapshot.State, durationStr, attempt))
+				} else {
+					logger.Warn(fmt.Sprintf("Snapshot is PARTIAL/FAILED, deleting and retrying snapshot=%s state=%s duration=%s attempt=%d", snapshotName, snapshot.State, durationStr, attempt))
+				}
 				err := DeleteSnapshotsWithRetry(client, snapRepo, []string{snapshotName}, logger)
 				if err != nil {
-					logger.Error(fmt.Sprintf("Failed to delete PARTIAL/FAILED snapshot snapshot=%s error=%v", snapshotName, err))
+					if workerID > 0 {
+						logger.Error(fmt.Sprintf("Worker %d: Failed to delete PARTIAL/FAILED snapshot snapshot=%s error=%v", workerID, snapshotName, err))
+					} else {
+						logger.Error(fmt.Sprintf("Failed to delete PARTIAL/FAILED snapshot snapshot=%s error=%v", snapshotName, err))
+					}
 				} else {
-					logger.Info(fmt.Sprintf("Deleted PARTIAL/FAILED snapshot snapshot=%s state=%s duration=%s attempt=%d", snapshotName, snapshot.State, durationStr, attempt))
+					if workerID > 0 {
+						logger.Info(fmt.Sprintf("Worker %d: Deleted PARTIAL/FAILED snapshot snapshot=%s state=%s duration=%s attempt=%d", workerID, snapshotName, snapshot.State, durationStr, attempt))
+					} else {
+						logger.Info(fmt.Sprintf("Deleted PARTIAL/FAILED snapshot snapshot=%s state=%s duration=%s attempt=%d", snapshotName, snapshot.State, durationStr, attempt))
+					}
 				}
 				if attempt < maxRetries {
-					logger.Info(fmt.Sprintf("Waiting 15 minutes before retry attempt=%d maxRetries=%d", attempt+1, maxRetries))
+					if workerID > 0 {
+						logger.Info(fmt.Sprintf("Worker %d: Waiting 15 minutes before retry attempt=%d maxRetries=%d", workerID, attempt+1, maxRetries))
+					} else {
+						logger.Info(fmt.Sprintf("Waiting 15 minutes before retry attempt=%d maxRetries=%d", attempt+1, maxRetries))
+					}
 					time.Sleep(15 * time.Minute)
 					continue retryLoop
 				}
 			default:
-				logger.Warn(fmt.Sprintf("Unknown snapshot state snapshot=%s state=%s attempt=%d", snapshotName, snapshot.State, attempt))
+				if workerID > 0 {
+					logger.Warn(fmt.Sprintf("Worker %d: Unknown snapshot state snapshot=%s state=%s attempt=%d", workerID, snapshotName, snapshot.State, attempt))
+				} else {
+					logger.Warn(fmt.Sprintf("Unknown snapshot state snapshot=%s state=%s attempt=%d", snapshotName, snapshot.State, attempt))
+				}
 				if attempt < maxRetries {
 					time.Sleep(time.Duration(attempt) * time.Second)
-					logger.Warn(fmt.Sprintf("Unknown snapshot state snapshot=%s state=%s attempt=%d, try again", snapshotName, snapshot.State, attempt))
+					if workerID > 0 {
+						logger.Warn(fmt.Sprintf("Worker %d: Unknown snapshot state snapshot=%s state=%s attempt=%d, try again", workerID, snapshotName, snapshot.State, attempt))
+					} else {
+						logger.Warn(fmt.Sprintf("Unknown snapshot state snapshot=%s state=%s attempt=%d, try again", snapshotName, snapshot.State, attempt))
+					}
 					continue retryLoop
 				}
 			}
@@ -451,16 +565,30 @@ retryLoop:
 		}
 	}
 
-	logger.Error(fmt.Sprintf("Snapshot creation failed after all retries snapshot=%s maxRetries=%d", snapshotName, maxRetries))
-	logger.Error(fmt.Sprintf("SENDING ALERT: Snapshot creation failed snapshot=%s index=%s message=%s", snapshotName, indexName,
-		fmt.Sprintf("Snapshot %s for index %s failed to create after %d retries", snapshotName, indexName, maxRetries)))
+	if workerID > 0 {
+		logger.Error(fmt.Sprintf("Worker %d: Snapshot creation failed after all retries snapshot=%s maxRetries=%d", workerID, snapshotName, maxRetries))
+		logger.Error(fmt.Sprintf("Worker %d: SENDING ALERT: Snapshot creation failed snapshot=%s index=%s message=%s", workerID, snapshotName, indexName,
+			fmt.Sprintf("Snapshot %s for index %s failed to create after %d retries", snapshotName, indexName, maxRetries)))
+	} else {
+		logger.Error(fmt.Sprintf("Snapshot creation failed after all retries snapshot=%s maxRetries=%d", snapshotName, maxRetries))
+		logger.Error(fmt.Sprintf("SENDING ALERT: Snapshot creation failed snapshot=%s index=%s message=%s", snapshotName, indexName,
+			fmt.Sprintf("Snapshot %s for index %s failed to create after %d retries", snapshotName, indexName, maxRetries)))
+	}
 	if madisonClient != nil {
 		if client, ok := madisonClient.(*alerts.Client); ok {
 			response, err := client.SendMadisonSnapshotCreationFailedAlert(snapshotName, indexName, snapRepo, namespace, dateStr)
 			if err != nil {
-				logger.Error(fmt.Sprintf("Failed to send Madison alert error=%v", err))
+				if workerID > 0 {
+					logger.Error(fmt.Sprintf("Worker %d: Failed to send Madison alert error=%v", workerID, err))
+				} else {
+					logger.Error(fmt.Sprintf("Failed to send Madison alert error=%v", err))
+				}
 			} else {
-				logger.Info(fmt.Sprintf("Madison alert sent successfully: type=SnapshotCreationFailed response=%s", response))
+				if workerID > 0 {
+					logger.Info(fmt.Sprintf("Worker %d: Madison alert sent successfully: type=SnapshotCreationFailed response=%s", workerID, response))
+				} else {
+					logger.Info(fmt.Sprintf("Madison alert sent successfully: type=SnapshotCreationFailed response=%s", response))
+				}
 			}
 		}
 	}
