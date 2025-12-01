@@ -256,7 +256,7 @@ func setDefaults() {
 	viper.SetDefault("kibana_multidomain_enabled", false)
 	viper.SetDefault("datasource_name", "recoverer")
 	viper.SetDefault("datasource_endpoint", "https://opendistro-recoverer:9200")
-	viper.SetDefault("indexpatterns_refresh_enabled", true)
+	viper.SetDefault("indexpatterns_refresh_enabled", false)
 }
 
 func GetAvailableActions() []string {

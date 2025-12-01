@@ -22,7 +22,9 @@ type FindResponse struct {
 	SavedObjects []SavedObject `json:"saved_objects"`
 }
 
-type Fields map[string]any
+type IPFields struct {
+	Fields []map[string]any `json:"fields"`
+}
 
 func (c *Client) FindSavedObjects(tenant string, objType string, perPage int) (*FindResponse, error) {
 	params := url.Values{}
@@ -95,7 +97,7 @@ func (c *Client) CreateDataSource(tenant, title, endpoint, user, password string
 	return nil
 }
 
-func (c *Client) GetActualMappingForIndexPattern(title string) (Fields, error) {
+func (c *Client) GetActualMappingForIndexPattern(title string) ([]byte, error) {
 	if title == "" {
 		return nil, fmt.Errorf("index pattern title cannot be empty")
 	}
@@ -118,16 +120,20 @@ func (c *Client) GetActualMappingForIndexPattern(title string) (Fields, error) {
 	}
 
 	body, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return nil, err
 	}
-	var fields Fields
+	var fields IPFields
 	err = json.Unmarshal(body, &fields)
 	if err != nil {
 		return nil, err
 	}
-	return fields, nil
+
+	fields_string, err := json.Marshal(fields.Fields)
+	if err != nil {
+		return nil, err
+	}
+	return fields_string, nil
 }
 
 func (c *Client) RefreshIndexPattern(id string, title string) error {
@@ -137,7 +143,6 @@ func (c *Client) RefreshIndexPattern(id string, title string) error {
 	if title == "" {
 		return fmt.Errorf("index pattern title cannot be empty")
 	}
-
 	fields, err := c.GetActualMappingForIndexPattern(title)
 	if err != nil {
 		return err
@@ -153,10 +158,9 @@ func (c *Client) RefreshIndexPattern(id string, title string) error {
 			"title":         title,
 			"version":       utils.PatternVersion(),
 			"timeFieldName": "@timestamp",
-			"fields":        fields,
+			"fields":        string(fields),
 		},
 	}
-
 	b, err := json.Marshal(body)
 	if err != nil {
 		return fmt.Errorf("failed to marshal index pattern body: %w", err)

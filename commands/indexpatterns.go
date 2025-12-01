@@ -48,13 +48,17 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 
 		user := cfg.GetKibanaUser()
 		pass := cfg.GetKibanaPass()
-		existing, _, existingIdsTitiles, err := getExistingIndexPatternTitles(osClient, ".kibana*")
+		_, _, existingIdsTitiles, err := getExistingIndexPatternTitles(osClient, ".kibana*")
 		if err != nil {
 			return err
 		}
 		kb := kibana.NewClient(utils.NormalizeURL(cfg.GetOSDURL()), user, pass, cfg.GetTimeout())
-		logger.Info(fmt.Sprintf("Will refresh %d existing index-patterns", len(existing)))
+		logger.Info(fmt.Sprintf("Will refresh %d existing index-patterns", len(existingIdsTitiles)))
 		for ip_id, ip_title := range existingIdsTitiles {
+			if ip_title == "*" {
+				logger.Warn("index-pattern '*' is too general and will be ignored")
+				continue
+			}
 			if cfg.GetDryRun() {
 				logger.Info(fmt.Sprintf("DRY RUN: Would refresh index-pattern %s:%s", ip_id, ip_title))
 				refreshedPatterns = append(refreshedPatterns, ip_title)
