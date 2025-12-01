@@ -45,10 +45,7 @@ func ShouldSkipIndex(indexName string) bool {
 }
 
 func ShouldSkipIndexRetention(indexName string) bool {
-	if strings.HasPrefix(indexName, ".") {
-		return true
-	}
-	return false
+	return strings.HasPrefix(indexName, ".")
 }
 
 func FindMatchingIndexConfig(indexName string, indicesConfig []config.IndexConfig) *config.IndexConfig {

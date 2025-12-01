@@ -49,7 +49,7 @@ func NewMadisonClient(apiKey, kibanaHost, madisonURL string) *Client {
 	}
 }
 
-func (c *Client) SendMadisonSnapshotMissingAlert(missingSnapshotIndicesList []string) (string, error) {
+func (c *Client) SendMadisonSnapshotMissingAlert(missingSnapshotIndicesList []string, snapRepo, namespace, dateStr string) (string, error) {
 	if len(missingSnapshotIndicesList) == 0 {
 		return "", nil
 	}
@@ -65,7 +65,7 @@ func (c *Client) SendMadisonSnapshotMissingAlert(missingSnapshotIndicesList []st
 
 	summary := fmt.Sprintf("Снапшоты не найдены для индексов: %s", displayList)
 	fullList := strings.Join(missingSnapshotIndicesList, ",")
-	description := fmt.Sprintf("Снапшоты для индексов (%s) — не обнаружены, хотя ожидаются. Надо проверить наличие соответствующего снапшота через GET _cat/snapshots/<s3 repo name>/<snapshot_name> и при необходимости запустить Job создания пропущенных снапшотов через kubectl -n <namespace> create job --from=cronjob/osctl-snapshotsbackfill osctl-snapshotsbackfill-<some_string> или создать его вручную. Алерт одноразовый, просьба не закрывать без создания нужных снапшотов.", fullList)
+	description := fmt.Sprintf("Снапшоты для индексов (%s) — не обнаружены, хотя ожидаются. Необходимо выборочно проверить действиельно ли нет снапшотов для этих индексов через GET _cat/snapshots/%s/<snapshot_name> , поскольку их могла уже создать джоба создания пропущенных снапшотов. Дальше можно попробовать запустить Job создания пропущенных снапшотов через kubectl -n %s create job --from=cronjob/osctl-snapshotsbackfill osctl-snapshotsbackfill-%s или создать их всех вручную. Алерт одноразовый, просьба не закрывать без создания нужных снапшотов.", fullList, snapRepo, namespace, dateStr)
 
 	payload := Alert{
 		Labels: Labels{
@@ -191,9 +191,9 @@ func (c *Client) SendMadisonDanglingIndicesAlert(danglingIndices []string) (stri
 	return string(body), nil
 }
 
-func (c *Client) SendMadisonSnapshotCreationFailedAlert(snapshotName, indexName string) (string, error) {
+func (c *Client) SendMadisonSnapshotCreationFailedAlert(snapshotName, indexName, snapRepo, namespace, dateStr string) (string, error) {
 	summary := fmt.Sprintf("Не удалось создать снапшот %s для индекса %s", snapshotName, indexName)
-	description := fmt.Sprintf("Снапшот %s для индекса %s не удалось создать после 5 попыток. Проверьте состояние кластера и доступность индекса. Также надо проверить наличие соответствующего снапшота через GET _cat/snapshots/<s3 repo name>/<snapshot_name> и при необходимости запустить Job создания пропущенных снапшотов через kubectl -n <namespace> create job --from=cronjob/osctl-snapshotsbackfill osctl-snapshotsbackfill-<some_string> или создать его вручную", snapshotName, indexName)
+	description := fmt.Sprintf("Снапшот %s для индекса %s не удалось создать после 7 попыток. Надо проверить наличие соответствующего снапшота через GET _cat/snapshots/%s/%s - возможно его уже создала джоба snapshotsbackfill, но если его нет - сначала попробуйте запустить Job создания пропущенных снапшотов через kubectl -n %s create job --from=cronjob/osctl-snapshotsbackfill osctl-snapshotsbackfill-%s или ещё вариант - создать его вручную. Ещё возможна ситуация, когда снапшот принципиально не создается - например если у него есть повреждения в индексе. Это нужно обязателно проверить по логам. Характерный признак - все 7 раз создавались PARTIAL снапшоты. В этом случае индекс надо удалять, поскольку он поврежденный.", snapshotName, indexName, snapRepo, snapshotName, namespace, dateStr)
 
 	payload := Alert{
 		Labels: Labels{
