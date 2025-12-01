@@ -494,6 +494,48 @@ retryLoop:
 
 			snapshot := snapshots[0]
 			if snapshot.State == "IN_PROGRESS" {
+				detailStatus, err := client.GetSnapshotStatusDetail(snapRepo, snapshotName)
+				if err != nil {
+					if workerID > 0 {
+						logger.Warn(fmt.Sprintf("Worker %d: Failed to get detailed snapshot status snapshot=%s error=%v, continuing with basic check", workerID, snapshotName, err))
+					} else {
+						logger.Warn(fmt.Sprintf("Failed to get detailed snapshot status snapshot=%s error=%v, continuing with basic check", snapshotName, err))
+					}
+				} else if len(detailStatus.Snapshots) > 0 {
+					detail := detailStatus.Snapshots[0]
+					if detail.ShardsStats.Failed > 0 {
+						if workerID > 0 {
+							logger.Error(fmt.Sprintf("Worker %d: Snapshot has failed shards, deleting snapshot=%s failedShards=%d totalShards=%d", workerID, snapshotName, detail.ShardsStats.Failed, detail.ShardsStats.Total))
+						} else {
+							logger.Error(fmt.Sprintf("Snapshot has failed shards, deleting snapshot=%s failedShards=%d totalShards=%d", snapshotName, detail.ShardsStats.Failed, detail.ShardsStats.Total))
+						}
+						err := DeleteSnapshotsWithRetry(client, snapRepo, []string{snapshotName}, logger)
+						if err != nil {
+							if workerID > 0 {
+								logger.Error(fmt.Sprintf("Worker %d: Failed to delete snapshot with failed shards snapshot=%s error=%v", workerID, snapshotName, err))
+							} else {
+								logger.Error(fmt.Sprintf("Failed to delete snapshot with failed shards snapshot=%s error=%v", snapshotName, err))
+							}
+						} else {
+							if workerID > 0 {
+								logger.Info(fmt.Sprintf("Worker %d: Deleted snapshot with failed shards snapshot=%s failedShards=%d", workerID, snapshotName, detail.ShardsStats.Failed))
+							} else {
+								logger.Info(fmt.Sprintf("Deleted snapshot with failed shards snapshot=%s failedShards=%d", snapshotName, detail.ShardsStats.Failed))
+							}
+						}
+						if attempt < maxRetries {
+							if workerID > 0 {
+								logger.Info(fmt.Sprintf("Worker %d: Waiting 15 minutes before retry after failed shards attempt=%d maxRetries=%d", workerID, attempt+1, maxRetries))
+							} else {
+								logger.Info(fmt.Sprintf("Waiting 15 minutes before retry after failed shards attempt=%d maxRetries=%d", attempt+1, maxRetries))
+							}
+							time.Sleep(15 * time.Minute)
+							continue retryLoop
+						}
+						return fmt.Errorf("snapshot %s has failed shards (failed=%d), deleted and retrying", snapshotName, detail.ShardsStats.Failed)
+					}
+				}
+
 				if workerID > 0 {
 					logger.Info(fmt.Sprintf("Worker %d: Snapshot still in progress snapshot=%s", workerID, snapshotName))
 				} else {
