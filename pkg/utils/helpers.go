@@ -3,7 +3,7 @@ package utils
 import (
 	b64 "encoding/base64"
 	"fmt"
-
+	"math/rand/v2"
 	"osctl/pkg/config"
 	"osctl/pkg/opensearch"
 	"strings"
@@ -36,5 +36,5 @@ func GenerateRandomAlphanumericString(length int) string {
 }
 
 func PatternVersion() string {
-	return b64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("[%d,1]", 100)))
+	return b64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("[%d,1]", rand.IntN(100))))
 }
