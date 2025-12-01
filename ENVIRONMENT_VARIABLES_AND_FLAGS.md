@@ -51,9 +51,9 @@
 - `coldstorage` 
 - `extracteddelete`
 - `danglingchecker`
- - `sharding`
- - `indexpatterns`
- - `datasource`
+- `sharding`
+- `indexpatterns`
+- `datasource`
 
 ### Примеры использования:
 
@@ -181,6 +181,7 @@ osctl --action=snapshot
 | `--indexpatterns-kibana-multitenancy` | `INDEXPATTERNS_KIBANA_MULTITENANCY` | Режим multitenancy | `false` |
 | `--indexpatterns-kibana-tenants-config` | `INDEXPATTERNS_KIBANA_TENANTS_CONFIG` | Путь к YAML с тенантами и index patterns | `osctltenants.yaml` |
 | `--indexpatterns-recoverer-enabled` | `INDEXPATTERNS_RECOVERER_ENABLED` | Создавать `extracted_*` с ссылкой на data-source | `false` |
+| `--indexpatterns-refresh-enabled` | `INDEXPATTERNS_REFRESH_ENABLED` | Обновлять существующие index patterns| `false` |
 | `--dry-run` | `DRY_RUN` | Показать создаваемые index patterns без создания | `false` |
 
 Примечание: Список тенантов берётся из `--indexpatterns-kibana-tenants-config` (`INDEXPATTERNS_KIBANA_TENANTS_CONFIG`).
