@@ -45,51 +45,154 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 	}
 
 	if cfg.GetIndexPatternsRefreshEnabled() {
-
 		user := cfg.GetKibanaUser()
 		pass := cfg.GetKibanaPass()
-		_, _, existingIdsTitiles, err := getExistingIndexPatternTitles(osClient, ".kibana*")
-		if err != nil {
-			return err
-		}
 		kb := kibana.NewClient(utils.NormalizeURL(cfg.GetOSDURL()), user, pass, cfg.GetTimeout())
-		logger.Info(fmt.Sprintf("Will refresh %d existing index-patterns", len(existingIdsTitiles)))
-		for ip_id, ip_title := range existingIdsTitiles {
-			if ip_title == "*" {
-				logger.Warn("index-pattern '*' is too general and will be ignored")
-				continue
-			}
-			indices, err := osClient.GetIndicesWithFields(ip_title, "index")
+
+		if cfg.GetIndexPatternsKibanaMultitenancy() {
+			_, _, existingIdsTitiles, err := getExistingIndexPatternTitles(osClient, ".kibana")
 			if err != nil {
-				logger.Warn(fmt.Sprintf("Failed to check indices for pattern %s: %v, will skip refresh", ip_title, err))
-				continue
+				return err
 			}
-			if len(indices) == 0 {
-				logger.Info(fmt.Sprintf("Skipping index-pattern %s:%s - no matching indices found in cluster", ip_id, ip_title))
-				continue
+			logger.Info(fmt.Sprintf("Global tenant: will refresh %d existing index-patterns", len(existingIdsTitiles)))
+			for ip_id, ip_title := range existingIdsTitiles {
+				if ip_title == "*" {
+					logger.Warn("Global tenant: index-pattern '*' is too general and will be ignored")
+					continue
+				}
+				indices, err := osClient.GetIndicesWithFields(ip_title, "index")
+				if err != nil {
+					logger.Warn(fmt.Sprintf("Global tenant: failed to check indices for pattern %s: %v, will skip refresh", ip_title, err))
+					continue
+				}
+				if len(indices) == 0 {
+					logger.Info(fmt.Sprintf("Global tenant: skipping index-pattern %s:%s - no matching indices found in cluster", ip_id, ip_title))
+					continue
+				}
+				exists, err := kb.CheckIndexPatternExists("", ip_id)
+				if err != nil {
+					logger.Warn(fmt.Sprintf("Global tenant: failed to check if index-pattern exists %s:%s: %v, will try to refresh anyway", ip_id, ip_title, err))
+				} else if !exists {
+					logger.Info(fmt.Sprintf("Global tenant: index-pattern %s:%s not found in Kibana, skipping refresh", ip_id, ip_title))
+					continue
+				}
+				if cfg.GetDryRun() {
+					logger.Info(fmt.Sprintf("DRY RUN: Would refresh index-pattern %s:%s in tenant global (matches %d indices)", ip_id, ip_title, len(indices)))
+					refreshedPatterns = append(refreshedPatterns, fmt.Sprintf("%s (tenant=global)", ip_title))
+				} else {
+					logger.Info(fmt.Sprintf("Refreshing index-pattern %s:%s in tenant global (matches %d indices)", ip_id, ip_title, len(indices)))
+					if err := kb.RefreshIndexPattern("", ip_id, ip_title); err == nil {
+						logger.Info(fmt.Sprintf("Successfully refreshed index-pattern %s:%s in tenant global", ip_id, ip_title))
+						refreshedPatterns = append(refreshedPatterns, fmt.Sprintf("%s (tenant=global)", ip_title))
+					} else {
+						logger.Error(fmt.Sprintf("Failed to refresh index-pattern %s:%s in tenant global: %s", ip_id, ip_title, err))
+						failedRefreshedPatterns = append(failedRefreshedPatterns, fmt.Sprintf("%s (tenant=global)", ip_title))
+					}
+				}
 			}
-			exists, err := kb.CheckIndexPatternExists(ip_id)
+
+			tf, err := config.GetConfig().GetTenantsConfig()
 			if err != nil {
-				logger.Warn(fmt.Sprintf("Failed to check if index-pattern exists %s:%s: %v, will try to refresh anyway", ip_id, ip_title, err))
-			} else if !exists {
-				logger.Info(fmt.Sprintf("Index-pattern %s:%s not found in Kibana, skipping refresh", ip_id, ip_title))
-				continue
+				return err
 			}
-			if cfg.GetDryRun() {
-				logger.Info(fmt.Sprintf("DRY RUN: Would refresh index-pattern %s:%s (matches %d indices)", ip_id, ip_title, len(indices)))
-				refreshedPatterns = append(refreshedPatterns, ip_title)
-			} else {
-				logger.Info(fmt.Sprintf("Refreshing index-pattern %s:%s (matches %d indices)", ip_id, ip_title, len(indices)))
-				if err := kb.RefreshIndexPattern(ip_id, ip_title); err == nil {
-					logger.Info(fmt.Sprintf("Successfully refreshed index-pattern %s:%s", ip_id, ip_title))
+			for _, t := range tf.Tenants {
+				normalizedName := utils.NormalizeTenantName(t.Name)
+				aliasPattern := ".kibana*_" + normalizedName
+				aliases, err := osClient.GetAliases(aliasPattern)
+				if err != nil {
+					return err
+				}
+				tenantIndex := ""
+				if len(aliases) > 0 {
+					tenantIndex = aliases[0].Alias
+				}
+				if tenantIndex == "" {
+					logger.Info(fmt.Sprintf("Skip tenant %s: .kibana alias not found", t.Name))
+					continue
+				}
+				_, _, existingIdsTitiles, err := getExistingIndexPatternTitles(osClient, tenantIndex)
+				if err != nil {
+					return err
+				}
+				logger.Info(fmt.Sprintf("Tenant %s: will refresh %d existing index-patterns", t.Name, len(existingIdsTitiles)))
+				for ip_id, ip_title := range existingIdsTitiles {
+					if ip_title == "*" {
+						logger.Warn(fmt.Sprintf("Tenant %s: index-pattern '*' is too general and will be ignored", t.Name))
+						continue
+					}
+					indices, err := osClient.GetIndicesWithFields(ip_title, "index")
+					if err != nil {
+						logger.Warn(fmt.Sprintf("Tenant %s: failed to check indices for pattern %s: %v, will skip refresh", t.Name, ip_title, err))
+						continue
+					}
+					if len(indices) == 0 {
+						logger.Info(fmt.Sprintf("Tenant %s: skipping index-pattern %s:%s - no matching indices found in cluster", t.Name, ip_id, ip_title))
+						continue
+					}
+					exists, err := kb.CheckIndexPatternExists(t.Name, ip_id)
+					if err != nil {
+						logger.Warn(fmt.Sprintf("Tenant %s: failed to check if index-pattern exists %s:%s: %v, will try to refresh anyway", t.Name, ip_id, ip_title, err))
+					} else if !exists {
+						logger.Info(fmt.Sprintf("Tenant %s: index-pattern %s:%s not found in Kibana, skipping refresh", t.Name, ip_id, ip_title))
+						continue
+					}
+					if cfg.GetDryRun() {
+						logger.Info(fmt.Sprintf("DRY RUN: Would refresh index-pattern %s:%s in tenant %s (matches %d indices)", ip_id, ip_title, t.Name, len(indices)))
+						refreshedPatterns = append(refreshedPatterns, fmt.Sprintf("%s (tenant=%s)", ip_title, t.Name))
+					} else {
+						logger.Info(fmt.Sprintf("Refreshing index-pattern %s:%s in tenant %s (matches %d indices)", ip_id, ip_title, t.Name, len(indices)))
+						if err := kb.RefreshIndexPattern(t.Name, ip_id, ip_title); err == nil {
+							logger.Info(fmt.Sprintf("Successfully refreshed index-pattern %s:%s in tenant %s", ip_id, ip_title, t.Name))
+							refreshedPatterns = append(refreshedPatterns, fmt.Sprintf("%s (tenant=%s)", ip_title, t.Name))
+						} else {
+							logger.Error(fmt.Sprintf("Failed to refresh index-pattern %s:%s in tenant %s: %s", ip_id, ip_title, t.Name, err))
+							failedRefreshedPatterns = append(failedRefreshedPatterns, fmt.Sprintf("%s (tenant=%s)", ip_title, t.Name))
+						}
+					}
+				}
+			}
+		} else {
+			_, _, existingIdsTitiles, err := getExistingIndexPatternTitles(osClient, ".kibana")
+			if err != nil {
+				return err
+			}
+			logger.Info(fmt.Sprintf("Will refresh %d existing index-patterns", len(existingIdsTitiles)))
+			for ip_id, ip_title := range existingIdsTitiles {
+				if ip_title == "*" {
+					logger.Warn("index-pattern '*' is too general and will be ignored")
+					continue
+				}
+				indices, err := osClient.GetIndicesWithFields(ip_title, "index")
+				if err != nil {
+					logger.Warn(fmt.Sprintf("Failed to check indices for pattern %s: %v, will skip refresh", ip_title, err))
+					continue
+				}
+				if len(indices) == 0 {
+					logger.Info(fmt.Sprintf("Skipping index-pattern %s:%s - no matching indices found in cluster", ip_id, ip_title))
+					continue
+				}
+				exists, err := kb.CheckIndexPatternExists("", ip_id)
+				if err != nil {
+					logger.Warn(fmt.Sprintf("Failed to check if index-pattern exists %s:%s: %v, will try to refresh anyway", ip_id, ip_title, err))
+				} else if !exists {
+					logger.Info(fmt.Sprintf("Index-pattern %s:%s not found in Kibana, skipping refresh", ip_id, ip_title))
+					continue
+				}
+				if cfg.GetDryRun() {
+					logger.Info(fmt.Sprintf("DRY RUN: Would refresh index-pattern %s:%s (matches %d indices)", ip_id, ip_title, len(indices)))
 					refreshedPatterns = append(refreshedPatterns, ip_title)
 				} else {
-					logger.Error(fmt.Sprintf("Failed to refresh index-pattern %s:%s: %s", ip_id, ip_title, err))
-					failedRefreshedPatterns = append(failedRefreshedPatterns, ip_title)
+					logger.Info(fmt.Sprintf("Refreshing index-pattern %s:%s (matches %d indices)", ip_id, ip_title, len(indices)))
+					if err := kb.RefreshIndexPattern("", ip_id, ip_title); err == nil {
+						logger.Info(fmt.Sprintf("Successfully refreshed index-pattern %s:%s", ip_id, ip_title))
+						refreshedPatterns = append(refreshedPatterns, ip_title)
+					} else {
+						logger.Error(fmt.Sprintf("Failed to refresh index-pattern %s:%s: %s", ip_id, ip_title, err))
+						failedRefreshedPatterns = append(failedRefreshedPatterns, ip_title)
+					}
 				}
 			}
 		}
-
 	}
 	var createdPatterns []string
 

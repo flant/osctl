@@ -96,7 +96,7 @@ func (c *Client) CreateDataSource(tenant, title, endpoint, user, password string
 	return nil
 }
 
-func (c *Client) GetActualMappingForIndexPattern(title string) ([]byte, error) {
+func (c *Client) GetActualMappingForIndexPattern(tenant, title string) ([]byte, error) {
 	if title == "" {
 		return nil, fmt.Errorf("index pattern title cannot be empty")
 	}
@@ -107,6 +107,9 @@ func (c *Client) GetActualMappingForIndexPattern(title string) ([]byte, error) {
 		return nil, err
 	}
 	req.Header.Set("Accept", "*/*")
+	if tenant != "" && tenant != "global" {
+		req.Header.Set("securitytenant", tenant)
+	}
 
 	resp, err := c.do(req)
 	if err != nil {
@@ -135,11 +138,14 @@ func (c *Client) GetActualMappingForIndexPattern(title string) ([]byte, error) {
 	return fields_string, nil
 }
 
-func (c *Client) CheckIndexPatternExists(id string) (bool, error) {
+func (c *Client) CheckIndexPatternExists(tenant, id string) (bool, error) {
 	u := fmt.Sprintf("%s/api/saved_objects/index-pattern/%s", c.baseURL, id)
 	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
 		return false, err
+	}
+	if tenant != "" && tenant != "global" {
+		req.Header.Set("securitytenant", tenant)
 	}
 	resp, err := c.do(req)
 	if err != nil {
@@ -155,14 +161,14 @@ func (c *Client) CheckIndexPatternExists(id string) (bool, error) {
 	return true, nil
 }
 
-func (c *Client) RefreshIndexPattern(id string, title string) error {
+func (c *Client) RefreshIndexPattern(tenant, id string, title string) error {
 	if id == "" {
 		return fmt.Errorf("index pattern id cannot be empty")
 	}
 	if title == "" {
 		return fmt.Errorf("index pattern title cannot be empty")
 	}
-	fields, err := c.GetActualMappingForIndexPattern(title)
+	fields, err := c.GetActualMappingForIndexPattern(tenant, title)
 	if err != nil {
 		return err
 	}
@@ -189,6 +195,9 @@ func (c *Client) RefreshIndexPattern(id string, title string) error {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if tenant != "" && tenant != "global" {
+		req.Header.Set("securitytenant", tenant)
+	}
 	resp, err := c.do(req)
 	if err != nil {
 		return err
