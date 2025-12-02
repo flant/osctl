@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"osctl/pkg/utils"
 	"strings"
 )
 
@@ -185,7 +184,6 @@ func (c *Client) RefreshIndexPattern(tenant, id string, title string) error {
 			"timeFieldName": "@timestamp",
 			"fields":        string(fields),
 		},
-		"version": utils.PatternVersion(),
 	}
 	b, err := json.Marshal(body)
 	if err != nil {
