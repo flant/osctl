@@ -54,7 +54,7 @@ extracteddelete:
   schedule: "33 23 * * *"
 
 indexpatterns:
-  schedule: "*/15 * * * *"
+  schedule: "0 6 * * *"
 
 indicesdelete:
   schedule: "10 0 * * *"
