@@ -259,7 +259,7 @@ func setDefaults() {
 	viper.SetDefault("datasource_name", "recoverer")
 	viper.SetDefault("datasource_endpoint", "https://opendistro-recoverer:9200")
 	viper.SetDefault("indexpatterns_refresh_enabled", false)
-  viper.SetDefault("max_concurrent_snapshots", 3)
+	viper.SetDefault("max_concurrent_snapshots", 3)
 }
 
 func GetAvailableActions() []string {

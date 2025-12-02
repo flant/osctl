@@ -59,11 +59,20 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 				logger.Warn("index-pattern '*' is too general and will be ignored")
 				continue
 			}
+			indices, err := osClient.GetIndicesWithFields(ip_title, "index")
+			if err != nil {
+				logger.Warn(fmt.Sprintf("Failed to check indices for pattern %s: %v, will skip refresh", ip_title, err))
+				continue
+			}
+			if len(indices) == 0 {
+				logger.Info(fmt.Sprintf("Skipping index-pattern %s:%s - no matching indices found in cluster", ip_id, ip_title))
+				continue
+			}
 			if cfg.GetDryRun() {
-				logger.Info(fmt.Sprintf("DRY RUN: Would refresh index-pattern %s:%s", ip_id, ip_title))
+				logger.Info(fmt.Sprintf("DRY RUN: Would refresh index-pattern %s:%s (matches %d indices)", ip_id, ip_title, len(indices)))
 				refreshedPatterns = append(refreshedPatterns, ip_title)
 			} else {
-				logger.Info(fmt.Sprintf("Refreshing index-pattern %s:%s", ip_id, ip_title))
+				logger.Info(fmt.Sprintf("Refreshing index-pattern %s:%s (matches %d indices)", ip_id, ip_title, len(indices)))
 				if err := kb.RefreshIndexPattern(ip_id, ip_title); err == nil {
 					logger.Info(fmt.Sprintf("Successfully refreshed index-pattern %s:%s", ip_id, ip_title))
 					refreshedPatterns = append(refreshedPatterns, ip_title)

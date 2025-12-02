@@ -101,7 +101,7 @@ data:
     {{- else }}
     indexpatterns_recoverer_enabled: false
     {{- end }}
-    indexpatterns_refresh_enabled: {{ .Values.indexpatterns.refresh_enabled | default true | quote }}
+    indexpatterns_refresh_enabled: {{ .Values.indexpatterns.refresh_enabled | default false | quote }}
 
     # indicesdelete:
     indicesdelete_check_snapshots: true
