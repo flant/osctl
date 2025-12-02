@@ -68,6 +68,13 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 				logger.Info(fmt.Sprintf("Skipping index-pattern %s:%s - no matching indices found in cluster", ip_id, ip_title))
 				continue
 			}
+			exists, err := kb.CheckIndexPatternExists(ip_id)
+			if err != nil {
+				logger.Warn(fmt.Sprintf("Failed to check if index-pattern exists %s:%s: %v, will try to refresh anyway", ip_id, ip_title, err))
+			} else if !exists {
+				logger.Info(fmt.Sprintf("Index-pattern %s:%s not found in Kibana, skipping refresh", ip_id, ip_title))
+				continue
+			}
 			if cfg.GetDryRun() {
 				logger.Info(fmt.Sprintf("DRY RUN: Would refresh index-pattern %s:%s (matches %d indices)", ip_id, ip_title, len(indices)))
 				refreshedPatterns = append(refreshedPatterns, ip_title)

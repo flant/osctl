@@ -136,6 +136,26 @@ func (c *Client) GetActualMappingForIndexPattern(title string) ([]byte, error) {
 	return fields_string, nil
 }
 
+func (c *Client) CheckIndexPatternExists(id string) (bool, error) {
+	u := fmt.Sprintf("%s/api/saved_objects/index-pattern/%s", c.baseURL, id)
+	req, err := http.NewRequest("GET", u, nil)
+	if err != nil {
+		return false, err
+	}
+	resp, err := c.do(req)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == 404 {
+		return false, nil
+	}
+	if resp.StatusCode >= 300 {
+		return false, fmt.Errorf("kibana check index pattern failed: %s", resp.Status)
+	}
+	return true, nil
+}
+
 func (c *Client) RefreshIndexPattern(id string, title string) error {
 	if id == "" {
 		return fmt.Errorf("index pattern id cannot be empty")
