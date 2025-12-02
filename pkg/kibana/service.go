@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"osctl/pkg/utils"
 	"strings"
 )
 
@@ -176,7 +175,6 @@ func (c *Client) RefreshIndexPattern(id string, title string) error {
 	body := map[string]any{
 		"attributes": map[string]any{
 			"title":         title,
-			"version":       utils.PatternVersion(),
 			"timeFieldName": "@timestamp",
 			"fields":        string(fields),
 		},

@@ -34,7 +34,3 @@ func GenerateRandomAlphanumericString(length int) string {
 	}
 	return id[:length]
 }
-
-func PatternVersion() string {
-	return b64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("[%d,1]", rand.IntN(100))))
-}
