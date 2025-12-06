@@ -63,7 +63,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 	regularConfigs := make([]config.IndexConfig, 0)
 
 	for _, indexConfig := range indicesConfig {
-		if indexConfig.System {
+		if utils.IsSystem(indexConfig, indexConfig.Value) {
 			systemConfigs = append(systemConfigs, indexConfig)
 		} else {
 			regularConfigs = append(regularConfigs, indexConfig)

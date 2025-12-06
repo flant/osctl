@@ -88,38 +88,30 @@ osctl:
   # indices:
   #   - kind: prefix
   #     value: filebeat
-  #     system: false
   #     days_count: 5
   #     snapshot: true
   #   - kind: prefix
   #     value: d8
-  #     system: false
   #     days_count: 7
   #     snapshot: true
   #     snapshot_count_s3: 7
   #   - kind: prefix
   #     value: eventrouter
-  #     system: false
   #     days_count: 7
-  #     snapshot: false
   #   - kind: prefix
   #     value: mongo
-  #     system: false
   #     days_count: 5
   #     snapshot: true
   #   - kind: prefix
   #     value: infra
-  #     system: false
   #     days_count: 5
   #     snapshot: true
   #   - kind: prefix
   #     value: opp-fix
-  #     system: false
   #     days_count: 5
   #     snapshot: true
   #   - kind: prefix
   #     value: pim
-  #     system: false
   #     days_count: 5
   #     snapshot: true
   #   - kind: prefix

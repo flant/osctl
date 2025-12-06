@@ -9,7 +9,6 @@ indices:
   - kind: prefix
     value: infra-elklogs
     days_count: 30
-    snapshot: false
   - kind: prefix
     value: d8-ingress
     days_count: 7
@@ -17,7 +16,6 @@ indices:
     snapshot_count_s3: 7
   - kind: prefix
     value: .kibana
-    system: true
     days_count: 30
     snapshot: true
   - kind: prefix

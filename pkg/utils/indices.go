@@ -17,9 +17,35 @@ func IndexInfosToNames(list []opensearch.IndexInfo) []string {
 	return names
 }
 
-func MatchesIndex(indexName string, indexConfig config.IndexConfig) bool {
+func IsSystem(indexConfig config.IndexConfig, nameOrPattern string) bool {
+	if indexConfig.Kind == "regex" {
+		return false
+	}
 
+	if indexConfig.System {
+		return true
+	}
+
+	if indexConfig.Kind == "prefix" && strings.HasPrefix(nameOrPattern, ".") {
+		return true
+	}
+
+	return false
+}
+
+func MatchesIndex(indexName string, indexConfig config.IndexConfig) bool {
 	if !indexConfig.System && ShouldSkipIndex(indexName) {
+		return false
+	}
+
+	isSystemIndex := IsSystem(indexConfig, indexName)
+	isSystemConfig := IsSystem(indexConfig, indexConfig.Value)
+
+	if isSystemConfig && !isSystemIndex {
+		return false
+	}
+
+	if !isSystemConfig && isSystemIndex {
 		return false
 	}
 

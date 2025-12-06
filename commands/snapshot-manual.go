@@ -31,7 +31,7 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 	kind := cfg.GetSnapshotManualKind()
 	value := cfg.GetSnapshotManualValue()
 	name := cfg.GetSnapshotManualName()
-	system := cfg.GetSnapshotManualSystem()
+	systemFlag := cfg.GetSnapshotManualSystem()
 
 	if value == "" {
 		return fmt.Errorf("value is required")
@@ -41,7 +41,20 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("name is required for regex patterns")
 	}
 
-	logger.Info(fmt.Sprintf("Starting manual snapshot creation kind=%s value=%s name=%s system=%t", kind, value, name, system))
+	tempConfig := config.IndexConfig{
+		Kind:   kind,
+		Value:  value,
+		Name:   name,
+		System: systemFlag,
+	}
+
+	system := systemFlag
+	systemStr := cfg.SnapshotManualSystem
+	if systemStr == "" {
+		system = utils.IsSystem(tempConfig, value)
+	}
+
+	logger.Info(fmt.Sprintf("Starting manual snapshot creation kind=%s value=%s name=%s system=%t (auto-detected=%t)", kind, value, name, system, cfg.SnapshotManualSystem == ""))
 
 	client, err := utils.NewOSClientWithURL(cfg, cfg.GetOpenSearchURL())
 	if err != nil {

@@ -106,6 +106,9 @@ func ValidateOsctlIndicesConfig(config *OsctlIndicesConfig, dateFormat string) e
 			if indexConfig.Name == "" {
 				return fmt.Errorf("index config #%d: regex pattern '%s' must have 'name' field specified", i+1, indexConfig.Value)
 			}
+			if indexConfig.System {
+				return fmt.Errorf("index config #%d: regex pattern '%s' cannot have system: true (regex patterns cannot be system indices)", i+1, indexConfig.Value)
+			}
 		}
 	}
 	return nil
