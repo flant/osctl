@@ -34,12 +34,11 @@ func IsSystem(indexConfig config.IndexConfig, nameOrPattern string) bool {
 }
 
 func MatchesIndex(indexName string, indexConfig config.IndexConfig) bool {
-	if !indexConfig.System && ShouldSkipIndex(indexName) {
+	isSystemConfig := IsSystem(indexConfig, indexConfig.Value)
+	isSystemIndex := IsSystem(indexConfig, indexName)
+	if !isSystemConfig && ShouldSkipIndex(indexName) {
 		return false
 	}
-
-	isSystemIndex := IsSystem(indexConfig, indexName)
-	isSystemConfig := IsSystem(indexConfig, indexConfig.Value)
 
 	if isSystemConfig && !isSystemIndex {
 		return false
