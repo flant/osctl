@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 )
 
 type IndexInfo struct {
@@ -48,7 +47,7 @@ func (c *Client) GetIndicesWithFields(pattern, fields string, sortBy ...string) 
 		sortParam = sortBy[0]
 	}
 
-	url := fmt.Sprintf("%s/_cat/indices/%s?format=json&bytes=b&h=%s", c.baseURL, pattern, fields)
+	url := fmt.Sprintf("%s/_cat/indices/%s?format=json&bytes=b&h=%s", c.baseURL, escapePathSegment(pattern), fields)
 	if sortParam != "" {
 		url += fmt.Sprintf("&s=%s", sortParam)
 	}
@@ -80,7 +79,7 @@ func (c *Client) GetIndicesWithFields(pattern, fields string, sortBy ...string) 
 }
 
 func (c *Client) Search(index, query string) (*OSSearchResponse, error) {
-	url := fmt.Sprintf("%s/%s/_search?%s", c.baseURL, strings.TrimLeft(index, "/"), query)
+	url := fmt.Sprintf("%s/%s/_search?%s", c.baseURL, escapePathSegment(index), query)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -101,7 +100,7 @@ func (c *Client) Search(index, query string) (*OSSearchResponse, error) {
 }
 
 func (c *Client) CreateDoc(index, id string, payload interface{}) error {
-	url := fmt.Sprintf("%s/%s/_doc/%s", c.baseURL, strings.TrimLeft(index, "/"), id)
+	url := fmt.Sprintf("%s/%s/_doc/%s", c.baseURL, escapePathSegment(index), escapePathSegment(id))
 	b, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -123,7 +122,7 @@ func (c *Client) CreateDoc(index, id string, payload interface{}) error {
 }
 
 func (c *Client) DeleteIndex(index string) error {
-	url := fmt.Sprintf("%s/%s", c.baseURL, index)
+	url := fmt.Sprintf("%s/%s", c.baseURL, escapePathSegment(index))
 	return c.delete(url)
 }
 
@@ -132,7 +131,7 @@ func (c *Client) DeleteIndices(indices []string) error {
 		return nil
 	}
 
-	indicesList := strings.Join(indices, ",")
+	indicesList := escapePathList(indices)
 	url := fmt.Sprintf("%s/%s", c.baseURL, indicesList)
 	return c.delete(url)
 }
@@ -149,7 +148,7 @@ func (c *Client) GetDanglingIndices() ([]DanglingIndex, error) {
 }
 
 func (c *Client) SetReplicas(index string, replicas int) error {
-	url := fmt.Sprintf("%s/%s/_settings", c.baseURL, index)
+	url := fmt.Sprintf("%s/%s/_settings", c.baseURL, escapePathSegment(index))
 
 	settings := map[string]any{
 		"index": map[string]any{
@@ -161,7 +160,7 @@ func (c *Client) SetReplicas(index string, replicas int) error {
 }
 
 func (c *Client) SetColdStorage(index, coldAttribute string) error {
-	url := fmt.Sprintf("%s/%s/_settings", c.baseURL, index)
+	url := fmt.Sprintf("%s/%s/_settings", c.baseURL, escapePathSegment(index))
 
 	settings := map[string]any{
 		"index": map[string]any{
@@ -174,7 +173,7 @@ func (c *Client) SetColdStorage(index, coldAttribute string) error {
 }
 
 func (c *Client) GetIndexColdRequirement(index string) (string, error) {
-	url := fmt.Sprintf("%s/%s/_settings", c.baseURL, index)
+	url := fmt.Sprintf("%s/%s/_settings", c.baseURL, escapePathSegment(index))
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {

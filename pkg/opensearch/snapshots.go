@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 )
 
 type Snapshot struct {
@@ -81,7 +80,7 @@ type ShardDetail struct {
 }
 
 func (c *Client) GetSnapshots(repo, pattern string) ([]Snapshot, error) {
-	url := fmt.Sprintf("%s/_snapshot/%s/%s?verbose=false", c.baseURL, repo, pattern)
+	url := fmt.Sprintf("%s/_snapshot/%s/%s?verbose=false", c.baseURL, escapePathSegment(repo), escapePathSegment(pattern))
 
 	var response SnapshotResponse
 	if err := c.getJSON(url, &response); err != nil {
@@ -92,7 +91,7 @@ func (c *Client) GetSnapshots(repo, pattern string) ([]Snapshot, error) {
 }
 
 func (c *Client) CreateSnapshot(repo, snapshot string, body map[string]any) error {
-	url := fmt.Sprintf("%s/_snapshot/%s/%s", c.baseURL, repo, snapshot)
+	url := fmt.Sprintf("%s/_snapshot/%s/%s", c.baseURL, escapePathSegment(repo), escapePathSegment(snapshot))
 
 	return c.putJSON(url, body)
 }
@@ -102,8 +101,8 @@ func (c *Client) DeleteSnapshots(snapRepo string, snapshotNames []string) error 
 		return nil
 	}
 
-	snapshotsList := strings.Join(snapshotNames, ",")
-	url := fmt.Sprintf("%s/_snapshot/%s/%s", c.baseURL, snapRepo, snapshotsList)
+	snapshotsList := escapePathList(snapshotNames)
+	url := fmt.Sprintf("%s/_snapshot/%s/%s", c.baseURL, escapePathSegment(snapRepo), snapshotsList)
 	return c.delete(url)
 }
 
@@ -132,7 +131,7 @@ func (c *Client) GetSnapshotStatus() (*SnapshotStatus, error) {
 }
 
 func (c *Client) GetSnapshotStatusDetail(repo, snapshot string) (*SnapshotDetailStatus, error) {
-	url := fmt.Sprintf("%s/_snapshot/%s/%s/_status", c.baseURL, repo, snapshot)
+	url := fmt.Sprintf("%s/_snapshot/%s/%s/_status", c.baseURL, escapePathSegment(repo), escapePathSegment(snapshot))
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err

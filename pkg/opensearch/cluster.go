@@ -65,7 +65,7 @@ func (c *Client) GetDataNodeCount(coldAttribute string) (int, error) {
 }
 
 func (c *Client) GetAliases(pattern string) ([]AliasInfo, error) {
-	url := fmt.Sprintf("%s/_cat/aliases/%s?format=json", c.baseURL, pattern)
+	url := fmt.Sprintf("%s/_cat/aliases/%s?format=json", c.baseURL, escapePathSegment(pattern))
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err

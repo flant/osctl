@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -21,6 +22,22 @@ type Client struct {
 	timeout       time.Duration
 	retryAttempts int
 	httpClient    *http.Client
+}
+
+func escapePathSegment(s string) string {
+	return url.PathEscape(strings.TrimLeft(s, "/"))
+}
+
+func escapePathList(items []string) string {
+	escaped := make([]string, 0, len(items))
+	for _, it := range items {
+		it = strings.TrimSpace(it)
+		if it == "" {
+			continue
+		}
+		escaped = append(escaped, escapePathSegment(it))
+	}
+	return strings.Join(escaped, ",")
 }
 
 func NewClient(baseURL, certFile, keyFile, caFile string, timeout time.Duration, retryAttempts int) (*Client, error) {
