@@ -140,6 +140,9 @@ func (c *Config) GetOsctlIndices() ([]IndexConfig, error) {
 	indices := c.OsctlIndicesConfig.Indices
 
 	sort.Slice(indices, func(i, j int) bool {
+		if indices[i].Kind != indices[j].Kind {
+			return indices[i].Kind == "prefix" && indices[j].Kind == "regex"
+		}
 		return indices[i].Value < indices[j].Value
 	})
 
