@@ -10,7 +10,16 @@ import (
 )
 
 func NewOSClientWithURL(cfg *config.Config, url string) (*opensearch.Client, error) {
-	client, err := opensearch.NewClient(url, cfg.GetCertFile(), cfg.GetKeyFile(), cfg.GetCAFile(), cfg.GetTimeout(), cfg.GetRetryAttempts())
+	client, err := opensearch.NewClientWithOptions(url, opensearch.ClientOptions{
+		CertFile:           cfg.GetCertFile(),
+		KeyFile:            cfg.GetKeyFile(),
+		CAFile:             cfg.GetCAFile(),
+		InsecureSkipVerify: cfg.GetInsecureSkipVerify(),
+		BasicAuthUser:      cfg.GetBasicAuthUser(),
+		BasicAuthPass:      cfg.GetBasicAuthPass(),
+		Timeout:            cfg.GetTimeout(),
+		RetryAttempts:      cfg.GetRetryAttempts(),
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OpenSearch client: %v", err)
 	}

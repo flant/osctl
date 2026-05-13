@@ -5,3 +5,4 @@ test-certs/
 osctl
 Makefile
 test.yaml
+.claude

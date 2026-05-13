@@ -15,13 +15,16 @@ import (
 )
 
 type Client struct {
-	baseURL       string
-	certFile      string
-	keyFile       string
-	caFile        string
-	timeout       time.Duration
-	retryAttempts int
-	httpClient    *http.Client
+	baseURL            string
+	certFile           string
+	keyFile            string
+	caFile             string
+	insecureSkipVerify bool
+	basicAuthUser      string
+	basicAuthPass      string
+	timeout            time.Duration
+	retryAttempts      int
+	httpClient         *http.Client
 }
 
 func escapePathSegment(s string) string {
@@ -40,51 +43,83 @@ func escapePathList(items []string) string {
 	return strings.Join(escaped, ",")
 }
 
+type ClientOptions struct {
+	CertFile           string
+	KeyFile            string
+	CAFile             string
+	InsecureSkipVerify bool
+	BasicAuthUser      string
+	BasicAuthPass      string
+	Timeout            time.Duration
+	RetryAttempts      int
+}
+
 func NewClient(baseURL, certFile, keyFile, caFile string, timeout time.Duration, retryAttempts int) (*Client, error) {
+	return NewClientWithOptions(baseURL, ClientOptions{
+		CertFile:      certFile,
+		KeyFile:       keyFile,
+		CAFile:        caFile,
+		Timeout:       timeout,
+		RetryAttempts: retryAttempts,
+	})
+}
+
+func NewClientWithOptions(baseURL string, opts ClientOptions) (*Client, error) {
+	hasCert := opts.CertFile != "" && opts.KeyFile != ""
+	hasCA := opts.CAFile != ""
+	needsTLS := strings.HasPrefix(baseURL, "https://") || hasCert || hasCA || opts.InsecureSkipVerify
+
 	var transport *http.Transport
-	if certFile == "" && keyFile == "" && caFile == "" {
+	if !needsTLS {
 		transport = &http.Transport{}
 	} else {
 		tlsConfig := &tls.Config{}
-		if certFile != "" && keyFile != "" {
-			cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+		if hasCert {
+			cert, err := tls.LoadX509KeyPair(opts.CertFile, opts.KeyFile)
 			if err != nil {
 				return nil, fmt.Errorf("failed to load certificate: %v", err)
 			}
 			tlsConfig.Certificates = []tls.Certificate{cert}
 		}
-		if caFile != "" {
-			caData, err := os.ReadFile(caFile)
+		if hasCA {
+			caData, err := os.ReadFile(opts.CAFile)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read CA file: %v", err)
 			}
 			pool := x509.NewCertPool()
 			if ok := pool.AppendCertsFromPEM(caData); !ok {
-				return nil, fmt.Errorf("failed to parse CA file: %s", caFile)
+				return nil, fmt.Errorf("failed to parse CA file: %s", opts.CAFile)
 			}
 			tlsConfig.RootCAs = pool
-			tlsConfig.InsecureSkipVerify = false
-		} else {
+		}
+		if opts.InsecureSkipVerify || (!hasCA && !hasCert) {
 			tlsConfig.InsecureSkipVerify = true
 		}
 		transport = &http.Transport{TLSClientConfig: tlsConfig}
 	}
 
-	httpClient := &http.Client{Transport: transport, Timeout: timeout}
+	httpClient := &http.Client{Transport: transport, Timeout: opts.Timeout}
 
 	return &Client{
-		baseURL:       baseURL,
-		certFile:      certFile,
-		keyFile:       keyFile,
-		caFile:        caFile,
-		timeout:       timeout,
-		retryAttempts: retryAttempts,
-		httpClient:    httpClient,
+		baseURL:            baseURL,
+		certFile:           opts.CertFile,
+		keyFile:            opts.KeyFile,
+		caFile:             opts.CAFile,
+		insecureSkipVerify: opts.InsecureSkipVerify,
+		basicAuthUser:      opts.BasicAuthUser,
+		basicAuthPass:      opts.BasicAuthPass,
+		timeout:            opts.Timeout,
+		retryAttempts:      opts.RetryAttempts,
+		httpClient:         httpClient,
 	}, nil
 }
 
 func (c *Client) executeRequest(req *http.Request) (*http.Response, error) {
 	var lastErr error
+
+	if c.basicAuthUser != "" || c.basicAuthPass != "" {
+		req.SetBasicAuth(c.basicAuthUser, c.basicAuthPass)
+	}
 
 	for attempt := 0; attempt <= c.retryAttempts; attempt++ {
 		resp, err := c.httpClient.Do(req)

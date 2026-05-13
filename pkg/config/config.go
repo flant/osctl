@@ -18,6 +18,9 @@ type Config struct {
 	CertFile                           string
 	KeyFile                            string
 	CAFile                             string
+	InsecureSkipVerify                 string
+	BasicAuthUser                      string
+	BasicAuthPass                      string
 	Timeout                            string
 	RetryAttempts                      string
 	DateFormat                         string
@@ -134,6 +137,9 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		CertFile:                      getValue(cmd, "cert-file", "OPENSEARCH_CERT_FILE", viper.GetString("cert_file")),
 		KeyFile:                       getValue(cmd, "key-file", "OPENSEARCH_KEY_FILE", viper.GetString("key_file")),
 		CAFile:                        getValue(cmd, "ca-file", "OPENSEARCH_CA_FILE", viper.GetString("ca_file")),
+		InsecureSkipVerify:            getValue(cmd, "insecure-skip-verify", "OPENSEARCH_INSECURE_SKIP_VERIFY", viper.GetString("insecure_skip_verify")),
+		BasicAuthUser:                 getValue(cmd, "basic-auth-user", "OPENSEARCH_BASIC_AUTH_USER", viper.GetString("basic_auth_user")),
+		BasicAuthPass:                 getValue(cmd, "basic-auth-pass", "OPENSEARCH_BASIC_AUTH_PASS", viper.GetString("basic_auth_pass")),
 		Timeout:                       getValue(cmd, "timeout", "OPENSEARCH_TIMEOUT", viper.GetString("timeout")),
 		RetryAttempts:                 getValue(cmd, "retry-attempts", "OPENSEARCH_RETRY_ATTEMPTS", viper.GetString("retry_attempts")),
 		DateFormat:                    getValue(cmd, "date-format", "OPENSEARCH_DATE_FORMAT", viper.GetString("date_format")),
@@ -218,6 +224,9 @@ func setDefaults() {
 	viper.SetDefault("cert_file", "/etc/ssl/certs/admin-crt.pem")
 	viper.SetDefault("key_file", "/etc/ssl/certs/admin-key.pem")
 	viper.SetDefault("ca_file", "")
+	viper.SetDefault("insecure_skip_verify", "")
+	viper.SetDefault("basic_auth_user", "")
+	viper.SetDefault("basic_auth_pass", "")
 	viper.SetDefault("timeout", "300s")
 	viper.SetDefault("retry_attempts", 3)
 	viper.SetDefault("date_format", "%Y.%m.%d")
@@ -479,6 +488,18 @@ func (c *Config) GetKeyFile() string {
 
 func (c *Config) GetCAFile() string {
 	return c.CAFile
+}
+
+func (c *Config) GetInsecureSkipVerify() bool {
+	return parseBoolWithDefault(c.InsecureSkipVerify, "insecure_skip_verify")
+}
+
+func (c *Config) GetBasicAuthUser() string {
+	return c.BasicAuthUser
+}
+
+func (c *Config) GetBasicAuthPass() string {
+	return c.BasicAuthPass
 }
 
 func (c *Config) GetDateFormat() string {

@@ -21,9 +21,12 @@
 | `--config` | `OSCTL_CONFIG` | Путь к файлу конфигурации | `config.yaml` |
 | `--os-url` | `OPENSEARCH_URL` | URL OpenSearch | `https://opendistro:9200` |
 | `--os-recoverer-url` | `OPENSEARCH_RECOVERER_URL` | URL OpenSearch Recoverer | `https://opendistro-recoverer:9200` |
-| `--cert-file` | `OPENSEARCH_CERT_FILE` | Путь к сертификату | `/etc/ssl/certs/admin-crt.pem` |
-| `--key-file` | `OPENSEARCH_KEY_FILE` | Путь к приватному ключу | `/etc/ssl/certs/admin-key.pem` |
+| `--cert-file` | `OPENSEARCH_CERT_FILE` | Путь к сертификату (для mTLS; если пусто — клиентский серт не используется) | `/etc/ssl/certs/admin-crt.pem` |
+| `--key-file` | `OPENSEARCH_KEY_FILE` | Путь к приватному ключу (для mTLS; если пусто — клиентский серт не используется) | `/etc/ssl/certs/admin-key.pem` |
 | `--ca-file` | `OPENSEARCH_CA_FILE` | Путь к CA | (пусто) |
+| `--insecure-skip-verify` | `OPENSEARCH_INSECURE_SKIP_VERIFY` | Пропускать проверку TLS-сертификата сервера. Если пусто — проверка как обычно (skip активируется автоматически, если ни `cert_file`, ни `ca_file` не заданы) | (пусто) |
+| `--basic-auth-user` | `OPENSEARCH_BASIC_AUTH_USER` | Пользователь для HTTP Basic Auth к OpenSearch. Если пусто — basic auth не используется | (пусто) |
+| `--basic-auth-pass` | `OPENSEARCH_BASIC_AUTH_PASS` | Пароль для HTTP Basic Auth к OpenSearch. Если пусто — basic auth не используется | (пусто) |
 | `--timeout` | `OPENSEARCH_TIMEOUT` | Таймаут запросов | `300s` |
 | `--retry-attempts` | `OPENSEARCH_RETRY_ATTEMPTS` | Количество повторных попыток для запросов в апи | `3` |
 | `--date-format` | `OPENSEARCH_DATE_FORMAT` | Формат даты в названиях индексов и снапшотов | `%Y.%m.%d` |
