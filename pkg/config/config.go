@@ -224,7 +224,7 @@ func setDefaults() {
 	viper.SetDefault("cert_file", "/etc/ssl/certs/admin-crt.pem")
 	viper.SetDefault("key_file", "/etc/ssl/certs/admin-key.pem")
 	viper.SetDefault("ca_file", "")
-	viper.SetDefault("insecure_skip_verify", "")
+	viper.SetDefault("insecure_skip_verify", true)
 	viper.SetDefault("basic_auth_user", "")
 	viper.SetDefault("basic_auth_pass", "")
 	viper.SetDefault("timeout", "300s")

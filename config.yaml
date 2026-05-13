@@ -13,7 +13,7 @@ key_file: "/etc/ssl/certs/admin-key.pem"
 ca_file: ""
 basic_auth_user: ""
 basic_auth_pass: ""
-insecure_skip_verify: ""
+insecure_skip_verify: true
 timeout: "300s"
 retry_attempts: 3
 date_format: "%Y.%m.%d"
