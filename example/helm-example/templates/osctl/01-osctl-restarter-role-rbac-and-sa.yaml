@@ -6,25 +6,33 @@ metadata:
   name: osctl-restarter-{{ .Release.Namespace }}
   namespace: {{ .Release.Namespace }}
 ---
-kind: ClusterRole
+kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: osctl-restarter-role-{{ .Release.Namespace }}
+  namespace: {{ .Release.Namespace }}
 rules:
-  - apiGroups: ["","apps"]
-    resources: ["statefulsets","pods","deployments","secrets"]
-    verbs: ["get", "patch", "watch", "update", "list", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create", "update"]
+  - apiGroups: ["apps"]
+    resources: ["statefulsets"]
+    verbs: ["list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "update"]
 ---
-kind: ClusterRoleBinding
+kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: osctl-restarter-rb-{{ .Release.Namespace }}
+  namespace: {{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
     name: osctl-restarter-{{ .Release.Namespace }}
     namespace: {{ .Release.Namespace }}
 roleRef:
-  kind: ClusterRole
+  kind: Role
   name: osctl-restarter-role-{{ .Release.Namespace }}
   apiGroup: rbac.authorization.k8s.io
 {{- end }}
