@@ -80,7 +80,10 @@ type ShardDetail struct {
 }
 
 func (c *Client) GetSnapshots(repo, pattern string) ([]Snapshot, error) {
-	url := fmt.Sprintf("%s/_snapshot/%s/%s?verbose=false", c.baseURL, escapePathSegment(repo), escapePathSegment(pattern))
+	url := fmt.Sprintf("%s/_snapshot/%s/%s", c.baseURL, escapePathSegment(repo), escapePathSegment(pattern))
+	if !c.es5Compatibility {
+		url += "?verbose=false"
+	}
 
 	var response SnapshotResponse
 	if err := c.getJSON(url, &response); err != nil {
@@ -101,8 +104,22 @@ func (c *Client) DeleteSnapshots(snapRepo string, snapshotNames []string) error 
 		return nil
 	}
 
+	if c.es5Compatibility {
+		for _, name := range snapshotNames {
+			if err := c.DeleteSnapshot(snapRepo, name); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
 	snapshotsList := escapePathList(snapshotNames)
 	url := fmt.Sprintf("%s/_snapshot/%s/%s", c.baseURL, escapePathSegment(snapRepo), snapshotsList)
+	return c.delete(url)
+}
+
+func (c *Client) DeleteSnapshot(snapRepo, snapshotName string) error {
+	url := fmt.Sprintf("%s/_snapshot/%s/%s", c.baseURL, escapePathSegment(snapRepo), escapePathSegment(snapshotName))
 	return c.delete(url)
 }
 

@@ -71,6 +71,7 @@ type Config struct {
 	IndexPatternsRefreshEnabled        string
 	SnapshotsBackfillIndicesList       string
 	MaxConcurrentSnapshots             string
+	ES5Compatibility                   string
 }
 
 type CommandConfig = Config
@@ -191,6 +192,7 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		IndexPatternsRefreshEnabled:        getValue(cmd, "indexpatterns-refresh-enabled", "INDEXPATTERNS_REFRESH_ENABLED", viper.GetString("indexpatterns_refresh_enabled")),
 		SnapshotsBackfillIndicesList:       getValue(cmd, "indices-list", "SNAPSHOTS_BACKFILL_INDICES_LIST", viper.GetString("snapshots_backfill_indices_list")),
 		MaxConcurrentSnapshots:             getValue(cmd, "max-concurrent-snapshots", "MAX_CONCURRENT_SNAPSHOTS", viper.GetString("max_concurrent_snapshots")),
+		ES5Compatibility:                   getValue(cmd, "es5-compatibility", "ES5_COMPATIBILITY", viper.GetString("es5_compatibility")),
 	}
 
 	switch commandName {
@@ -269,6 +271,7 @@ func setDefaults() {
 	viper.SetDefault("datasource_endpoint", "https://opendistro-recoverer:9200")
 	viper.SetDefault("indexpatterns_refresh_enabled", false)
 	viper.SetDefault("max_concurrent_snapshots", 3)
+	viper.SetDefault("es5_compatibility", false)
 }
 
 func GetAvailableActions() []string {
@@ -610,6 +613,10 @@ func (c *Config) GetMaxConcurrentSnapshots() int {
 	return parseIntWithDefault(c.MaxConcurrentSnapshots, "max_concurrent_snapshots")
 }
 
+func (c *Config) GetES5Compatibility() bool {
+	return parseBoolWithDefault(c.ES5Compatibility, "es5_compatibility")
+}
+
 type FlagDefinition struct {
 	Name        string
 	Type        string
@@ -622,6 +629,7 @@ var CommandFlags = map[string][]FlagDefinition{
 	"common": {
 		{"osctl-indices-config", "string", "", "Path to osctl indices configuration file", []string{}},
 		{"max-concurrent-snapshots", "int", 3, "Maximum number of snapshots to create simultaneously", []string{"min:1", "max:10"}},
+		{"es5-compatibility", "bool", false, "Elasticsearch 5.2/5.3 compatibility mode: omit the 'verbose' snapshot query param, delete snapshots one at a time, snapshot only open indices, and connect without TLS client certificates when no auth is configured", []string{}},
 	},
 	"snapshots": {
 		{"dry-run", "bool", false, "Show what would be created without actually creating", []string{}},

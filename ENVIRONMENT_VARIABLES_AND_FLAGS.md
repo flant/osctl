@@ -37,6 +37,7 @@
 | `--osctl-indices-config` | `OSCTL_INDICES_CONFIG` | Путь к конфигу индексов - для snapshot, indicesdelete, snapshotsdelete, snapshotchecker | `osctlindicesconfig.yaml` |
 | `--dry-run` | `DRY_RUN` | Показать что будет сделано без выполнения | `false` |
 | `--snap-repo` | `SNAPSHOT_REPOSITORY` | Название репо для снапшотов | (пусто) |
+| `--es5-compatibility` | `ES5_COMPATIBILITY` | Режим совместимости с Elasticsearch 5.2/5.3: убрать параметр `verbose` из get-snapshots API, удалять снапшоты по одному, снапшотить только открытые индексы, подключаться без TLS-клиентских сертификатов при отсутствии basic-auth | `false` |
 
 ## Параметр action
 

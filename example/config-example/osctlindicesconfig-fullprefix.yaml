@@ -1,0 +1,43 @@
+full_prefix_snapshots: true
+
+s3_snapshots:
+  unit_count:
+    all: 5
+
+indices:
+  - kind: prefix
+    value: as-avataria-mm
+    snapshot: true
+    snapshot_count_s3: 5
+  - kind: prefix
+    value: as-avataria-vk
+    snapshot: true
+    snapshot_count_s3: 5
+  - kind: prefix
+    value: as-avataria-ok
+    snapshot: true
+    snapshot_count_s3: 5
+  - kind: prefix
+    value: as-avataria-gm
+    snapshot: true
+    snapshot_count_s3: 5
+  - kind: prefix
+    value: as-horror
+    snapshot: true
+    snapshot_count_s3: 5
+  - kind: prefix
+    value: as-avaland-v2
+    snapshot: true
+    snapshot_count_s3: 7
+  - kind: prefix
+    value: as-stories
+    snapshot: true
+    snapshot_count_s3: 5
+  - kind: prefix
+    value: as-tgc
+    snapshot: true
+    snapshot_count_s3: 5
+  - kind: prefix
+    value: as-tropicania-vk
+    snapshot: true
+    snapshot_count_s3: 5

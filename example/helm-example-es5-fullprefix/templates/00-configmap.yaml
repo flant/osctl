@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: osctl-configmap
+data:
+  config.yml: |-
+    ---
+    opensearch_url: {{ .Values.opensearchUrl | quote }}
+    es5_compatibility: true
+    timeout: "300s"
+    retry_attempts: 3
+    date_format: {{ .Values.dateFormat | default "%Y.%m.%d" | quote }}
+    dry_run: false
+    snapshot_repo: {{ .Values.snapshotRepo | quote }}
+    kube_namespace: {{ .Release.Namespace | quote }}
+    max_concurrent_snapshots: {{ .Values.maxConcurrentSnapshots | default 1 }}
+    madison_url: "https://madison.flant.com/api/events/custom/"
+    madison_key: {{ .Values.madisonKey | quote }}
+    osd_url: {{ .Values.osdUrl | quote }}
+  osctlindicesconfig.yml: |-
+    ---
+{{ toYaml .Values.indicesConfig | indent 4 }}

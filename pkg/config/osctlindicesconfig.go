@@ -10,9 +10,10 @@ import (
 )
 
 type OsctlIndicesConfig struct {
-	S3Snapshots S3SnapshotsConfig `yaml:"s3_snapshots"`
-	Unknown     UnknownConfig     `yaml:"unknown"`
-	Indices     []IndexConfig     `yaml:"indices"`
+	FullPrefixSnapshots bool              `yaml:"full_prefix_snapshots"`
+	S3Snapshots         S3SnapshotsConfig `yaml:"s3_snapshots"`
+	Unknown             UnknownConfig     `yaml:"unknown"`
+	Indices             []IndexConfig     `yaml:"indices"`
 }
 
 type S3SnapshotsConfig struct {
@@ -78,7 +79,7 @@ func LoadOsctlIndicesConfig(path string) (*OsctlIndicesConfig, error) {
 		}
 
 		for i := range config.Indices {
-			if config.Indices[i].DaysCount < 1 {
+			if !config.FullPrefixSnapshots && config.Indices[i].DaysCount < 1 {
 				return nil, fmt.Errorf("index config #%d: days_count must be >= 1", i+1)
 			}
 			if config.Indices[i].SnapshotCountS3 < 0 {
@@ -172,4 +173,8 @@ func (c *Config) GetOsctlIndicesS3SnapshotsConfig() S3SnapshotsConfig {
 
 func (c *Config) IsOsctlIndicesMode() bool {
 	return c.OsctlIndicesConfig != nil
+}
+
+func (c *Config) IsFullPrefixSnapshots() bool {
+	return c.OsctlIndicesConfig != nil && c.OsctlIndicesConfig.FullPrefixSnapshots
 }

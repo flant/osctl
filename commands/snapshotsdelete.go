@@ -26,6 +26,9 @@ func init() {
 
 func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 	cfg := config.GetConfig()
+	if cfg.IsFullPrefixSnapshots() {
+		return runSnapshotsDeleteFullPrefix(cmd, args)
+	}
 	logger := logging.NewLogger()
 
 	indicesConfig, err := cfg.GetOsctlIndices()

@@ -29,6 +29,9 @@ func init() {
 
 func runSnapshot(cmd *cobra.Command, args []string) error {
 	cfg := config.GetConfig()
+	if cfg.IsFullPrefixSnapshots() {
+		return runSnapshotFullPrefixCreate(cmd, args)
+	}
 	logger := logging.NewLogger()
 	defaultRepo := cfg.GetSnapshotRepo()
 

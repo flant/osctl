@@ -29,6 +29,9 @@ func init() {
 
 func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 	cfg := config.GetConfig()
+	if cfg.IsFullPrefixSnapshots() {
+		return fmt.Errorf("snapshotsbackfill is disabled when full_prefix_snapshots is enabled: prefix indices are persistent and share stable names, so historical backfill has no meaning — do not run this job in that mode")
+	}
 	logger := logging.NewLogger()
 	defaultRepo := cfg.GetSnapshotRepo()
 	today := utils.FormatDate(time.Now(), cfg.GetDateFormat())

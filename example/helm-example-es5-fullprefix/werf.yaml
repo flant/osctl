@@ -1,0 +1,8 @@
+project: elk-backup
+configVersion: 1
+deploy:
+  namespace: "[[ project ]]"
+  helmRelease: "[[ project ]]"
+---
+image: osctl
+from: ghcr.io/flant/osctl:1.0.7

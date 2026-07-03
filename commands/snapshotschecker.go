@@ -27,6 +27,9 @@ func init() {
 
 func runSnapshotsChecker(cmd *cobra.Command, args []string) error {
 	cfg := config.GetConfig()
+	if cfg.IsFullPrefixSnapshots() {
+		return runSnapshotsCheckerFullPrefix(cmd, args)
+	}
 	logger := logging.NewLogger()
 
 	logger.Info("Starting snapshot checking")

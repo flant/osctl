@@ -24,7 +24,12 @@ type Client struct {
 	basicAuthPass      string
 	timeout            time.Duration
 	retryAttempts      int
+	es5Compatibility   bool
 	httpClient         *http.Client
+}
+
+func (c *Client) ES5Compatibility() bool {
+	return c.es5Compatibility
 }
 
 func escapePathSegment(s string) string {
@@ -52,6 +57,7 @@ type ClientOptions struct {
 	BasicAuthPass      string
 	Timeout            time.Duration
 	RetryAttempts      int
+	ES5Compatibility   bool
 }
 
 func NewClient(baseURL, certFile, keyFile, caFile string, timeout time.Duration, retryAttempts int) (*Client, error) {
@@ -110,6 +116,7 @@ func NewClientWithOptions(baseURL string, opts ClientOptions) (*Client, error) {
 		basicAuthPass:      opts.BasicAuthPass,
 		timeout:            opts.Timeout,
 		retryAttempts:      opts.RetryAttempts,
+		es5Compatibility:   opts.ES5Compatibility,
 		httpClient:         httpClient,
 	}, nil
 }

@@ -1,0 +1,73 @@
+opensearchUrl: "http://10.5.6.9:9200"
+
+snapshotRepo: "s3-backup"
+
+madisonKey: ""
+osdUrl: ""
+
+dateFormat: "%Y.%m.%d"
+
+maxConcurrentSnapshots: 1
+
+schedules:
+  snapshots: "0 2 * * *"
+  snapshotschecker: "0 6 * * *"
+  snapshotsdelete: "30 3 * * *"
+
+activeDeadlineSeconds: 86400
+
+registrySecret: "registrysecret"
+
+nodeSelector:
+  node-role.kubernetes.io/prod-worker: ""
+
+affinity: {}
+
+tolerations:
+  - effect: NoExecute
+    key: dedicated
+    operator: Equal
+    value: prod-worker
+
+indicesConfig:
+  full_prefix_snapshots: true
+  s3_snapshots:
+    unit_count:
+      all: 5
+  indices:
+    - kind: prefix
+      value: as-avataria-mm
+      snapshot: true
+      snapshot_count_s3: 5
+    - kind: prefix
+      value: as-avataria-vk
+      snapshot: true
+      snapshot_count_s3: 5
+    - kind: prefix
+      value: as-avataria-ok
+      snapshot: true
+      snapshot_count_s3: 5
+    - kind: prefix
+      value: as-avataria-gm
+      snapshot: true
+      snapshot_count_s3: 5
+    - kind: prefix
+      value: as-horror
+      snapshot: true
+      snapshot_count_s3: 5
+    - kind: prefix
+      value: as-avaland-v2
+      snapshot: true
+      snapshot_count_s3: 7
+    - kind: prefix
+      value: as-stories
+      snapshot: true
+      snapshot_count_s3: 5
+    - kind: prefix
+      value: as-tgc
+      snapshot: true
+      snapshot_count_s3: 5
+    - kind: prefix
+      value: as-tropicania-vk
+      snapshot: true
+      snapshot_count_s3: 5
