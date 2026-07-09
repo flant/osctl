@@ -196,7 +196,7 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 	}
 
 	switch commandName {
-	case "snapshots", "snapshotsdelete", "snapshotsbackfill":
+	case "snapshots", "snapshotsdelete", "snapshotsbackfill", "restore":
 		if configInstance.SnapshotRepo == "" {
 			return fmt.Errorf("snap-repo is required for %s", commandName)
 		}
@@ -290,6 +290,7 @@ func GetAvailableActions() []string {
 		"sharding",
 		"indexpatterns",
 		"datasource",
+		"restore",
 	}
 }
 
@@ -715,6 +716,10 @@ var CommandFlags = map[string][]FlagDefinition{
 	},
 	"danglingchecker": {
 		{"dry-run", "bool", false, "Show what alerts would be sent without sending", []string{}},
+	},
+	"restore": {
+		{"snap-repo", "string", "", "Snapshot repository name to restore from", []string{"required"}},
+		{"dry-run", "bool", false, "Show what would be restored without actually restoring", []string{}},
 	},
 }
 

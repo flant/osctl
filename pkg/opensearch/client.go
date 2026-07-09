@@ -206,6 +206,29 @@ func (c *Client) putJSON(url string, data interface{}) error {
 	return nil
 }
 
+func (c *Client) postJSON(url string, data interface{}) error {
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal data: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.executeRequest(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("POST %s failed: %s — %s", req.URL.Path, resp.Status, readErrorSnippet(resp))
+	}
+	return nil
+}
+
 func (c *Client) delete(url string) error {
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {

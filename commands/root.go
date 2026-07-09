@@ -117,6 +117,8 @@ func executeActionCommand(action string, args []string) error {
 		targetCmd = indexPatternsCmd
 	case "datasource":
 		targetCmd = dataSourceCmd
+	case "restore":
+		targetCmd = restoreCmd
 	default:
 		return fmt.Errorf("unknown action: %s", action)
 	}
@@ -145,6 +147,7 @@ func init() {
 		danglingCheckerCmd,
 		coldStorageCmd,
 		extractedDeleteCmd,
+		restoreCmd,
 	}
 	for _, cmd := range commands {
 		cmd.SilenceUsage = true
