@@ -57,6 +57,7 @@ spec:
             args:
             - restore
             - --snap-repo=s3-backup-old
+            - "--index-filter=other-kong-x1-fluentd-2026.*,other-kong-yc-a-stage-fluentd-2026.*,other-kong-yc-fluentd-2026.*,other-kong-x2-fluentd-2026.*,kong-yc-a-stage-fluentd-doc-2026.*,kong-x2-fluentd-doc-2026.*,kong-x1-fluentd-doc-2026.*,kong-yc-fluentd-doc-2026.*"
             volumeMounts:
             - name: osctl-config
               mountPath: /app/config.yaml

@@ -2,8 +2,10 @@ package utils
 
 import (
 	"fmt"
+	"osctl/pkg/alerts"
 	"osctl/pkg/logging"
 	"osctl/pkg/opensearch"
+	"path"
 	"sort"
 	"strings"
 	"sync"
@@ -16,6 +18,31 @@ type RestoreTask struct {
 	Repo         string
 	Size         int64
 	PollInterval time.Duration
+}
+
+func MatchesAnyPattern(name string, patterns []string) bool {
+	if len(patterns) == 0 {
+		return true
+	}
+	for _, p := range patterns {
+		if ok, err := path.Match(p, name); err == nil && ok {
+			return true
+		}
+	}
+	return false
+}
+
+func FilterIndices(indices, patterns []string) []string {
+	if len(patterns) == 0 {
+		return indices
+	}
+	out := make([]string, 0, len(indices))
+	for _, idx := range indices {
+		if MatchesAnyPattern(idx, patterns) {
+			out = append(out, idx)
+		}
+	}
+	return out
 }
 
 func GetSnapshotSize(client *opensearch.Client, repo, snapshot string) (int64, error) {
@@ -36,7 +63,7 @@ func SortRestoreTasksBySizeDesc(tasks []RestoreTask) []RestoreTask {
 	return sorted
 }
 
-func RestoreSnapshotsInParallel(client *opensearch.Client, tasks []RestoreTask, maxConcurrent int, logger *logging.Logger) ([]string, []string) {
+func RestoreSnapshotsInParallel(client *opensearch.Client, tasks []RestoreTask, maxConcurrent int, madisonClient *alerts.Client, namespace, dateStr string, logger *logging.Logger) ([]string, []string) {
 	var successful, failed []string
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -69,10 +96,10 @@ func RestoreSnapshotsInParallel(client *opensearch.Client, tasks []RestoreTask, 
 		go func(id int) {
 			defer wg.Done()
 			for task := range taskChan {
-				err := RestoreOneSnapshot(client, task, logger, id)
+				err := RestoreOneSnapshot(client, task, madisonClient, namespace, dateStr, logger, id)
 				mu.Lock()
 				if err != nil {
-					logger.Error(fmt.Sprintf("Worker %d: Failed to restore snapshot snapshot=%s error=%v", id, task.SnapshotName, err))
+					logger.Error(fmt.Sprintf("Worker %d: Snapshot restored with errors snapshot=%s error=%v", id, task.SnapshotName, err))
 					failed = append(failed, task.SnapshotName)
 				} else {
 					logger.Info(fmt.Sprintf("Worker %d: Successfully restored snapshot snapshot=%s", id, task.SnapshotName))
@@ -88,13 +115,17 @@ func RestoreSnapshotsInParallel(client *opensearch.Client, tasks []RestoreTask, 
 	return successful, failed
 }
 
-func RestoreOneSnapshot(client *opensearch.Client, task RestoreTask, logger *logging.Logger, workerID int) error {
-	toRestore := make([]string, 0, len(task.Indices))
+func RestoreOneSnapshot(client *opensearch.Client, task RestoreTask, madisonClient *alerts.Client, namespace, dateStr string, logger *logging.Logger, workerID int) error {
+	start := time.Now()
+	logger.Info(fmt.Sprintf("Worker %d: Starting restore snapshot=%s repo=%s size=%s indicesCount=%d", workerID, task.SnapshotName, task.Repo, formatSize(task.Size), len(task.Indices)))
+
+	var failedIndices []string
 	for _, idx := range task.Indices {
 		idx = strings.TrimSpace(idx)
 		if idx == "" {
 			continue
 		}
+
 		exists, err := client.IndexExists(idx)
 		if err != nil {
 			logger.Warn(fmt.Sprintf("Worker %d: Failed to check index existence, will attempt restore index=%s error=%v", workerID, idx, err))
@@ -102,20 +133,34 @@ func RestoreOneSnapshot(client *opensearch.Client, task RestoreTask, logger *log
 			logger.Info(fmt.Sprintf("Worker %d: Index already exists, skipping index=%s snapshot=%s", workerID, idx, task.SnapshotName))
 			continue
 		}
-		toRestore = append(toRestore, idx)
+
+		if err := restoreSingleIndex(client, task, idx, logger, workerID); err != nil {
+			logger.Error(fmt.Sprintf("Worker %d: Failed to restore index index=%s snapshot=%s error=%v", workerID, idx, task.SnapshotName, err))
+			failedIndices = append(failedIndices, idx)
+			if madisonClient != nil {
+				if _, aerr := madisonClient.SendMadisonRestoreFailedAlert(task.SnapshotName, idx, task.Repo, namespace, dateStr); aerr != nil {
+					logger.Error(fmt.Sprintf("Worker %d: Failed to send Madison restore-failed alert index=%s error=%v", workerID, idx, aerr))
+				} else {
+					logger.Info(fmt.Sprintf("Worker %d: Madison alert sent: type=SnapshotRestoreFailed index=%s", workerID, idx))
+				}
+			}
+			continue
+		}
 	}
 
-	if len(toRestore) == 0 {
-		logger.Info(fmt.Sprintf("Worker %d: All indices already present, nothing to restore snapshot=%s", workerID, task.SnapshotName))
-		return nil
+	logger.Info(fmt.Sprintf("Worker %d: Snapshot restore done snapshot=%s duration=%s failedIndices=%d", workerID, task.SnapshotName, formatDuration(time.Since(start)), len(failedIndices)))
+	if len(failedIndices) > 0 {
+		return fmt.Errorf("failed indices: %s", strings.Join(failedIndices, ", "))
 	}
+	return nil
+}
 
+func restoreSingleIndex(client *opensearch.Client, task RestoreTask, index string, logger *logging.Logger, workerID int) error {
 	start := time.Now()
-	logger.Info(fmt.Sprintf("Worker %d: Starting restore snapshot=%s repo=%s size=%s indicesCount=%d", workerID, task.SnapshotName, task.Repo, formatSize(task.Size), len(toRestore)))
-	logger.Info(fmt.Sprintf("Worker %d: Restore indices %s", workerID, strings.Join(toRestore, ", ")))
+	logger.Info(fmt.Sprintf("Worker %d: Restoring index=%s snapshot=%s", workerID, index, task.SnapshotName))
 
 	body := map[string]any{
-		"indices":              strings.Join(toRestore, ","),
+		"indices":              index,
 		"ignore_unavailable":   true,
 		"include_global_state": false,
 		"include_aliases":      false,
@@ -124,11 +169,10 @@ func RestoreOneSnapshot(client *opensearch.Client, task RestoreTask, logger *log
 		return fmt.Errorf("failed to start restore: %v", err)
 	}
 
-	if err := WaitForRestore(client, toRestore, task.PollInterval, logger, workerID, task.SnapshotName); err != nil {
+	if err := WaitForRestore(client, []string{index}, task.PollInterval, logger, workerID, task.SnapshotName); err != nil {
 		return err
 	}
-
-	logger.Info(fmt.Sprintf("Worker %d: Restore completed and verified snapshot=%s duration=%s indicesCount=%d", workerID, task.SnapshotName, formatDuration(time.Since(start)), len(toRestore)))
+	logger.Info(fmt.Sprintf("Worker %d: Index restored and verified index=%s snapshot=%s duration=%s", workerID, index, task.SnapshotName, formatDuration(time.Since(start))))
 	return nil
 }
 

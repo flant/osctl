@@ -71,6 +71,7 @@ type Config struct {
 	IndexPatternsRefreshEnabled        string
 	SnapshotsBackfillIndicesList       string
 	MaxConcurrentSnapshots             string
+	RestoreIndexFilter                 string
 	ES5Compatibility                   string
 }
 
@@ -192,6 +193,7 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		IndexPatternsRefreshEnabled:        getValue(cmd, "indexpatterns-refresh-enabled", "INDEXPATTERNS_REFRESH_ENABLED", viper.GetString("indexpatterns_refresh_enabled")),
 		SnapshotsBackfillIndicesList:       getValue(cmd, "indices-list", "SNAPSHOTS_BACKFILL_INDICES_LIST", viper.GetString("snapshots_backfill_indices_list")),
 		MaxConcurrentSnapshots:             getValue(cmd, "max-concurrent-snapshots", "MAX_CONCURRENT_SNAPSHOTS", viper.GetString("max_concurrent_snapshots")),
+		RestoreIndexFilter:                 getValue(cmd, "index-filter", "RESTORE_INDEX_FILTER", viper.GetString("restore_index_filter")),
 		ES5Compatibility:                   getValue(cmd, "es5-compatibility", "ES5_COMPATIBILITY", viper.GetString("es5_compatibility")),
 	}
 
@@ -614,6 +616,17 @@ func (c *Config) GetMaxConcurrentSnapshots() int {
 	return parseIntWithDefault(c.MaxConcurrentSnapshots, "max_concurrent_snapshots")
 }
 
+func (c *Config) GetRestoreIndexFilter() []string {
+	var patterns []string
+	for _, p := range strings.Split(c.RestoreIndexFilter, ",") {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			patterns = append(patterns, p)
+		}
+	}
+	return patterns
+}
+
 func (c *Config) GetES5Compatibility() bool {
 	return parseBoolWithDefault(c.ES5Compatibility, "es5_compatibility")
 }
@@ -719,6 +732,7 @@ var CommandFlags = map[string][]FlagDefinition{
 	},
 	"restore": {
 		{"snap-repo", "string", "", "Snapshot repository name to restore from", []string{"required"}},
+		{"index-filter", "string", "", "Comma-separated glob patterns; only matching indices from the snapshots are restored (empty = all)", []string{}},
 		{"dry-run", "bool", false, "Show what would be restored without actually restoring", []string{}},
 	},
 }
