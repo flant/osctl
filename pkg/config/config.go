@@ -72,6 +72,8 @@ type Config struct {
 	SnapshotsBackfillIndicesList       string
 	MaxConcurrentSnapshots             string
 	RestoreIndexFilter                 string
+	RestoreDaysCount                   string
+	RestoreDate                        string
 	ES5Compatibility                   string
 }
 
@@ -194,6 +196,8 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		SnapshotsBackfillIndicesList:       getValue(cmd, "indices-list", "SNAPSHOTS_BACKFILL_INDICES_LIST", viper.GetString("snapshots_backfill_indices_list")),
 		MaxConcurrentSnapshots:             getValue(cmd, "max-concurrent-snapshots", "MAX_CONCURRENT_SNAPSHOTS", viper.GetString("max_concurrent_snapshots")),
 		RestoreIndexFilter:                 getValue(cmd, "index-filter", "RESTORE_INDEX_FILTER", viper.GetString("restore_index_filter")),
+		RestoreDaysCount:                   getValue(cmd, "days", "RESTORE_DAYS_COUNT", viper.GetString("restore_days_count")),
+		RestoreDate:                        getValue(cmd, "date", "RESTORE_DATE", viper.GetString("restore_date")),
 		ES5Compatibility:                   getValue(cmd, "es5-compatibility", "ES5_COMPATIBILITY", viper.GetString("es5_compatibility")),
 	}
 
@@ -273,6 +277,7 @@ func setDefaults() {
 	viper.SetDefault("datasource_endpoint", "https://opendistro-recoverer:9200")
 	viper.SetDefault("indexpatterns_refresh_enabled", false)
 	viper.SetDefault("max_concurrent_snapshots", 3)
+	viper.SetDefault("restore_days_count", 1)
 	viper.SetDefault("es5_compatibility", false)
 }
 
@@ -627,6 +632,14 @@ func (c *Config) GetRestoreIndexFilter() []string {
 	return patterns
 }
 
+func (c *Config) GetRestoreDaysCount() int {
+	return parseIntWithDefault(c.RestoreDaysCount, "restore_days_count")
+}
+
+func (c *Config) GetRestoreDate() string {
+	return strings.TrimSpace(c.RestoreDate)
+}
+
 func (c *Config) GetES5Compatibility() bool {
 	return parseBoolWithDefault(c.ES5Compatibility, "es5_compatibility")
 }
@@ -733,6 +746,8 @@ var CommandFlags = map[string][]FlagDefinition{
 	"restore": {
 		{"snap-repo", "string", "", "Snapshot repository name to restore from", []string{"required"}},
 		{"index-filter", "string", "", "Comma-separated glob patterns; only matching indices from the snapshots are restored (empty = all)", []string{}},
+		{"days", "int", 1, "How many days of snapshots to restore, starting from today and going back (1 = today only)", []string{"min:1", "max:60"}},
+		{"date", "string", "", "Restore only snapshots of this exact date (date_format, e.g. 2026.07.09); overrides --days", []string{}},
 		{"dry-run", "bool", false, "Show what would be restored without actually restoring", []string{}},
 	},
 }

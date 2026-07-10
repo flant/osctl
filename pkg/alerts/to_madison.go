@@ -83,6 +83,38 @@ func (c *Client) sendAlert(payload Alert) (string, error) {
 	return string(body), nil
 }
 
+func (c *Client) SendMadisonForeignRestoreAlert(indices []string, namespace, dateStr string) (string, error) {
+	if len(indices) == 0 {
+		return "", nil
+	}
+	display := strings.Join(indices, ",")
+	list := display
+	if len(indices) > 3 {
+		display = strings.Join(indices[:3], ",") + ",... полный список в описании."
+		list = strings.Join(indices[:3], ",") + ",..."
+	}
+	summary := fmt.Sprintf("Идут ресторы посторонних индексов (не из фильтра): %s", display)
+	description := fmt.Sprintf("Джоба восстановления обнаружила %d одновременных ресторов индексов, не входящих в её фильтр (%s), и остановилась, чтобы не перегружать кластер. Проверьте, кто ещё запустил восстановление в namespace %s (дата %s), дождитесь их завершения или уменьшите нагрузку, затем перезапустите джобу.", len(indices), strings.Join(indices, ","), namespace, dateStr)
+
+	payload := Alert{
+		Labels: Labels{
+			Trigger:       "SnapshotRestoreForeign",
+			SeverityLevel: "4",
+			IndicesList:   list,
+			Kibana:        c.kibanaHost,
+		},
+		Annotations: Annotations{
+			Summary:                                 summary,
+			Description:                             description,
+			PlkCreateGroupIfNotExistsElkFieldsGroup: "ElkSnapshotRestoreForeignGroup,kibana=~kibana",
+			PlkGroupedByElkFieldsGroup:              "ElkSnapshotRestoreForeignGroup,kibana=~kibana",
+			PlkMarkupFormat:                         "markdown",
+			PlkProtocolVersion:                      "1",
+		},
+	}
+	return c.sendAlert(payload)
+}
+
 func (c *Client) SendMadisonSnapshotStateFailedAlert(snapshotName, state, snapRepo, namespace, dateStr string) (string, error) {
 	summary := fmt.Sprintf("Снапшот %s в состоянии %s — восстановление невозможно", snapshotName, state)
 	description := fmt.Sprintf("Снапшот %s из репозитория %s находится в состоянии %s (ожидалось SUCCESS), поэтому джоба восстановления его пропустила. Проверьте снапшот через GET _cat/snapshots/%s и при необходимости пересоздайте его на исходном кластере. Namespace: %s, дата: %s.", snapshotName, snapRepo, state, snapRepo, namespace, dateStr)

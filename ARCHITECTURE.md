@@ -21,7 +21,8 @@ osctl/
 │   ├── extracteddelete.go        # Удаление extracted индексов
 │   ├── sharding.go               # Автоматическое шардирование
 │   ├── indexpatterns.go         # Управление Kibana index patterns
-│   └── datasource.go             # Создание Kibana data sources
+│   ├── datasource.go             # Создание Kibana data sources
+│   └── restore.go               # Идемпотентный рестор индексов из снапшотов
 ├── pkg/
 │   ├── config/                   # Конфигурация
 │   │   ├── config.go            # Основная конфигурация
@@ -32,6 +33,7 @@ osctl/
 │   │   ├── cluster.go           # allocation, aliases, nodes
 │   │   ├── indices.go           # Операции с индексами и их настройками
 │   │   ├── snapshots.go         # Работа со снапшотами
+│   │   ├── restore.go           # Рестор, recovery/shards, restore-source
 │   │   ├── templates.go         # Работа с index templates
 │   │   └── tasks.go             # Работа с _tasks API
 │   ├── kibana/                  # Kibana API клиент
@@ -662,24 +664,35 @@ osctl/
 
 ### 15. **restore** - фоновый рестор указанных индексов
 
-Восстанавливает индексы из **всех сегодняшних снапшотов** репозитория (`--snap-repo`). Задумана как кронджоба конца дня: к моменту запуска сегодняшние снапшоты уже `SUCCESS`.
+Восстанавливает индексы из снапшотов репозитория (`--snap-repo`). По умолчанию — за сегодня; флагами можно расширить на N дней или указать конкретную дату. Идемпотентна: безопасно перезапускать, уже восстановленное пропускается, зависшие ресторы чинятся.
 
-Как работает:
-1. Список снапшотов берётся **через фильтр по сегодняшней дате** (`_snapshot/<repo>/*<today>*`), а не `_all` — репозиторий может содержать десятки тысяч снапшотов.
-2. **Фильтр индексов** (`--index-filter`, список glob-паттернов через запятую): ресторятся **только** индексы снапшота, попавшие под паттерны. Остальные индексы снапшота игнорируются, даже если снапшот называется по-другому. Если под фильтр не попал ни один индекс снапшота — снапшот пропускается. Пустой фильтр = все индексы.
-3. Для каждого `SUCCESS`-снапшота считается размер (через `_status`), список сортируется **от самых жирных к мелким** и ресторится **параллельно** (`max_concurrent_snapshots`, по умолчанию 3). Уже существующие индексы пропускаются.
-4. Каждый индекс ресторится отдельно и **ожидается до готовности** (все primary-шарды активны, статус не `red`) через `_cluster/health?level=indices`.
-5. **Состояния снапшотов:**
-   - `SUCCESS` — ресторим сразу;
-   - `IN_PROGRESS`/`STARTED` — откладываем в конец очереди, после основного прохода в цикле опрашиваем состояние; как только станет `SUCCESS` — ресторим (несколько in-progress поддерживается);
-   - `FAILED`/`PARTIAL`/прочее — **алерт в Madison**, снапшот пропускается.
-6. **Ошибки не прерывают джобу:** если ресторе индекса упал — шлём **алерт в Madison** и продолжаем со следующим индексом/снапшотом. В конце, если были падения/алерты, джоба завершается ненулевым кодом (для мониторинга).
+Диапазон дат (всегда начиная с ближайшего дня, назад):
+- по умолчанию — только сегодня;
+- `--days N` — сегодня, вчера, … , сегодня-(N-1) (env `RESTORE_DAYS_COUNT`, config `restore_days_count`);
+- `--date 2026.07.09` — только эта дата (в `date_format`), перекрывает `--days` (env `RESTORE_DATE`, config `restore_date`).
 
-Отдельных настроек не требует — только стандартные: `opensearch_url` (кластер-приёмник), `snapshot_repo`/`--snap-repo`, `--index-filter`, `date_format`, `max_concurrent_snapshots`, `dry_run`, и (для алертов) `madison_key`/`osd_url`/`madison_url`.
+Preflight (один раз в начале, для идемпотентности) — инвентарь текущих ресторов:
+- активные ресторы через `_cat/recovery?active_only=true` (type=snapshot), упавшие — через `_cat/shards` (primary `UNASSIGNED` + reason `NEW_INDEX_RESTORED`);
+- индексы делятся на **наши** (по `--index-filter`) и **чужие**;
+- **чужие** ресторы: 1–2 → предупреждение в лог; `>= max_concurrent_snapshots` → **алерт в Madison** (`SnapshotRestoreForeign`) и джоба падает;
+- **наши упавшие** (`RepairFailedRestore`): по источнику из allocation-explain (`restore_source[repo/snapshot]`) удаляем битую пустую оболочку и перезапускаем рестор — в пределах свободных слотов.
+
+Как работает по каждой дате:
+1. Список снапшотов берётся **через фильтр по дате** (`_snapshot/<repo>/*<date>*`), а не `_all`.
+2. **Фильтр индексов** (`--index-filter`, glob-паттерны через запятую): ресторятся **только** индексы снапшота, попавшие под паттерны, даже если снапшот называется иначе. Нет совпадений — снапшот пропускается. Пустой фильтр = все индексы.
+3. Для каждого `SUCCESS`-снапшота считается размер (`_status`), сортировка **от жирных к мелким**, рестор **параллельно** (`max_concurrent_snapshots`).
+4. Каждый индекс классифицируется (`ClassifyRestore` по `_cat/shards`): `DONE` (все primary started) — пропуск; `RESTORING` (initializing) — присоединяемся и ждём; `FAILED` (primary unassigned + `NEW_INDEX_RESTORED`) — удаляем и ресторим заново; `MISSING` — ресторим.
+5. **Слот-механизм** (`WaitForOurRestoreSlot`): перед новым рестором ждём, пока число **наших** активных ресторов `< max_concurrent_snapshots` — учитывая уже идущие (3 наших → ждём; 2 → +1; 1 → +2).
+6. Тело `_restore`: `ignore_index_settings: [index.routing.allocation.require.temp]` (снимаем tier-привязку, которой на приёмнике может не быть) + `index_settings: {index.number_of_replicas: 0}` (рестор не удваивает место). Ожидание готовности — через `_cluster/health?level=indices`.
+7. **Состояния снапшотов:** `SUCCESS` — сразу; `IN_PROGRESS`/`STARTED` — в конец очереди, опрашиваем в цикле до `SUCCESS`; `FAILED`/прочее — **алерт в Madison**, пропуск.
+8. **Ошибки не прерывают джобу:** упавший рестор индекса → **алерт в Madison** + продолжаем дальше. В конце при любых падениях/алертах — ненулевой код (для мониторинга).
+
+Стандартные настройки: `opensearch_url` (приёмник), `snapshot_repo`/`--snap-repo`, `--index-filter`, `--days`/`--date`, `date_format`, `max_concurrent_snapshots`, `dry_run`, и для алертов `madison_key`/`osd_url`/`madison_url`.
 
 ```bash
 osctl restore --snap-repo s3-backup-old --index-filter 'kong-*-2026.*,other-kong-*-2026.*'
-osctl restore --snap-repo s3-backup-old --index-filter 'kong-yc-fluentd-doc-2026.*' --dry-run
+osctl restore --snap-repo s3-backup-old --days 2 --index-filter 'kong-yc-fluentd-doc-2026.*'
+osctl restore --snap-repo s3-backup-old --date 2026.07.09 --dry-run
 ```
 
 
