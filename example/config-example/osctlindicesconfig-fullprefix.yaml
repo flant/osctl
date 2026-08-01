@@ -1,0 +1,43 @@
+full_prefix_snapshots: true
+
+s3_snapshots:
+  unit_count:
+    all: 5
+
+indices:
+  - kind: prefix
+    value: app-alpha-mm
+    snapshot: true
+    snapshot_count_s3: 5
+  - kind: prefix
+    value: app-alpha-vk
+    snapshot: true
+    snapshot_count_s3: 5
+  - kind: prefix
+    value: app-alpha-ok
+    snapshot: true
+    snapshot_count_s3: 5
+  - kind: prefix
+    value: app-alpha-gm
+    snapshot: true
+    snapshot_count_s3: 5
+  - kind: prefix
+    value: app-beta
+    snapshot: true
+    snapshot_count_s3: 5
+  - kind: prefix
+    value: app-gamma-v2
+    snapshot: true
+    snapshot_count_s3: 7
+  - kind: prefix
+    value: app-delta
+    snapshot: true
+    snapshot_count_s3: 5
+  - kind: prefix
+    value: app-epsilon
+    snapshot: true
+    snapshot_count_s3: 5
+  - kind: prefix
+    value: app-zeta-vk
+    snapshot: true
+    snapshot_count_s3: 5

@@ -1,0 +1,39 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: osctl-snapshotschecker
+  labels:
+    job: osctl-snapshotschecker
+    service: osctl
+spec:
+  schedule: {{ .Values.schedules.snapshotschecker | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  jobTemplate:
+    metadata:
+      labels:
+        job: osctl-snapshotschecker
+        service: osctl
+    spec:
+      activeDeadlineSeconds: {{ .Values.activeDeadlineSeconds }}
+      template:
+        metadata:
+          labels:
+            job: osctl-snapshotschecker
+            service: osctl
+        spec:
+          {{- include "osctl.scheduling" . | nindent 10 }}
+          volumes:
+            {{- include "osctl.volumes" . | nindent 12 }}
+          containers:
+          - name: osctl
+            image: {{ .Values.werf.image.osctl }}
+            command:
+            - /app/osctl
+            args:
+            - snapshotschecker
+            workingDir: /app
+            volumeMounts:
+              {{- include "osctl.volumeMounts" . | nindent 14 }}
+          restartPolicy: Never

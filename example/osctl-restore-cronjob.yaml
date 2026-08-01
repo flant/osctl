@@ -1,0 +1,83 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: osctl-restore
+  namespace: infra-elklogs
+  labels:
+    job: osctl-restore
+    service: osctl
+spec:
+  schedule: "0 23 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    metadata:
+      labels:
+        job: osctl-restore
+        service: osctl
+    spec:
+      activeDeadlineSeconds: 86000
+      template:
+        metadata:
+          labels:
+            job: osctl-restore
+            service: osctl
+        spec:
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: node-role.flant.com/odfe-common
+                    operator: In
+                    values: [""]
+                - matchExpressions:
+                  - key: node-role/odfe-common
+                    operator: In
+                    values: [""]
+          tolerations:
+          - key: dedicated.flant.com
+            operator: Equal
+            value: odfe-common
+            effect: NoSchedule
+          - key: dedicated
+            operator: Equal
+            value: odfe-common
+            effect: NoSchedule
+          restartPolicy: Never
+          containers:
+          - name: osctl
+            image: ghcr.io/flant/osctl:1.0.4
+            imagePullPolicy: IfNotPresent
+            workingDir: /app
+            command:
+            - /app/osctl
+            args:
+            - restore
+            - --snap-repo=s3-backup-old
+            - --days=2
+            - "--index-filter=other-myapp-a-fluentd-2026.*,other-myapp-b-fluentd-2026.*,myapp-a-fluentd-doc-2026.*,myapp-b-fluentd-doc-2026.*"
+            volumeMounts:
+            - name: osctl-config
+              mountPath: /app/config.yaml
+              subPath: config.yml
+              readOnly: true
+            - name: certs
+              mountPath: /etc/ssl/certs/admin-crt.pem
+              subPath: admin-crt.pem
+              readOnly: true
+            - name: certs
+              mountPath: /etc/ssl/certs/admin-key.pem
+              subPath: admin-key.pem
+              readOnly: true
+          volumes:
+          - name: osctl-config
+            configMap:
+              name: osctl-configmap
+              defaultMode: 420
+          - name: certs
+            secret:
+              secretName: opendistro-tls-data
+              defaultMode: 420

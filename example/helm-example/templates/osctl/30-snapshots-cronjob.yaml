@@ -1,0 +1,45 @@
+{{- if and .Values.opendistro.enabled .Values.osctl.enabled }}
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: osctl-snapshots
+  labels:
+    job: osctl-snapshots
+    service: osctl
+spec:
+  schedule: {{ .Values.osctl.schedule }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  jobTemplate:
+    metadata:
+      labels:
+        job: osctl-snapshots
+        service: osctl
+    spec:
+      activeDeadlineSeconds: {{ .Values.osctl.activeDeadlineSeconds | default 86400 }}
+      template:
+        metadata:
+          labels:
+            job: osctl-snapshots
+            service: osctl
+        spec:
+{{- include "toleration_common" . | indent 10 }}
+          affinity:
+{{- include "nodeselector_common" . | indent 10 }}
+          volumes:
+{{- include "osctl_volumes" . | indent 10 }}
+          containers:
+          - name: osctl
+            image: {{ printf "%s%s:%s" .Values.osctl.image.repo .Values.osctl.image.name .Values.osctl.image.tag }}
+            imagePullPolicy: {{ .Values.imagePullPolicy }}
+            command:
+            - /app/osctl
+            args:
+            - snapshots
+            workingDir: /app
+            volumeMounts:
+{{- include "osctl_volume_mounts" . | indent 12 }}
+          restartPolicy: Never
+{{- end }}

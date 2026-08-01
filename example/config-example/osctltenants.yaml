@@ -1,0 +1,10 @@
+tenants:
+  - name: flant
+    indices:
+      - "filebeat-*"
+      - "infra-*"
+      - "d8-*"
+  - name: nginx
+    indices:
+      - "common-access-*"
+      - "common-error-*"

@@ -1,0 +1,362 @@
+package alerts
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"time"
+)
+
+type Client struct {
+	apiKey     string
+	kibanaHost string
+	madisonURL string
+	httpClient *http.Client
+}
+
+type Alert struct {
+	Labels      Labels      `json:"labels"`
+	Annotations Annotations `json:"annotations"`
+}
+
+type Labels struct {
+	Trigger       string `json:"trigger"`
+	SeverityLevel string `json:"severity_level"`
+	IndicesList   string `json:"IndicesList"`
+	Kibana        string `json:"kibana"`
+}
+
+type Annotations struct {
+	Summary                                 string `json:"summary"`
+	Description                             string `json:"description"`
+	PlkCreateGroupIfNotExistsElkFieldsGroup string `json:"plk_create_group_if_not_exists__elk_fields_group,omitempty"`
+	PlkGroupedByElkFieldsGroup              string `json:"plk_grouped_by__elk_fields_group,omitempty"`
+	PlkMarkupFormat                         string `json:"plk_markup_format,omitempty"`
+	PlkProtocolVersion                      string `json:"plk_protocol_version,omitempty"`
+}
+
+func NewMadisonClient(apiKey, kibanaHost, madisonURL string) *Client {
+	return &Client{
+		apiKey:     apiKey,
+		kibanaHost: kibanaHost,
+		madisonURL: madisonURL,
+		httpClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+	}
+}
+
+func (c *Client) sendAlert(payload Alert) (string, error) {
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal alert: %v", err)
+	}
+	if c.madisonURL == "" {
+		return "", fmt.Errorf("madison URL is required")
+	}
+
+	requestURL := fmt.Sprintf("%s/%s", c.madisonURL, c.apiKey)
+	req, err := http.NewRequest("POST", requestURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 403 {
+		return "", fmt.Errorf("madison API returned 403 Forbidden - check key and permissions")
+	}
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("madison API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	return string(body), nil
+}
+
+func (c *Client) SendMadisonForeignRestoreAlert(indices []string, namespace, dateStr string) (string, error) {
+	if len(indices) == 0 {
+		return "", nil
+	}
+	display := strings.Join(indices, ",")
+	list := display
+	if len(indices) > 3 {
+		display = strings.Join(indices[:3], ",") + ",... полный список в описании."
+		list = strings.Join(indices[:3], ",") + ",..."
+	}
+	summary := fmt.Sprintf("Идут ресторы посторонних индексов (не из фильтра): %s", display)
+	description := fmt.Sprintf("Джоба восстановления обнаружила %d одновременных ресторов индексов, не входящих в её фильтр (%s), и остановилась, чтобы не перегружать кластер. Проверьте, кто ещё запустил восстановление в namespace %s (дата %s), дождитесь их завершения или уменьшите нагрузку, затем перезапустите джобу.", len(indices), strings.Join(indices, ","), namespace, dateStr)
+
+	payload := Alert{
+		Labels: Labels{
+			Trigger:       "SnapshotRestoreForeign",
+			SeverityLevel: "4",
+			IndicesList:   list,
+			Kibana:        c.kibanaHost,
+		},
+		Annotations: Annotations{
+			Summary:                                 summary,
+			Description:                             description,
+			PlkCreateGroupIfNotExistsElkFieldsGroup: "ElkSnapshotRestoreForeignGroup,kibana=~kibana",
+			PlkGroupedByElkFieldsGroup:              "ElkSnapshotRestoreForeignGroup,kibana=~kibana",
+			PlkMarkupFormat:                         "markdown",
+			PlkProtocolVersion:                      "1",
+		},
+	}
+	return c.sendAlert(payload)
+}
+
+func (c *Client) SendMadisonSnapshotStateFailedAlert(snapshotName, state, snapRepo, namespace, dateStr string) (string, error) {
+	summary := fmt.Sprintf("Снапшот %s в состоянии %s — восстановление невозможно", snapshotName, state)
+	description := fmt.Sprintf("Снапшот %s из репозитория %s находится в состоянии %s (ожидалось SUCCESS), поэтому джоба восстановления его пропустила. Проверьте снапшот через GET _cat/snapshots/%s и при необходимости пересоздайте его на исходном кластере. Namespace: %s, дата: %s.", snapshotName, snapRepo, state, snapRepo, namespace, dateStr)
+
+	payload := Alert{
+		Labels: Labels{
+			Trigger:       "SnapshotStateFailed",
+			SeverityLevel: "4",
+			IndicesList:   snapshotName,
+			Kibana:        c.kibanaHost,
+		},
+		Annotations: Annotations{
+			Summary:                                 summary,
+			Description:                             description,
+			PlkCreateGroupIfNotExistsElkFieldsGroup: "ElkSnapshotStateFailedGroup,kibana=~kibana",
+			PlkGroupedByElkFieldsGroup:              "ElkSnapshotStateFailedGroup,kibana=~kibana",
+			PlkMarkupFormat:                         "markdown",
+			PlkProtocolVersion:                      "1",
+		},
+	}
+	return c.sendAlert(payload)
+}
+
+func (c *Client) SendMadisonRestoreFailedAlert(snapshotName, indexName, snapRepo, namespace, dateStr string) (string, error) {
+	summary := fmt.Sprintf("Не удалось восстановить индекс %s из снапшота %s", indexName, snapshotName)
+	description := fmt.Sprintf("Восстановление индекса %s из снапшота %s (репозиторий %s) завершилось ошибкой. Джоба продолжила восстановление остальных индексов. Проверьте состояние индекса через GET _cat/recovery/%s и логи джобы. Namespace: %s, дата: %s.", indexName, snapshotName, snapRepo, indexName, namespace, dateStr)
+
+	payload := Alert{
+		Labels: Labels{
+			Trigger:       "SnapshotRestoreFailed",
+			SeverityLevel: "4",
+			IndicesList:   indexName,
+			Kibana:        c.kibanaHost,
+		},
+		Annotations: Annotations{
+			Summary:                                 summary,
+			Description:                             description,
+			PlkCreateGroupIfNotExistsElkFieldsGroup: "ElkSnapshotRestoreFailedGroup,kibana=~kibana",
+			PlkGroupedByElkFieldsGroup:              "ElkSnapshotRestoreFailedGroup,kibana=~kibana",
+			PlkMarkupFormat:                         "markdown",
+			PlkProtocolVersion:                      "1",
+		},
+	}
+	return c.sendAlert(payload)
+}
+
+func (c *Client) SendMadisonSnapshotMissingAlert(missingSnapshotIndicesList []string, snapRepo, namespace, dateStr string) (string, error) {
+	if len(missingSnapshotIndicesList) == 0 {
+		return "", nil
+	}
+
+	var displayList, indicesList string
+	if len(missingSnapshotIndicesList) <= 3 {
+		displayList = strings.Join(missingSnapshotIndicesList, ",")
+		indicesList = displayList
+	} else {
+		displayList = strings.Join(missingSnapshotIndicesList[:3], ",") + ",... полный список индексов в описании."
+		indicesList = strings.Join(missingSnapshotIndicesList[:3], ",") + ",..."
+	}
+
+	summary := fmt.Sprintf("Снапшоты не найдены для индексов: %s", displayList)
+	fullList := strings.Join(missingSnapshotIndicesList, ",")
+	description := fmt.Sprintf("Снапшоты для индексов (%s) — не обнаружены, хотя ожидаются. Необходимо выборочно проверить действиельно ли нет снапшотов для этих индексов через GET _cat/snapshots/%s/<snapshot_name> , поскольку их могла уже создать джоба создания пропущенных снапшотов. Дальше можно попробовать запустить Job создания пропущенных снапшотов через kubectl -n %s create job --from=cronjob/osctl-snapshotsbackfill osctl-snapshotsbackfill-%s или создать их всех вручную. Алерт одноразовый, просьба не закрывать без создания нужных снапшотов.", fullList, snapRepo, namespace, dateStr)
+
+	payload := Alert{
+		Labels: Labels{
+			Trigger:       "SnapshotsMissing",
+			SeverityLevel: "5",
+			IndicesList:   indicesList,
+			Kibana:        c.kibanaHost,
+		},
+		Annotations: Annotations{
+			Summary:                                 summary,
+			Description:                             description,
+			PlkCreateGroupIfNotExistsElkFieldsGroup: "ElkSnapshotMissingGroup,kibana=~kibana",
+			PlkGroupedByElkFieldsGroup:              "ElkSnapshotMissingGroup,kibana=~kibana",
+			PlkMarkupFormat:                         "markdown",
+			PlkProtocolVersion:                      "1",
+		},
+	}
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal alert: %v", err)
+	}
+
+	if c.madisonURL == "" {
+		return "", fmt.Errorf("madison URL is required")
+	}
+
+	requestURL := fmt.Sprintf("%s/%s", c.madisonURL, c.apiKey)
+
+	req, err := http.NewRequest("POST", requestURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %v", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 403 {
+		return "", fmt.Errorf("madison API returned 403 Forbidden - check key and permissions")
+	}
+
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("madison API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	return string(body), nil
+}
+
+func (c *Client) SendMadisonDanglingIndicesAlert(danglingIndices []string) (string, error) {
+	if len(danglingIndices) == 0 {
+		return "", nil
+	}
+
+	var displayList, indicesList string
+	if len(danglingIndices) <= 3 {
+		displayList = strings.Join(danglingIndices, ",")
+		indicesList = displayList
+	} else {
+		indicesList = strings.Join(danglingIndices[:3], ",") + ",..."
+	}
+
+	summary := "Кластер содержит dangling индексы"
+	description := fmt.Sprintf("Кластер содержит dangling индексы. Проверьте индексы в %s GET _dangling?pretty и удалите их если они не нужны.", c.kibanaHost)
+
+	payload := Alert{
+		Labels: Labels{
+			Trigger:       "dangling_indices_mon",
+			SeverityLevel: "4",
+			IndicesList:   indicesList,
+			Kibana:        c.kibanaHost,
+		},
+		Annotations: Annotations{
+			Summary:                                 summary,
+			Description:                             description,
+			PlkCreateGroupIfNotExistsElkFieldsGroup: "ElkDanglingIndicesGroup,kibana=~kibana",
+			PlkGroupedByElkFieldsGroup:              "ElkDanglingIndicesGroup,kibana=~kibana",
+			PlkMarkupFormat:                         "markdown",
+			PlkProtocolVersion:                      "1",
+		},
+	}
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal alert: %v", err)
+	}
+
+	if c.madisonURL == "" {
+		return "", fmt.Errorf("madison URL is required")
+	}
+
+	requestURL := fmt.Sprintf("%s/%s", c.madisonURL, c.apiKey)
+
+	req, err := http.NewRequest("POST", requestURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %v", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 403 {
+		return "", fmt.Errorf("madison API returned 403 Forbidden - check key and permissions")
+	}
+
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("madison API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	return string(body), nil
+}
+
+func (c *Client) SendMadisonSnapshotCreationFailedAlert(snapshotName, indexName, snapRepo, namespace, dateStr string) (string, error) {
+	summary := fmt.Sprintf("Не удалось создать снапшот %s для индекса %s", snapshotName, indexName)
+	description := fmt.Sprintf("Снапшот %s для индекса %s не удалось создать после 7 попыток. Надо проверить наличие соответствующего снапшота через GET _cat/snapshots/%s/%s - возможно его уже создала джоба snapshotsbackfill, но если его нет - сначала попробуйте запустить Job создания пропущенных снапшотов через kubectl -n %s create job --from=cronjob/osctl-snapshotsbackfill osctl-snapshotsbackfill-%s или ещё вариант - создать его вручную. Ещё возможна ситуация, когда снапшот принципиально не создается - например если у него есть повреждения в индексе. Это нужно обязателно проверить по логам. Характерный признак - все 7 раз создавались PARTIAL снапшоты. В этом случае индекс надо удалять, поскольку он поврежденный.", snapshotName, indexName, snapRepo, snapshotName, namespace, dateStr)
+
+	payload := Alert{
+		Labels: Labels{
+			Trigger:       "SnapshotCreationFailed",
+			SeverityLevel: "4",
+			IndicesList:   indexName,
+			Kibana:        c.kibanaHost,
+		},
+		Annotations: Annotations{
+			Summary:                                 summary,
+			Description:                             description,
+			PlkCreateGroupIfNotExistsElkFieldsGroup: "ElkSnapshotCreationFailedGroup,kibana=~kibana",
+			PlkGroupedByElkFieldsGroup:              "ElkSnapshotCreationFailedGroup,kibana=~kibana",
+			PlkMarkupFormat:                         "markdown",
+			PlkProtocolVersion:                      "1",
+		},
+	}
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal alert: %v", err)
+	}
+
+	if c.madisonURL == "" {
+		return "", fmt.Errorf("madison URL is required")
+	}
+
+	requestURL := fmt.Sprintf("%s/%s", c.madisonURL, c.apiKey)
+
+	req, err := http.NewRequest("POST", requestURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %v", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 403 {
+		return "", fmt.Errorf("madison API returned 403 Forbidden - check key and permissions")
+	}
+
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("madison API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	return string(body), nil
+}

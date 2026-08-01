@@ -1,0 +1,36 @@
+{{- define "osctl.scheduling" -}}
+{{- if .Values.registrySecret }}
+imagePullSecrets:
+  - name: {{ .Values.registrySecret }}
+{{- end }}
+{{- with .Values.nodeSelector }}
+nodeSelector:
+{{ toYaml . | indent 2 }}
+{{- end }}
+{{- with .Values.affinity }}
+affinity:
+{{ toYaml . | indent 2 }}
+{{- end }}
+{{- with .Values.tolerations }}
+tolerations:
+{{ toYaml . | indent 2 }}
+{{- end }}
+{{- end -}}
+
+{{- define "osctl.volumes" -}}
+- name: osctl-config
+  configMap:
+    name: osctl-configmap
+    defaultMode: 420
+{{- end -}}
+
+{{- define "osctl.volumeMounts" -}}
+- name: osctl-config
+  mountPath: /app/config.yaml
+  subPath: config.yml
+  readOnly: true
+- name: osctl-config
+  mountPath: /app/osctlindicesconfig.yaml
+  subPath: osctlindicesconfig.yml
+  readOnly: true
+{{- end -}}

@@ -1,0 +1,52 @@
+package utils
+
+import (
+	"fmt"
+	"osctl/pkg/config"
+	"osctl/pkg/opensearch"
+	"strings"
+
+	"github.com/google/uuid"
+)
+
+func NewOSClientWithURL(cfg *config.Config, url string) (*opensearch.Client, error) {
+	opts := opensearch.ClientOptions{
+		CertFile:           cfg.GetCertFile(),
+		KeyFile:            cfg.GetKeyFile(),
+		CAFile:             cfg.GetCAFile(),
+		InsecureSkipVerify: cfg.GetInsecureSkipVerify(),
+		BasicAuthUser:      cfg.GetBasicAuthUser(),
+		BasicAuthPass:      cfg.GetBasicAuthPass(),
+		Timeout:            cfg.GetTimeout(),
+		RetryAttempts:      cfg.GetRetryAttempts(),
+		ES5Compatibility:   cfg.GetES5Compatibility(),
+	}
+
+	if opts.ES5Compatibility {
+		opts.CertFile = ""
+		opts.KeyFile = ""
+		opts.CAFile = ""
+	}
+
+	client, err := opensearch.NewClientWithOptions(url, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create OpenSearch client: %v", err)
+	}
+	return client, nil
+}
+
+func NormalizeURL(url string) string {
+	if url != "" && !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+		return "https://" + url
+	}
+	return url
+}
+
+func GenerateRandomAlphanumericString(length int) string {
+	id := uuid.New().String()
+	id = strings.ReplaceAll(id, "-", "")
+	if length > len(id) {
+		length = len(id)
+	}
+	return id[:length]
+}
