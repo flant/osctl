@@ -43,6 +43,19 @@ sharding:
           number_of_shards: 3
   schedule: "0 23 * * *"
 
+translog:
+  enabled: false
+  async_enabled: true
+  # false - только сегодняшние индексы, true - все индексы кластера
+  all_indices: false
+  sync_interval_seconds: 1
+  templates_enabled: true
+  # не трогать шаблоны на весь кластер (index_patterns: ["*"]), например default-template
+  skip_catchall_templates: true
+  include_regex: ""
+  exclude_regex: ""
+  schedule: "0 * * * *"
+
 danglingChecker:
   enabled: true
   schedule: "15 3 * * *"

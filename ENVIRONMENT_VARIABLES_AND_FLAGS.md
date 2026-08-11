@@ -56,6 +56,7 @@
 - `extracteddelete`
 - `danglingchecker`
 - `sharding`
+- `translog`
 - `indexpatterns`
 - `datasource`
 
@@ -174,6 +175,34 @@ osctl --action=snapshot
 - `sharding_target_size_gib`
 - `exclude_sharding`
 - `sharding_routing_allocation_temp`
+
+### `translog`
+
+Включает асинхронный translog у индексов кластера и добавляет эти настройки во все существующие шаблоны (composable и legacy). Только добавляет настройки, обратно на `request` не переводит. Предполагается запуск раз в час.
+
+По умолчанию обрабатываются только сегодняшние индексы (дата в имени по `date_format`) - именно в них идёт запись. Флаг `--translog-all-indices` включает обработку всех индексов кластера. Шаблоны обрабатываются всегда все, независимо от этого флага.
+
+| Флаг | Переменная окружения | Описание | Значение по умолчанию |
+|------|---------------------|----------|--------------|
+| `--translog-async-enabled` | `TRANSLOG_ASYNC_ENABLED` | Включает работу команды; при `false` команда ничего не делает | `false` |
+| `--translog-sync-interval-seconds` | `TRANSLOG_SYNC_INTERVAL_SECONDS` | Значение `index.translog.sync_interval` в секундах (1-3600) | `1` |
+| `--translog-all-indices` | `TRANSLOG_ALL_INDICES` | Обрабатывать все индексы кластера, а не только сегодняшние | `false` |
+| `--translog-templates-enabled` | `TRANSLOG_TEMPLATES_ENABLED` | Добавлять настройки в существующие шаблоны | `true` |
+| `--translog-skip-catchall-templates` | `TRANSLOG_SKIP_CATCHALL_TEMPLATES` | Не трогать шаблоны на весь кластер (`index_patterns: ["*"]`), например `default-template` | `true` |
+| `--translog-include-regex` | `TRANSLOG_INCLUDE_REGEX` | Обрабатывать только индексы и шаблоны, подходящие под регекс | (пусто) |
+| `--translog-exclude-regex` | `TRANSLOG_EXCLUDE_REGEX` | Регекс для исключения индексов и шаблонов | (пусто) |
+| `--dry-run` | `DRY_RUN` | Показать изменения без применения | `false` |
+
+Системные индексы и шаблоны (имя начинается с `.`), а также закрытые индексы не обрабатываются. Шаблоны с паттерном на весь кластер (`*`) по умолчанию тоже пропускаются: они общие для всего и обычно раскатываются чартом.
+
+**Ключи в конфиг файле:**
+- `translog_async_enabled`
+- `translog_all_indices`
+- `translog_sync_interval_seconds`
+- `translog_templates_enabled`
+- `translog_skip_catchall_templates`
+- `translog_include_regex`
+- `translog_exclude_regex`
 
 ### `indexpatterns`
 

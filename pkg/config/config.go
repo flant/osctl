@@ -75,6 +75,13 @@ type Config struct {
 	RestoreDaysCount                   string
 	RestoreDate                        string
 	ES5Compatibility                   string
+	TranslogAsyncEnabled               string
+	TranslogAllIndices                 string
+	TranslogSyncIntervalSeconds        string
+	TranslogTemplatesEnabled           string
+	TranslogSkipCatchAllTemplates      string
+	TranslogIncludeRegex               string
+	TranslogExcludeRegex               string
 }
 
 type CommandConfig = Config
@@ -199,6 +206,13 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		RestoreDaysCount:                   getValue(cmd, "days", "RESTORE_DAYS_COUNT", viper.GetString("restore_days_count")),
 		RestoreDate:                        getValue(cmd, "date", "RESTORE_DATE", viper.GetString("restore_date")),
 		ES5Compatibility:                   getValue(cmd, "es5-compatibility", "ES5_COMPATIBILITY", viper.GetString("es5_compatibility")),
+		TranslogAsyncEnabled:               getValue(cmd, "translog-async-enabled", "TRANSLOG_ASYNC_ENABLED", viper.GetString("translog_async_enabled")),
+		TranslogAllIndices:                 getValue(cmd, "translog-all-indices", "TRANSLOG_ALL_INDICES", viper.GetString("translog_all_indices")),
+		TranslogSyncIntervalSeconds:        getValue(cmd, "translog-sync-interval-seconds", "TRANSLOG_SYNC_INTERVAL_SECONDS", viper.GetString("translog_sync_interval_seconds")),
+		TranslogTemplatesEnabled:           getValue(cmd, "translog-templates-enabled", "TRANSLOG_TEMPLATES_ENABLED", viper.GetString("translog_templates_enabled")),
+		TranslogSkipCatchAllTemplates:      getValue(cmd, "translog-skip-catchall-templates", "TRANSLOG_SKIP_CATCHALL_TEMPLATES", viper.GetString("translog_skip_catchall_templates")),
+		TranslogIncludeRegex:               getValue(cmd, "translog-include-regex", "TRANSLOG_INCLUDE_REGEX", viper.GetString("translog_include_regex")),
+		TranslogExcludeRegex:               getValue(cmd, "translog-exclude-regex", "TRANSLOG_EXCLUDE_REGEX", viper.GetString("translog_exclude_regex")),
 	}
 
 	switch commandName {
@@ -213,6 +227,10 @@ func LoadConfig(cmd *cobra.Command, commandName string) error {
 		}
 		if repoToUse == "" {
 			return fmt.Errorf("snap-repo is required (or set snapshot-manual-repo) for %s", commandName)
+		}
+	case "translog":
+		if seconds := parseIntWithDefault(configInstance.TranslogSyncIntervalSeconds, "translog_sync_interval_seconds"); seconds < 1 || seconds > 3600 {
+			return fmt.Errorf("invalid translog-sync-interval-seconds=%d; expected value between 1 and 3600", seconds)
 		}
 	case "indexpatterns":
 		if parseBoolWithDefault(configInstance.IndexPatternsRefreshEnabled, "indexpatterns_refresh_enabled") {
@@ -279,6 +297,13 @@ func setDefaults() {
 	viper.SetDefault("max_concurrent_snapshots", 3)
 	viper.SetDefault("restore_days_count", 1)
 	viper.SetDefault("es5_compatibility", false)
+	viper.SetDefault("translog_async_enabled", false)
+	viper.SetDefault("translog_all_indices", false)
+	viper.SetDefault("translog_sync_interval_seconds", 1)
+	viper.SetDefault("translog_templates_enabled", true)
+	viper.SetDefault("translog_skip_catchall_templates", true)
+	viper.SetDefault("translog_include_regex", "")
+	viper.SetDefault("translog_exclude_regex", "")
 }
 
 func GetAvailableActions() []string {
@@ -295,6 +320,7 @@ func GetAvailableActions() []string {
 		"extracteddelete",
 		"danglingchecker",
 		"sharding",
+		"translog",
 		"indexpatterns",
 		"datasource",
 		"restore",
@@ -644,6 +670,34 @@ func (c *Config) GetES5Compatibility() bool {
 	return parseBoolWithDefault(c.ES5Compatibility, "es5_compatibility")
 }
 
+func (c *Config) GetTranslogAsyncEnabled() bool {
+	return parseBoolWithDefault(c.TranslogAsyncEnabled, "translog_async_enabled")
+}
+
+func (c *Config) GetTranslogAllIndices() bool {
+	return parseBoolWithDefault(c.TranslogAllIndices, "translog_all_indices")
+}
+
+func (c *Config) GetTranslogSyncIntervalSeconds() int {
+	return clampInt(parseIntWithDefault(c.TranslogSyncIntervalSeconds, "translog_sync_interval_seconds"), 1, 3600)
+}
+
+func (c *Config) GetTranslogTemplatesEnabled() bool {
+	return parseBoolWithDefault(c.TranslogTemplatesEnabled, "translog_templates_enabled")
+}
+
+func (c *Config) GetTranslogSkipCatchAllTemplates() bool {
+	return parseBoolWithDefault(c.TranslogSkipCatchAllTemplates, "translog_skip_catchall_templates")
+}
+
+func (c *Config) GetTranslogIncludeRegex() string {
+	return c.TranslogIncludeRegex
+}
+
+func (c *Config) GetTranslogExcludeRegex() string {
+	return c.TranslogExcludeRegex
+}
+
 type FlagDefinition struct {
 	Name        string
 	Type        string
@@ -728,6 +782,16 @@ var CommandFlags = map[string][]FlagDefinition{
 		{"exclude-sharding", "string", "", "Regex to exclude patterns from sharding", []string{}},
 		{"sharding-routing-allocation-temp", "string", "", "Routing allocation temp value (e.g., 'hot')", []string{}},
 		{"dry-run", "bool", false, "Show what templates would be created/updated without applying", []string{}},
+	},
+	"translog": {
+		{"translog-async-enabled", "bool", false, "Enable async translog management (when false the command does nothing)", []string{}},
+		{"translog-sync-interval-seconds", "int", 1, "Value for index.translog.sync_interval, in seconds", []string{"min:1", "max:3600"}},
+		{"translog-all-indices", "bool", false, "Process every index of the cluster instead of only today's ones", []string{}},
+		{"translog-templates-enabled", "bool", true, "Also add translog settings to existing index templates", []string{}},
+		{"translog-skip-catchall-templates", "bool", true, "Do not touch templates matching every index (index_patterns: [\"*\"])", []string{}},
+		{"translog-include-regex", "string", "", "Process only indices and templates whose name matches this regex", []string{}},
+		{"translog-exclude-regex", "string", "", "Regex to exclude indices and templates from processing", []string{}},
+		{"dry-run", "bool", false, "Show what would be changed without applying", []string{}},
 	},
 	"indexpatterns": {
 		{"kibana-index-regex", "string", "^(.*?)-\\d{4}\\.\\d{2}\\.\\d{2}.*$", "Regex to extract pattern from today's indices", []string{}},

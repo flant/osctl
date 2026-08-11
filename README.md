@@ -24,6 +24,7 @@
 | `extracteddelete` | Удаление extracted индексов |
 | `danglingchecker` | Проверка dangling индексов |
 | `sharding` | Автоматическое выставление оптимального числа шардов |
+| `translog` | Включение асинхронного translog у индексов и шаблонов |
 | `indexpatterns` | Управление index patterns в Kibana |
 | `datasource` | Создание Kibana data-source ( рековерер) |
 | `snapshot-manual | Создание только одного снапшота для индексов с определенным паттерном |

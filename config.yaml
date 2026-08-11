@@ -74,6 +74,18 @@ retention_check_nodes_down: true
 sharding_target_size_gib: 25
 exclude_sharding: ""
 
+# translog:
+translog_async_enabled: false
+# по умолчанию только сегодняшние индексы, true - все индексы кластера
+translog_all_indices: false
+translog_sync_interval_seconds: 1
+translog_templates_enabled: true
+# не трогать шаблоны на весь кластер (index_patterns: ["*"]), например default-template
+translog_skip_catchall_templates: true
+translog_include_regex: ""
+translog_exclude_regex: ""
+
+
 # snapshots
 max_concurrent_snapshots: 3
 # Uses osctl-indices-config for detailed configuration

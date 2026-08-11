@@ -113,6 +113,8 @@ func executeActionCommand(action string, args []string) error {
 		targetCmd = danglingCheckerCmd
 	case "sharding":
 		targetCmd = shardingCmd
+	case "translog":
+		targetCmd = translogCmd
 	case "indexpatterns":
 		targetCmd = indexPatternsCmd
 	case "datasource":
@@ -139,6 +141,7 @@ func init() {
 		indicesDeleteCmd,
 		retentionCmd,
 		shardingCmd,
+		translogCmd,
 		indexPatternsCmd,
 		dataSourceCmd,
 		dereplicatorCmd,

@@ -1,7 +1,7 @@
 {{- $osctlEnabled := false }}
 {{- if .Values.osctl.enabled }}
 {{- $osctlEnabled = true }}
-{{- else if or (and (hasKey .Values "retention") .Values.retention.enabled) (and (hasKey .Values "sharding") .Values.sharding.enabled) (and (hasKey .Values "danglingChecker") .Values.danglingChecker.enabled) (and (hasKey .Values "dereplicator") .Values.dereplicator.enabled) (and (hasKey .Values "datasource") (and (hasKey .Values "coldCluster") .Values.coldCluster.enabled)) }}
+{{- else if or (and (hasKey .Values "retention") .Values.retention.enabled) (and (hasKey .Values "sharding") .Values.sharding.enabled) (and (hasKey .Values "translog") .Values.translog.enabled) (and (hasKey .Values "danglingChecker") .Values.danglingChecker.enabled) (and (hasKey .Values "dereplicator") .Values.dereplicator.enabled) (and (hasKey .Values "datasource") (and (hasKey .Values "coldCluster") .Values.coldCluster.enabled)) }}
 {{- $osctlEnabled = true }}
 {{- end }}
 {{- if $osctlEnabled }}
@@ -115,6 +115,19 @@ data:
     # sharding:
     sharding_target_size_gib: {{ .Values.sharding.target_size_gib | default 25 | quote }}
     exclude_sharding: {{ .Values.sharding.exclude_indices | default "" | quote }}
+
+    # translog:
+    {{- if hasKey .Values "translog" }}
+    translog_async_enabled: {{ if hasKey .Values.translog "async_enabled" }}{{ .Values.translog.async_enabled | quote }}{{ else }}"false"{{ end }}
+    translog_all_indices: {{ if hasKey .Values.translog "all_indices" }}{{ .Values.translog.all_indices | quote }}{{ else }}"false"{{ end }}
+    translog_sync_interval_seconds: {{ .Values.translog.sync_interval_seconds | default 1 | quote }}
+    translog_templates_enabled: {{ if hasKey .Values.translog "templates_enabled" }}{{ .Values.translog.templates_enabled | quote }}{{ else }}"true"{{ end }}
+    translog_skip_catchall_templates: {{ if hasKey .Values.translog "skip_catchall_templates" }}{{ .Values.translog.skip_catchall_templates | quote }}{{ else }}"true"{{ end }}
+    translog_include_regex: {{ .Values.translog.include_regex | default "" | quote }}
+    translog_exclude_regex: {{ .Values.translog.exclude_regex | default "" | quote }}
+    {{- else }}
+    translog_async_enabled: "false"
+    {{- end }}
 
     # snapshots:
     max_concurrent_snapshots: {{ .Values.snapshots.max_concurrent_snapshots | default 3 | quote }}
