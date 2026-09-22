@@ -79,6 +79,15 @@ type ShardDetail struct {
 	Stage string `json:"stage"`
 }
 
+func (c *Client) VerifyRepository(repo string) error {
+	url := fmt.Sprintf("%s/_snapshot/%s/_verify", c.baseURL, escapePathSegment(repo))
+
+	if err := c.post(url); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *Client) GetSnapshots(repo, pattern string) ([]Snapshot, error) {
 	url := fmt.Sprintf("%s/_snapshot/%s/%s", c.baseURL, escapePathSegment(repo), escapePathSegment(pattern))
 	if !c.es5Compatibility {

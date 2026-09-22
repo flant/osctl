@@ -114,6 +114,12 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 		repoToUse = cfg.GetSnapshotManualRepo()
 	}
 
+	err = client.VerifyRepository(repoToUse)
+	if err != nil {
+		madisonClient.SendMadisonVerifyRepoPermissionFailedAlert(repoToUse, cfg.GetKubeNamespace())
+		return fmt.Errorf("Checking permissions for repo %s was failed with %s", repoToUse, err)
+	}
+
 	if cfg.GetDryRun() {
 		if state, ok, _ := utils.CheckSnapshotStateInRepo(client, repoToUse, snapshotName); ok && state == "SUCCESS" {
 			logger.Info(fmt.Sprintf("Valid snapshot already exists snapshot=%s", snapshotName))

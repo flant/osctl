@@ -56,6 +56,12 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 		madisonClient = alerts.NewMadisonClient(cfg.GetMadisonKey(), cfg.GetOSDURL(), cfg.GetMadisonURL())
 	}
 
+	err = client.VerifyRepository(defaultRepo)
+	if err != nil {
+		madisonClient.SendMadisonVerifyRepoPermissionFailedAlert(defaultRepo, cfg.GetKubeNamespace())
+		return fmt.Errorf("Checking permissions for repo %s was failed with %s", defaultRepo, err)
+	}
+
 	indicesListFlag := cfg.GetSnapshotsBackfillIndicesList()
 
 	var indicesToProcess []string
