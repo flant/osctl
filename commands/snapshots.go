@@ -53,13 +53,11 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 	if cfg.GetMadisonKey() != "" && cfg.GetOSDURL() != "" && cfg.GetMadisonURL() != "" {
 		madisonClient = alerts.NewMadisonClient(cfg.GetMadisonKey(), cfg.GetOSDURL(), cfg.GetMadisonURL())
 	}
-
 	err = client.VerifyRepository(defaultRepo)
 	if err != nil {
 		madisonClient.SendMadisonVerifyRepoPermissionFailedAlert(defaultRepo, cfg.GetKubeNamespace())
 		return fmt.Errorf("Checking permissions for repo %s was failed with %s", defaultRepo, err)
 	}
-
 	yesterday := utils.FormatDate(time.Now().AddDate(0, 0, -1), cfg.GetDateFormat())
 	today := utils.FormatDate(time.Now(), cfg.GetDateFormat())
 
@@ -501,14 +499,15 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 			}
 		}
 		if len(failedSnapshots) > 0 {
-			logger.Info("")
-			logger.Info(fmt.Sprintf("Failed to create: %d snapshots", len(failedSnapshots)))
+			logger.Error("")
+			logger.Error(fmt.Sprintf("Failed to create: %d snapshots", len(failedSnapshots)))
 			for _, name := range failedSnapshots {
-				logger.Info(fmt.Sprintf("  ✗ %s", name))
+				logger.Error(fmt.Sprintf("  ✗ %s", name))
 			}
+			return fmt.Errorf("Failed to create: %d snapshots", len(failedSnapshots))
 		}
 		if len(successfulSnapshots) == 0 && len(failedSnapshots) == 0 {
-			logger.Info("No snapshots were created")
+			logger.Error("No snapshots were created")
 		}
 		logger.Info(strings.Repeat("=", 60))
 	}

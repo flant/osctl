@@ -487,7 +487,8 @@ retryLoop:
 					if attempt < maxRetries {
 						continue retryLoop
 					}
-					return fmt.Errorf("snapshot %s error after creation timeout: %v, attempt=%d", snapshotName, err, attempt)
+					break retryLoop
+					//return fmt.Errorf("snapshot %s error after creation timeout: %v, attempt=%d", snapshotName, err, attempt)
 				}
 				if workerID > 0 {
 					logger.Error(fmt.Sprintf("Worker %d: Failed to get snapshots snapshot=%s error=%v attempt=%d, error might be transient, wait a bit and retry", workerID, snapshotName, err, attempt))
@@ -507,7 +508,8 @@ retryLoop:
 					if attempt < maxRetries {
 						continue retryLoop
 					}
-					return fmt.Errorf("snapshot %s not found in list after creation", snapshotName)
+					break retryLoop
+					//return fmt.Errorf("snapshot %s not found in list after creation", snapshotName)
 				}
 				if workerID > 0 {
 					logger.Info(fmt.Sprintf("Worker %d: Waiting for snapshot visibility snapshot=%s attempt=%d", workerID, snapshotName, attempt))
