@@ -42,7 +42,7 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 	}
 
 	unknownConfig := cfg.GetOsctlIndicesUnknownConfig()
-	s3Config := cfg.GetOsctlIndicesS3SnapshotsConfig()
+	//s3Config := cfg.GetOsctlIndicesS3SnapshotsConfig()
 
 	logger.Info(fmt.Sprintf("Starting snapshots backfill indicesCountConfig=%d unknownSnapshot=%t", len(indicesConfig), unknownConfig.Snapshot))
 
@@ -55,13 +55,15 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 	if cfg.GetMadisonKey() != "" && cfg.GetOSDURL() != "" && cfg.GetMadisonURL() != "" {
 		madisonClient = alerts.NewMadisonClient(cfg.GetMadisonKey(), cfg.GetOSDURL(), cfg.GetMadisonURL())
 	}
-
-	err = client.VerifyRepository(defaultRepo)
-	if err != nil {
-		madisonClient.SendMadisonVerifyRepoPermissionFailedAlert(defaultRepo, cfg.GetKubeNamespace())
-		return fmt.Errorf("Checking permissions for repo %s was failed with %s", defaultRepo, err)
+	if !cfg.GetDryRun() {
+		err = client.VerifyRepository(defaultRepo)
+		if err != nil {
+			if madisonClient != nil {
+				madisonClient.SendMadisonVerifyRepoPermissionFailedAlert(defaultRepo, cfg.GetKubeNamespace())
+			}
+			return fmt.Errorf("Checking permissions for repo %s was failed with %w", defaultRepo, err)
+		}
 	}
-
 	indicesListFlag := cfg.GetSnapshotsBackfillIndicesList()
 
 	var indicesToProcess []string
@@ -253,7 +255,7 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 					continue
 				}
 
-				cutoffDateDaysCount := utils.FormatDate(time.Now().AddDate(0, 0, -indexConfig.DaysCount), cfg.GetDateFormat())
+				/*cutoffDateDaysCount := utils.FormatDate(time.Now().AddDate(0, 0, -indexConfig.DaysCount), cfg.GetDateFormat())
 				cutoffDateS3 := ""
 				if indexConfig.SnapshotCountS3 > 0 {
 					cutoffDateS3 = utils.FormatDate(time.Now().AddDate(0, 0, -indexConfig.SnapshotCountS3), cfg.GetDateFormat())
@@ -269,8 +271,7 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 				if utils.IsOlderThanCutoff(indexName, cutoffDate, cfg.GetDateFormat()) {
 					logger.Info(fmt.Sprintf("Skipping index older than cutoff index=%s cutoff=%s", indexName, cutoffDate))
 					continue
-				}
-
+				}*/
 				utils.AddIndexToSnapshotGroups(indexName, *indexConfig, snapshotDate, repoGroups, &indicesToSnapshot)
 			} else {
 				unknownIndices = append(unknownIndices, indexName)
@@ -279,7 +280,7 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 
 		unknownIndices = utils.FilterUnknownIndices(unknownIndices)
 
-		if unknownConfig.Snapshot && !unknownConfig.ManualSnapshot && len(unknownIndices) > 0 {
+		/*if unknownConfig.Snapshot && !unknownConfig.ManualSnapshot && len(unknownIndices) > 0 {
 			cutoffDateDaysCount := utils.FormatDate(time.Now().AddDate(0, 0, -unknownConfig.DaysCount), cfg.GetDateFormat())
 			cutoffDateS3 := ""
 			s3Unknown := s3Config.UnitCount.Unknown
@@ -298,7 +299,7 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 				}
 			}
 			unknownIndices = filteredUnknown
-		}
+		}*/
 
 		snapshotGroups := utils.GroupIndicesForSnapshots(indicesToSnapshot, indicesConfig, snapshotDate)
 

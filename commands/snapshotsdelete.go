@@ -52,13 +52,15 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 	if cfg.GetMadisonKey() != "" && cfg.GetOSDURL() != "" && cfg.GetMadisonURL() != "" {
 		madisonClient = alerts.NewMadisonClient(cfg.GetMadisonKey(), cfg.GetOSDURL(), cfg.GetMadisonURL())
 	}
-
-	err = client.VerifyRepository(defaultRepo)
-	if err != nil {
-		madisonClient.SendMadisonVerifyRepoPermissionFailedAlert(defaultRepo, cfg.GetKubeNamespace())
-		return fmt.Errorf("Checking permissions for repo %s was failed with %s", defaultRepo, err)
+	if !cfg.GetDryRun() {
+		err = client.VerifyRepository(defaultRepo)
+		if err != nil {
+			if madisonClient != nil {
+				madisonClient.SendMadisonVerifyRepoPermissionFailedAlert(defaultRepo, cfg.GetKubeNamespace())
+			}
+			return fmt.Errorf("Checking permissions for repo %s was failed with %w", defaultRepo, err)
+		}
 	}
-
 	allSnapshots, err := utils.GetSnapshotsIgnore404(client, cfg.GetSnapshotRepo(), "*")
 	if err != nil {
 		return fmt.Errorf("failed to get all snapshots: %v", err)

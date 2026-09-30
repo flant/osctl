@@ -45,10 +45,24 @@ func runSnapshotsChecker(cmd *cobra.Command, args []string) error {
 	}
 
 	unknownConfig := cfg.GetOsctlIndicesUnknownConfig()
-	s3Config := cfg.GetOsctlIndicesS3SnapshotsConfig()
+	//s3Config := cfg.GetOsctlIndicesS3SnapshotsConfig()
 
 	today := utils.FormatDate(time.Now(), cfg.GetDateFormat())
 	yesterday := utils.FormatDate(time.Now().AddDate(0, 0, -1), cfg.GetDateFormat())
+
+	var madisonClient *alerts.Client
+	if cfg.GetMadisonKey() != "" && cfg.GetOSDURL() != "" && cfg.GetMadisonURL() != "" {
+		madisonClient = alerts.NewMadisonClient(cfg.GetMadisonKey(), cfg.GetOSDURL(), cfg.GetMadisonURL())
+	}
+	if !cfg.GetDryRun() {
+		err = client.VerifyRepository(cfg.GetSnapshotRepo())
+		if err != nil {
+			if madisonClient != nil {
+				madisonClient.SendMadisonVerifyRepoPermissionFailedAlert(cfg.GetSnapshotRepo(), cfg.GetKubeNamespace())
+			}
+			return fmt.Errorf("Checking permissions for repo %s was failed with %w", cfg.GetSnapshotRepo(), err)
+		}
+	}
 
 	logger.Info(fmt.Sprintf("Getting all indices excluding today and yesterday today=%s yesterday=%s", today, yesterday))
 
@@ -125,7 +139,7 @@ func runSnapshotsChecker(cmd *cobra.Command, args []string) error {
 	for _, indexName := range indicesToProcess {
 		indexConfig := utils.FindMatchingIndexConfig(indexName, indicesConfig)
 		shouldHaveSnapshot := false
-		var cutoffDate string
+		//var cutoffDate string
 
 		if indexConfig != nil {
 			if !indexConfig.Snapshot || indexConfig.ManualSnapshot {
@@ -133,41 +147,43 @@ func runSnapshotsChecker(cmd *cobra.Command, args []string) error {
 			}
 
 			shouldHaveSnapshot = true
-
-			cutoffDateDaysCount := utils.FormatDate(time.Now().AddDate(0, 0, -indexConfig.DaysCount), cfg.GetDateFormat())
-			cutoffDateS3 := ""
-			if indexConfig.SnapshotCountS3 > 0 {
-				cutoffDateS3 = utils.FormatDate(time.Now().AddDate(0, 0, -indexConfig.SnapshotCountS3), cfg.GetDateFormat())
-			} else {
-				s3All := s3Config.UnitCount.All
-				if s3All > 0 {
-					cutoffDateS3 = utils.FormatDate(time.Now().AddDate(0, 0, -s3All), cfg.GetDateFormat())
-				}
-			}
-
-			cutoffDate = utils.GetLaterCutoffDate(cutoffDateDaysCount, cutoffDateS3, cfg.GetDateFormat())
-
-			if utils.IsOlderThanCutoff(indexName, cutoffDate, cfg.GetDateFormat()) {
-				logger.Info(fmt.Sprintf("Skipping index older than cutoff index=%s cutoff=%s", indexName, cutoffDate))
-				continue
-			}
-		} else {
-			if unknownConfig.Snapshot && !unknownConfig.ManualSnapshot {
-				shouldHaveSnapshot = true
-
-				cutoffDateDaysCount := utils.FormatDate(time.Now().AddDate(0, 0, -unknownConfig.DaysCount), cfg.GetDateFormat())
+			/*
+				cutoffDateDaysCount := utils.FormatDate(time.Now().AddDate(0, 0, -indexConfig.DaysCount), cfg.GetDateFormat())
 				cutoffDateS3 := ""
-				s3Unknown := s3Config.UnitCount.Unknown
-				if s3Unknown > 0 {
-					cutoffDateS3 = utils.FormatDate(time.Now().AddDate(0, 0, -s3Unknown), cfg.GetDateFormat())
+				if indexConfig.SnapshotCountS3 > 0 {
+					cutoffDateS3 = utils.FormatDate(time.Now().AddDate(0, 0, -indexConfig.SnapshotCountS3), cfg.GetDateFormat())
+				} else {
+					s3All := s3Config.UnitCount.All
+					if s3All > 0 {
+						cutoffDateS3 = utils.FormatDate(time.Now().AddDate(0, 0, -s3All), cfg.GetDateFormat())
+					}
 				}
 
 				cutoffDate = utils.GetLaterCutoffDate(cutoffDateDaysCount, cutoffDateS3, cfg.GetDateFormat())
 
 				if utils.IsOlderThanCutoff(indexName, cutoffDate, cfg.GetDateFormat()) {
-					logger.Info(fmt.Sprintf("Skipping unknown index older than cutoff index=%s cutoff=%s", indexName, cutoffDate))
+					logger.Info(fmt.Sprintf("Skipping index older than cutoff index=%s cutoff=%s", indexName, cutoffDate))
 					continue
 				}
+			*/
+		} else {
+			if unknownConfig.Snapshot && !unknownConfig.ManualSnapshot {
+				shouldHaveSnapshot = true
+				/*
+					cutoffDateDaysCount := utils.FormatDate(time.Now().AddDate(0, 0, -unknownConfig.DaysCount), cfg.GetDateFormat())
+					cutoffDateS3 := ""
+					s3Unknown := s3Config.UnitCount.Unknown
+					if s3Unknown > 0 {
+						cutoffDateS3 = utils.FormatDate(time.Now().AddDate(0, 0, -s3Unknown), cfg.GetDateFormat())
+					}
+
+					cutoffDate = utils.GetLaterCutoffDate(cutoffDateDaysCount, cutoffDateS3, cfg.GetDateFormat())
+
+					if utils.IsOlderThanCutoff(indexName, cutoffDate, cfg.GetDateFormat()) {
+						logger.Info(fmt.Sprintf("Skipping unknown index older than cutoff index=%s cutoff=%s", indexName, cutoffDate))
+						continue
+					}
+				*/
 			}
 		}
 

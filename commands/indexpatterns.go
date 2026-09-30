@@ -283,7 +283,10 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		re := regexp.MustCompile(cfg.GetKibanaIndexRegex())
+		re, err := regexp.Compile(cfg.GetKibanaIndexRegex())
+		if err != nil {
+			return fmt.Errorf("invalid kibana-index-regex %q: %w", cfg.GetKibanaIndexRegex(), err)
+		}
 		today := utils.FormatDate(time.Now(), cfg.GetDateFormat())
 		idxToday, err := osClient.GetIndicesWithFields(fmt.Sprintf("*-%s*,-.*", today), "index", "i")
 		if err != nil {
@@ -413,6 +416,7 @@ func runIndexPatterns(cmd *cobra.Command, args []string) error {
 }
 
 func getExistingIndexPatternTitles(osClient *opensearch.Client, index string) (map[string]struct{}, []string, map[string]string, error) {
+	logger := logging.NewLogger()
 	sr, err := osClient.Search(index, "q=type:index-pattern&size=1000")
 	if err != nil {
 		return nil, nil, nil, err
@@ -428,10 +432,16 @@ func getExistingIndexPatternTitles(osClient *opensearch.Client, index string) (m
 					titles = append(titles, t)
 
 				}
+
 				if _, seen := exist_map_id_title[h.ID]; !seen {
-					p_id := strings.Split(h.ID, ":")
-					exist_map_id_title[p_id[1]] = t
+					pID := strings.SplitN(h.ID, ":", 2)
+					if len(pID) != 2 || pID[1] == "" {
+						logger.Warn(fmt.Sprintf("Skip malformed index-pattern saved object id=%s", h.ID))
+						continue
+					}
+					exist_map_id_title[pID[1]] = t
 				}
+
 			}
 		}
 	}
