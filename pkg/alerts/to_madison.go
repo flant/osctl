@@ -364,7 +364,7 @@ func (c *Client) SendMadisonSnapshotCreationFailedAlert(snapshotName, indexName,
 
 func (c *Client) SendMadisonVerifyRepoPermissionFailedAlert(snapRepo, namespace string) (string, error) {
 	summary := fmt.Sprintf("Права доступа к репозиторию %s недостаточны для нормальной работы", snapRepo)
-	description := fmt.Sprintf("Необходимо проверить права доступа к S3-бакету репозитория %s. Для получения имени бакета выполните команду GET /_snapshots/. Для исправления - перейдите в\n a) AWS/iam/home/users\n b) Yandex/folder/<your_folder/access\n b) Selectel/storage/containers/ru-1/<bucket_name>/bucket-policy. \n\nNamespace: %s.", snapRepo, namespace)
+	description := fmt.Sprintf("Необходимо проверить права доступа к S3-бакету репозитория %s. Для получения имени бакета выполните команду GET /_snapshot/. Для исправления - перейдите в\n a) AWS/iam/home/users\n b) Yandex/folder/<your_folder/access\n b) Selectel/storage/containers/ru-1/<bucket_name>/bucket-policy. \n\nNamespace: %s.", snapRepo, namespace)
 
 	payload := Alert{
 		Labels: Labels{
