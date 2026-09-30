@@ -433,6 +433,7 @@ func getExistingIndexPatternTitles(osClient *opensearch.Client, index string) (m
 
 				}
 
+				//Если h.ID не содержит :, то strings.Split(h.ID, ":") вернёт slice длины 1, и p_id[1] вызовет panic index out of range.
 				if _, seen := exist_map_id_title[h.ID]; !seen {
 					pID := strings.SplitN(h.ID, ":", 2)
 					if len(pID) != 2 || pID[1] == "" {

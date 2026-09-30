@@ -119,7 +119,7 @@ func runSnapshotManual(cmd *cobra.Command, args []string) error {
 			if madisonClient != nil {
 				madisonClient.SendMadisonVerifyRepoPermissionFailedAlert(repoToUse, cfg.GetKubeNamespace())
 			}
-			return fmt.Errorf("Checking permissions for repo %s was failed with %w", repoToUse, err)
+			return fmt.Errorf("Checking permissions for repo %s was failed with %s", repoToUse, err)
 		}
 	}
 	if cfg.GetDryRun() {

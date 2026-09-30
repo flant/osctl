@@ -58,7 +58,7 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 			if madisonClient != nil {
 				madisonClient.SendMadisonVerifyRepoPermissionFailedAlert(defaultRepo, cfg.GetKubeNamespace())
 			}
-			return fmt.Errorf("Checking permissions for repo %s was failed with %w", defaultRepo, err)
+			return fmt.Errorf("Checking permissions for repo %s was failed with %s", defaultRepo, err)
 		}
 	}
 	allSnapshots, err := utils.GetSnapshotsIgnore404(client, cfg.GetSnapshotRepo(), "*")

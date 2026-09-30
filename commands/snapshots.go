@@ -59,7 +59,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 			if madisonClient != nil {
 				madisonClient.SendMadisonVerifyRepoPermissionFailedAlert(defaultRepo, cfg.GetKubeNamespace())
 			}
-			return fmt.Errorf("Checking permissions for repo %s was failed with %w", defaultRepo, err)
+			return fmt.Errorf("Checking permissions for repo %s was failed with %s", defaultRepo, err)
 		}
 	}
 	yesterday := utils.FormatDate(time.Now().AddDate(0, 0, -1), cfg.GetDateFormat())

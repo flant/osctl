@@ -60,7 +60,7 @@ func runSnapshotsChecker(cmd *cobra.Command, args []string) error {
 			if madisonClient != nil {
 				madisonClient.SendMadisonVerifyRepoPermissionFailedAlert(cfg.GetSnapshotRepo(), cfg.GetKubeNamespace())
 			}
-			return fmt.Errorf("Checking permissions for repo %s was failed with %w", cfg.GetSnapshotRepo(), err)
+			return fmt.Errorf("Checking permissions for repo %s was failed with %s", cfg.GetSnapshotRepo(), err)
 		}
 	}
 

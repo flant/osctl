@@ -146,8 +146,9 @@ func (c *Client) executeRequest(req *http.Request) (*http.Response, error) {
 		}
 
 		if resp.StatusCode >= 500 {
+			snippet := readErrorSnippet(resp)
 			resp.Body.Close()
-			lastErr = fmt.Errorf("server error: %d", resp.StatusCode)
+			lastErr = fmt.Errorf("server error: %d - %s", resp.StatusCode, snippet)
 			if attempt < c.retryAttempts {
 				time.Sleep(time.Duration(attempt+1) * time.Second)
 				continue
@@ -243,9 +244,6 @@ func (c *Client) post(url string) error {
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		return fmt.Errorf("POST %s failed: %s — %s", req.URL.Path, resp.Status, readErrorSnippet(resp))
-	}
 	return nil
 }
 

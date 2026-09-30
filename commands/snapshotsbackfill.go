@@ -61,7 +61,7 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 			if madisonClient != nil {
 				madisonClient.SendMadisonVerifyRepoPermissionFailedAlert(defaultRepo, cfg.GetKubeNamespace())
 			}
-			return fmt.Errorf("Checking permissions for repo %s was failed with %w", defaultRepo, err)
+			return fmt.Errorf("Checking permissions for repo %s was failed with %s", defaultRepo, err)
 		}
 	}
 	indicesListFlag := cfg.GetSnapshotsBackfillIndicesList()
