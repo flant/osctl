@@ -27,6 +27,7 @@ type Labels struct {
 	SeverityLevel string `json:"severity_level"`
 	IndicesList   string `json:"IndicesList"`
 	Kibana        string `json:"kibana"`
+	Repository    string `json:"repository,omitempty"`
 }
 
 type Annotations struct {
@@ -359,4 +360,28 @@ func (c *Client) SendMadisonSnapshotCreationFailedAlert(snapshotName, indexName,
 
 	body, _ := io.ReadAll(resp.Body)
 	return string(body), nil
+}
+
+func (c *Client) SendMadisonVerifyRepoPermissionFailedAlert(snapRepo, namespace string) (string, error) {
+	summary := fmt.Sprintf("Права доступа к репозиторию %s недостаточны для нормальной работы", snapRepo)
+	description := fmt.Sprintf("Необходимо проверить права доступа к S3-бакету репозитория %s. Для получения имени бакета выполните команду GET /_snapshot/. Для исправления - перейдите в\n a) AWS/iam/home/users\n b) Yandex/folder/<your_folder/access\n b) Selectel/storage/containers/ru-1/<bucket_name>/bucket-policy. \n\nNamespace: %s.", snapRepo, namespace)
+
+	payload := Alert{
+		Labels: Labels{
+			Trigger:       "SnapshotRepositoryHasWrongPermission",
+			SeverityLevel: "4",
+			IndicesList:   "",
+			Repository:    snapRepo,
+			Kibana:        c.kibanaHost,
+		},
+		Annotations: Annotations{
+			Summary:                                 summary,
+			Description:                             description,
+			PlkCreateGroupIfNotExistsElkFieldsGroup: "SnapshotRepositoryHasWrongPermissionGroup,kibana=~kibana",
+			PlkGroupedByElkFieldsGroup:              "SnapshotRepositoryHasWrongPermissionGroup,kibana=~kibana",
+			PlkMarkupFormat:                         "markdown",
+			PlkProtocolVersion:                      "1",
+		},
+	}
+	return c.sendAlert(payload)
 }

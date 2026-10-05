@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"math/rand"
+	"osctl/pkg/alerts"
 	"osctl/pkg/config"
 	"osctl/pkg/logging"
 	"osctl/pkg/opensearch"
@@ -38,6 +39,7 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 
 	s3Config := cfg.GetOsctlIndicesS3SnapshotsConfig()
 	unknownConfig := cfg.GetOsctlIndicesUnknownConfig()
+	defaultRepo := cfg.GetSnapshotRepo()
 
 	logger.Info(fmt.Sprintf("Starting snapshot deletion indicesCount=%d allDays=%d unknownDays=%d", len(indicesConfig), s3Config.UnitCount.All, s3Config.UnitCount.Unknown))
 
@@ -46,6 +48,19 @@ func runSnapshotsDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	var madisonClient *alerts.Client
+	if cfg.GetMadisonKey() != "" && cfg.GetOSDURL() != "" && cfg.GetMadisonURL() != "" {
+		madisonClient = alerts.NewMadisonClient(cfg.GetMadisonKey(), cfg.GetOSDURL(), cfg.GetMadisonURL())
+	}
+	if !cfg.GetDryRun() {
+		err = client.VerifyRepository(defaultRepo)
+		if err != nil {
+			if madisonClient != nil {
+				madisonClient.SendMadisonVerifyRepoPermissionFailedAlert(defaultRepo, cfg.GetKubeNamespace())
+			}
+			return fmt.Errorf("Checking permissions for repo %s was failed with %s", defaultRepo, err)
+		}
+	}
 	allSnapshots, err := utils.GetSnapshotsIgnore404(client, cfg.GetSnapshotRepo(), "*")
 	if err != nil {
 		return fmt.Errorf("failed to get all snapshots: %v", err)
