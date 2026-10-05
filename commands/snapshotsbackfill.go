@@ -42,7 +42,6 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 	}
 
 	unknownConfig := cfg.GetOsctlIndicesUnknownConfig()
-	//s3Config := cfg.GetOsctlIndicesS3SnapshotsConfig()
 
 	logger.Info(fmt.Sprintf("Starting snapshots backfill indicesCountConfig=%d unknownSnapshot=%t", len(indicesConfig), unknownConfig.Snapshot))
 
@@ -255,23 +254,6 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 					continue
 				}
 
-				/*cutoffDateDaysCount := utils.FormatDate(time.Now().AddDate(0, 0, -indexConfig.DaysCount), cfg.GetDateFormat())
-				cutoffDateS3 := ""
-				if indexConfig.SnapshotCountS3 > 0 {
-					cutoffDateS3 = utils.FormatDate(time.Now().AddDate(0, 0, -indexConfig.SnapshotCountS3), cfg.GetDateFormat())
-				} else {
-					s3All := s3Config.UnitCount.All
-					if s3All > 0 {
-						cutoffDateS3 = utils.FormatDate(time.Now().AddDate(0, 0, -s3All), cfg.GetDateFormat())
-					}
-				}
-
-				cutoffDate := utils.GetLaterCutoffDate(cutoffDateDaysCount, cutoffDateS3, cfg.GetDateFormat())
-
-				if utils.IsOlderThanCutoff(indexName, cutoffDate, cfg.GetDateFormat()) {
-					logger.Info(fmt.Sprintf("Skipping index older than cutoff index=%s cutoff=%s", indexName, cutoffDate))
-					continue
-				}*/
 				utils.AddIndexToSnapshotGroups(indexName, *indexConfig, snapshotDate, repoGroups, &indicesToSnapshot)
 			} else {
 				unknownIndices = append(unknownIndices, indexName)
@@ -279,27 +261,6 @@ func runSnapshotsBackfill(cmd *cobra.Command, args []string) error {
 		}
 
 		unknownIndices = utils.FilterUnknownIndices(unknownIndices)
-
-		/*if unknownConfig.Snapshot && !unknownConfig.ManualSnapshot && len(unknownIndices) > 0 {
-			cutoffDateDaysCount := utils.FormatDate(time.Now().AddDate(0, 0, -unknownConfig.DaysCount), cfg.GetDateFormat())
-			cutoffDateS3 := ""
-			s3Unknown := s3Config.UnitCount.Unknown
-			if s3Unknown > 0 {
-				cutoffDateS3 = utils.FormatDate(time.Now().AddDate(0, 0, -s3Unknown), cfg.GetDateFormat())
-			}
-
-			cutoffDate := utils.GetLaterCutoffDate(cutoffDateDaysCount, cutoffDateS3, cfg.GetDateFormat())
-
-			filteredUnknown := make([]string, 0)
-			for _, idx := range unknownIndices {
-				if !utils.IsOlderThanCutoff(idx, cutoffDate, cfg.GetDateFormat()) {
-					filteredUnknown = append(filteredUnknown, idx)
-				} else {
-					logger.Info(fmt.Sprintf("Skipping unknown index older than cutoff index=%s cutoff=%s", idx, cutoffDate))
-				}
-			}
-			unknownIndices = filteredUnknown
-		}*/
 
 		snapshotGroups := utils.GroupIndicesForSnapshots(indicesToSnapshot, indicesConfig, snapshotDate)
 
